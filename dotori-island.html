@@ -729,35 +729,83 @@ function makeAnimal(o) {
   return g;
 }
 // 외계인 3인조: 짜리몽땅 3등신, 한 가지 색의 무광 몸, 역물방울 머리, 크고 비스듬한 민트빛 눈. 입·코·귀 없음.
+// 머리: 위는 둥글고 넓게, 눈 아래부터 부드럽게 좁아져 갸름한 턱으로 끝나는 역물방울
 const alienHeadGeo = (() => {
-  const g = new THREE.SphereGeometry(0.4, 20, 16), p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < 0) { const f = 1 + y / 0.4 * 0.5; p.setX(i, p.getX(i) * f); p.setZ(i, p.getZ(i) * f); } }
+  const g = new THREE.SphereGeometry(0.4, 32, 24), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i), t = clamp((0.08 - y) / 0.48, 0, 1), f = 1 - 0.7 * Math.pow(t, 1.5);
+    p.setX(i, p.getX(i) * f); p.setZ(i, p.getZ(i) * f); if (y < 0) p.setY(i, y * 1.12);
+  }
   g.computeVertexNormals(); return g;
 })();
+// 몸: 가는 목, 좁은 어깨, 통통한 배로 이어지는 매끈한 콩 모양
+const alienBodyGeo = new THREE.LatheGeometry([[0, 0.15], [0.1, 0.16], [0.16, 0.2], [0.185, 0.28], [0.185, 0.36], [0.165, 0.45], [0.135, 0.53], [0.09, 0.59], [0.06, 0.63], [0.06, 0.72], [0, 0.74]].map(([x, y]) => new THREE.Vector2(x, y)), 24);
 const alienEyeGeo = new THREE.SphereGeometry(0.1, 16, 10);
+const alienArmGeo = new THREE.CylinderGeometry(0.042, 0.048, 0.26, 8);
+const alienLegGeo = new THREE.CylinderGeometry(0.07, 0.062, 0.16, 10);
+const alienHandGeo = new THREE.SphereGeometry(0.06, 10, 8);
+const alienFootGeo = new THREE.SphereGeometry(0.08, 12, 8);
+const alienGlowGeo = new THREE.SphereGeometry(0.15, 10, 8);
+const alienGlowMat = MB(0xbfffe0, { transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending });
 function makeAlien(o) {
   const g = new THREE.Group(); g.add(blob(0.8));
   const body = new THREE.Group(); g.add(body);
   const skin = M(o.fur);
-  const lL = mesh(G.leg, skin, -0.09, 0.13, 0), lR = mesh(G.leg, skin, 0.09, 0.13, 0); body.add(lL, lR);
-  for (const l of [lL, lR]) put(l, mesh(G.dot, skin, 0, -0.12, 0.03)).scale.set(1.7, 0.7, 2.1);
-  body.add(mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.4, 12), skin, 0, 0.42, 0));
-  body.add(mesh(new THREE.SphereGeometry(0.19, 12, 8), skin, 0, 0.24, 0));
-  const aL = mesh(G.arm, skin, 0.22, 0.47, 0), aR = mesh(G.arm, skin, -0.22, 0.47, 0); aL.rotation.z = 0.3; aR.rotation.z = -0.3; body.add(aL, aR);
-  for (const a of [aL, aR]) put(a, mesh(G.dot, skin, 0, -0.15, 0)).scale.setScalar(1.5);
-  const head = new THREE.Group(); head.position.y = 0.98; body.add(head);
+  // 다리와 팔은 엉덩이·어깨를 축으로 돌아가도록 관절 그룹에 매단다
+  const legs = [-1, 1].map(sx => {
+    const l = new THREE.Group(); l.position.set(sx * 0.085, 0.2, 0); body.add(l);
+    l.add(mesh(alienLegGeo, skin, 0, -0.08, 0));
+    put(l, mesh(alienFootGeo, skin, 0, -0.17, 0.03)).scale.set(1, 0.45, 1.35);
+    return l;
+  });
+  body.add(mesh(alienBodyGeo, skin));
+  const arms = [1, -1].map(sx => {
+    const a = new THREE.Group(); a.position.set(sx * 0.135, 0.53, 0); a.rotation.z = sx * 0.18; body.add(a);
+    a.add(mesh(alienArmGeo, skin, 0, -0.13, 0));
+    put(a, mesh(alienHandGeo, skin, 0, -0.28, 0)).scale.set(0.95, 1.15, 0.75);
+    put(a, mesh(G.dot, skin, -sx * 0.045, -0.26, 0.03)).scale.setScalar(0.85);
+    return a;
+  });
+  const head = new THREE.Group(); head.position.y = 1.08; body.add(head);
   put(head, mesh(alienHeadGeo, skin)).scale.set(1.06, 1.1, 0.95);
-  const eyeM = MB(0xd8fbe8), pupilM = M(0x0c0c10);
+  const eyeM = MB(0xd8fbe8), pupilM = M(0x0c0c10), eyes = [];
   for (const sx of [-1, 1]) {
     // 위에서 내려다보는 카메라에서도 눈이 크게 보이도록 살짝 위로 젖힌다
-    const e = new THREE.Group(); e.position.set(sx * 0.165, 0.1, 0.325); e.rotation.set(-0.55, sx * 0.45, sx * (0.3 - (o.lid || 0) * 0.55)); head.add(e);
+    const e = new THREE.Group(); e.position.set(sx * 0.165, 0.1, 0.325); e.rotation.set(-0.55, sx * 0.45, sx * (0.3 - (o.lid || 0) * 0.55)); head.add(e); eyes.push(e);
     put(e, mesh(alienEyeGeo, eyeM)).scale.set(1.45, 1.0, 0.5);
     // 눈 크기는 셋 다 같고, 눈꺼풀이 덮는 정도로만 성격을 나타낸다
     if (o.lid) { const lid = mesh(new THREE.SphereGeometry(0.1, 16, 8, 0, Math.PI * 2, 0, Math.PI * o.lid), skin); lid.scale.set(1.5, 1.06, 0.56); e.add(lid); }
     put(e, mesh(G.eye, pupilM, 0, o.lid > 0.3 ? 0.005 : 0.035, 0.045)).scale.set(0.8, 0.8, 0.4);
+    // 밤에는 눈 주위가 은은하게 빛난다
+    const glow = mesh(alienGlowGeo, alienGlowMat, sx * 0.165, 0.1, 0.34); glow.scale.set(1.3, 0.95, 0.6); glow.visible = false; head.add(glow); halos.push(glow);
   }
-  g.userData = { body, head, lL, lR, aL, aR };
+  g.userData = { body, head, lL: legs[0], lR: legs[1], aL: arms[0], aR: arms[1], eyes, blinkT: rand(1, 4), blink: 0, talkT: 0 };
   return g;
+}
+// 성격별 서 있는 자세와 말할 때 반응. 걸을 때는 팔을 다리와 엇갈려 흔든다.
+function alienIdle(v, dt, moving) {
+  const u = v.mesh.userData, t = performance.now() / 1000, k = 1 - Math.exp(-dt * 8);
+  u.talkT = v.talking ? u.talkT + dt : 0;
+  let ax = 0, bx = 0, hx = 0, hz = u.head.rotation.z, az = 0.18, bz = 0, axR = null;
+  if (moving) { ax = Math.sin(v.walk) * 0.5; axR = -ax; }
+  else if (v.id === 'hayang') {
+    ax = -0.55; az = -0.42; hz = 0;
+    if (v.talking) { bx = u.talkT < 1 ? Math.sin(Math.PI * u.talkT) * 0.38 : 0; hz = Math.sin(t * 1.5) * 0.04; }
+  } else if (v.id === 'norang') {
+    ax = 0.5; az = -0.3; bz = Math.sin(t * 0.8) * 0.03; hz = 0;
+    if (v.talking) hx = Math.sin(t * 2.2) * 0.08;
+  } else if (v.id === 'kkeom') {
+    u.body.position.y += Math.abs(Math.sin(t * (v.talking ? 9 : 4.5))) * (v.talking ? 0.07 : 0.025);
+    if (v.talking) az = 2.3 + Math.sin(t * 9) * 0.25; else ax = Math.sin(t * 2.2) * 0.15;
+  }
+  u.aL.rotation.x = lerp(u.aL.rotation.x, ax, k); u.aR.rotation.x = lerp(u.aR.rotation.x, axR === null ? ax : axR, k);
+  u.aL.rotation.z = lerp(u.aL.rotation.z, az, k); u.aR.rotation.z = lerp(u.aR.rotation.z, -az, k);
+  u.body.rotation.x = lerp(u.body.rotation.x, bx, k); u.body.rotation.z = lerp(u.body.rotation.z, bz, k);
+  u.head.rotation.x = lerp(u.head.rotation.x, hx, k); u.head.rotation.z = hz;
+  // 가끔 눈을 깜빡인다
+  u.blinkT -= dt; if (u.blinkT <= 0) { u.blink = 0.13; u.blinkT = rand(2.2, 5); }
+  u.blink = Math.max(0, u.blink - dt);
+  for (const e of u.eyes) e.scale.y = lerp(e.scale.y, u.blink > 0 ? 0.12 : 1, 1 - Math.exp(-dt * 40));
 }
 function makePlayer() {
   const g = new THREE.Group(); g.add(blob(0.85));
@@ -1044,6 +1092,7 @@ function updateVillagers(dt, h) {
     u.body.position.y = moving ? Math.abs(Math.sin(v.walk)) * 0.05 : Math.sin(performance.now() / 600 + v.x) * 0.012;
     u.head.rotation.z = v.talking ? Math.sin(performance.now() / 180) * 0.06 : 0;
     v.mesh.position.set(v.x, groundY(v.x, v.z), v.z); v.mesh.rotation.y = v.rot;
+    if (v.def.alien) alienIdle(v, dt, moving);
   }
 }
 
@@ -1711,6 +1760,7 @@ function startFight(v) {
   FT = { v, def, p: mkF(100), e: Object.assign(mkF(def.hp), { st: 'approach', t: 0, cd: 1.0, side: 1, reacted: false, tauntT: rand(3, 6) }),
     phase: 'count', ct: 3.4, call: '', time: 60, slow: 0, endT: 0, projs: [], result: null, giveUpAt: 0, stars: null };
   v.fighting = true; v.talking = false; v.target = null;
+  if (v.def.alien) { const u = v.mesh.userData; u.aL.rotation.z = 0.18; u.aR.rotation.z = -0.18; u.body.rotation.z = 0; u.head.rotation.x = 0; for (const e of u.eyes) e.scale.y = 1; }
   // 너무 붙어 있으면 거리를 벌리고 시작
   const dx = v.x - P.x, dz = v.z - P.z, d = Math.hypot(dx, dz) || 1;
   for (let k = 0; k < 10; k++) moveVill(v, dx / d * 0.15, dz / d * 0.15);
