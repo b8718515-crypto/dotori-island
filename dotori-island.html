@@ -246,7 +246,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pCiv" hidden><div class="panel civp" role="dialog" aria-label="마을 발전">
   <header><div>마을 발전 <span class="sub" id="civSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><div class="res" id="civRes"></div><div class="tabs"><button class="tab" data-civ="build">건물</button><button class="tab" data-civ="tech">기술</button><button class="tab" data-civ="town">새 마을</button><button class="tab" data-civ="ally">교류</button><button class="tab" data-civ="craft">공방</button><button class="tab" data-civ="war">전쟁</button></div><div class="rows" id="civRows"></div></div>
+  <div class="body"><div class="res" id="civRes"></div><div class="tabs"><button class="tab" data-civ="build">건물</button><button class="tab" data-civ="tech">기술</button><button class="tab" data-civ="town">새 마을</button><button class="tab" data-civ="ally">교류</button><button class="tab" data-civ="craft">공방</button><button class="tab" data-civ="war">전쟁</button><button class="tab" data-civ="side">진영</button></div><div class="rows" id="civRows"></div></div>
 </div></div>
 
 <div class="wrap" id="pSet" hidden><div class="panel" role="dialog" aria-label="설정">
@@ -255,6 +255,12 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
     <div class="setrow"><span>시간 흐름</span><div class="seg" id="segTime"><button data-v="real">실제 시계</button><button data-v="fast">빠르게 (1초 = 1분)</button></div></div>
     <div class="setrow"><span>효과음</span><div class="seg" id="segSound"><button data-v="1">켜기</button><button data-v="0">끄기</button></div></div>
     <div class="setrow"><span>배경 음악</span><div class="seg" id="segMusic"><button data-v="1">켜기</button><button data-v="0">끄기</button></div></div>
+    <div class="setrow"><span>AI 봇</span><div class="seg" id="segAiOn"><button data-v="1">켜기</button><button data-v="0">끄기</button></div></div>
+    <div class="setrow"><span>진영마다 봇 수</span><div class="seg" id="segAiPer"><button data-v="0">0</button><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="6">6</button></div></div>
+    <div class="setrow"><span>봇 성향</span><div class="seg" id="segAiStyle"><button data-v="mix">섞어서</button><button data-v="peace">평화</button><button data-v="bal">균형</button><button data-v="war">공격</button><button data-v="traitor">배신자</button></div></div>
+    <div class="setrow"><span>봇 난이도</span><div class="seg" id="segAiDiff"><button data-v="easy">쉬움</button><button data-v="normal">보통</button><button data-v="hard">어려움</button></div></div>
+    <div class="setrow"><span>봇 속도</span><div class="seg" id="segAiSpeed"><button data-v="slow">느리게</button><button data-v="normal">보통</button><button data-v="fast">빠르게</button></div></div>
+    <div class="setrow"><span>봇 새로 만들기 <small style="font-size:12px;color:var(--ink-soft)">(봇 수·성향을 바꾼 뒤)</small></span><button class="btn alt" id="btnAiReset">새로 만들기</button></div>
     <div class="setrow"><span>조작법 다시 보기</span><button class="btn alt" id="btnHelp">열기</button></div>
     <div class="setrow"><span>섬 처음부터 시작</span><button class="btn warn" id="btnReset">초기화</button></div>
     <p class="fine">진행 상황은 이 브라우저에만 저장돼요.</p>
@@ -273,6 +279,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술(농업·건축·항해)을 배우고, 영토 밖에 새 마을을 세워요</span>
       <kbd>교류 · 동맹</kbd><span>도시 주민의 부탁을 들어주거나 선물을 보내 우호도를 올리면 동맹이 되어 특산물을 보내 줘요</span>
       <kbd>전쟁</kbd><span>군사 기술 → 병영 → 병사 모집 → 적 요새로 진군. 수비대를 무찌르면 성문 앞 장수와 야차룰 대장전! 이기면 요새가 내 땅, 수도를 빼앗으면 왕국이 항복해요. 왕국들도 쳐들어오니 수비 병력을 남겨 두세요</span>
+      <kbd>진영 · AI 봇</kbd><span>남부 연합·북부 연합 중 하나로 시작해요. AI 봇들이 양쪽에서 마을을 키우고 영토를 넓히고 요새와 상대 마을을 쳐요. 같은 편이라도 배신자는 뒤통수를 쳐요. 봇 지도자에게 말을 걸어 선물·휴전·선전포고를 할 수 있고, 설정 › AI 봇에서 수·성향·난이도·속도를 정해요</span>
       <kbd>나무배</kbd><span>항해를 배우고 항구에서 배를 만들면, 맨손으로 물가를 보고 Space를 눌러 바다·강을 자유롭게 오가요</span>
       <kbd>I · C</kbd><span>가방 · 도감</span>
       <kbd>Esc</kbd><span>창 닫기 · 낚싯대 거두기</span>
@@ -281,6 +288,12 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>모바일</kbd><span>화면 왼쪽을 끌어서 이동, 초록 버튼으로 행동</span>
     </div>
     <p class="fine">낚시 팁: 찌가 몇 번 톡톡 흔들리다가 "풍덩" 하고 크게 잠기는 순간에 행동 키를 누르세요. 너무 일찍 누르면 물고기가 달아나요.</p>
+    <div id="sidePick" hidden style="display:flex;flex-direction:column;gap:8px">
+      <p class="lede" style="font-family:var(--f-display)">어느 진영으로 시작할까요?</p>
+      <button class="btn" data-side="south" style="font-size:17px;padding:12px">🌸 남부 연합 · 충남 공주 도토리 마을</button>
+      <button class="btn" data-side="north" style="font-size:17px;padding:12px;background:#c0453a">❄️ 북부 연합 · 평안남도 솔방울 마을</button>
+      <p class="fine">두 진영은 한반도 영토를 두고 다퉈요. AI 봇들도 양쪽에서 함께 움직여요. (설정에서 봇을 조절할 수 있어요)</p>
+    </div>
     <button class="btn startbtn" id="btnStart">섬으로 가기</button>
     <p class="fine">원작의 코드, 그래픽, 소리를 쓰지 않고 처음부터 만든 비공식 팬 데모입니다. 캐릭터와 이름도 모두 새로 만들었어요.</p>
   </div>
@@ -404,6 +417,9 @@ function freshState() {
 }
 function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1) return Object.assign(freshState(), s); } catch (e) { } return null; }
 let S = load() || freshState();
+// 진영: 남부 연합은 도토리 마을(충남 공주), 북부 연합은 솔방울 마을(평안남도). 예전 세이브는 남부.
+if (!S.faction && S.seenHelp) S.faction = 'south';
+const MY_SIDE = S.faction || 'south', HOME = MY_SIDE === 'north' ? '솔방울 마을' : '도토리 마을', MY_HEX = MY_SIDE === 'north' ? 0xc0453a : 0x3f7fd0;
 let dirtyFlag = false;
 const dirty = () => { dirtyFlag = true; };
 function save() {
@@ -684,7 +700,7 @@ const CITIES = [
 const CITY_R = c => c.size === 3 ? (c.name === '서울' || c.name === '평양' ? 48 : 36) : c.size === 2 ? 24 : 14;
 const CITY_PAVE = c => c.size === 3 ? (c.name === '서울' || c.name === '평양' ? 44 : 32) : c.size === 2 ? 16 : 0;
 // 도토리 마을: 남쪽 진영이 처음 사는 곳 (충남 공주 북쪽, 남쪽의 한가운데쯤)
-let HX = Math.round(llx(127.02)), HZ = Math.round(llz(36.55));
+let HX = Math.round(llx(MY_SIDE === 'north' ? 126.0 : 127.02)), HZ = Math.round(llz(MY_SIDE === 'north' ? 39.40 : 36.55));
 addSite({ x: HX, z: HZ + 3, r: 15, paved: 0 });
 for (const c of CITIES) {
   // 바다나 강 위에 찍힌 좌표는 가까운 땅으로 옮긴다
@@ -1639,10 +1655,10 @@ function makeGuard(o) {
   g.userData.aR.rotation.x = -0.25; g.scale.setScalar(0.8);
   return g;
 }
-const MY_ARMY = { fur: 0xa9774c, muzzle: 0xe8cfae, ear: 'round', shirt: 0x3f7fd0, tail: 1.2 };
+const MY_ARMY = { fur: 0xa9774c, muzzle: 0xe8cfae, ear: 'round', shirt: MY_HEX, tail: 1.2 };
 // 동물 왕국 요새: 뾰족한 통나무 목책, 성문 망루 둘, 가운데 본채, 세력 깃발, 성문을 지키는 병사
 function makeFort(f) {
-  const mine = fortSt(f).own === 'me', col = mine ? 0x3f7fd0 : f.k.hex, cap = !!f.cap;
+  const own = fortSt(f).own, mine = own === 'me', ob = own.startsWith('b:') && (S.ai.bots || []).find(b => b.id === own.slice(2)), col = mine ? MY_HEX : ob ? ob.col : f.k.hex, cap = !!f.cap;
   const g = new THREE.Group(); g.add(blob(4.8));
   const log = TM(barkTex, 0x8a5a33), cm = M(col), spike = new THREE.ConeGeometry(0.13, 0.32, 6);
   const wall = (x0, z0, x1, z1) => {
@@ -1669,7 +1685,7 @@ function makeFort(f) {
   g.add(mesh(new THREE.PlaneGeometry(0.8, 0.5), DS(col), 0.42, ph + 0.95, -0.45));
   if (cap) g.add(mesh(new THREE.SphereGeometry(0.07, 10, 8), M(0xf2c14e), 0, ph + 1.22, -0.45));
   for (const sx of [-0.62, 0.62]) {
-    const gd = makeGuard(mine ? MY_ARMY : Object.assign({}, f.k.look, { shirt: f.k.hex }));
+    const gd = makeGuard(mine ? MY_ARMY : Object.assign({}, f.k.look, { shirt: col }));
     gd.position.set(sx * 1.85, 0, 2.45); g.add(gd);
   }
   return g;
@@ -1677,7 +1693,6 @@ function makeFort(f) {
 // 병영: 통나무 막사, 파란 도토리군 깃발, 허수아비 과녁과 창 걸이, 훈련하는 병사
 function makeBarracks() {
   const g = new THREE.Group(); g.add(blob(3.4));
-  const blue = M(0x3f7fd0);
   put(g, mesh(G.box, M(0xbab3a7), 0, 0.07, -0.2)).scale.set(2.9, 0.14, 1.3);
   put(g, mesh(G.box, TM(barkTex, 0x9a6a43), 0, 0.68, -0.25)).scale.set(2.7, 1.1, 1.1);
   for (const s of [-1, 1]) { const pnl = mesh(G.box, TM(shingleTex, 0x3f5f8a), 0, 1.5, -0.25 + s * 0.33); pnl.scale.set(2.95, 0.1, 0.8); pnl.rotation.x = s * 0.55; g.add(pnl); }
@@ -1685,7 +1700,7 @@ function makeBarracks() {
   for (const wx of [-0.85, 0.85]) { put(g, mesh(G.box, winMat, wx, 0.75, 0.31)).scale.set(0.34, 0.3, 0.03); }
   const sg = mesh(new THREE.PlaneGeometry(0.9, 0.3), MB(0xffffff, { map: signTexOf('병영') }), 0, 1.15, 0.32); g.add(sg);
   g.add(mesh(new THREE.CylinderGeometry(0.025, 0.03, 2.4, 8), M(0xd8d4cc), 1.3, 1.2, 0.75));
-  g.add(mesh(new THREE.PlaneGeometry(0.6, 0.4), DS(0x3f7fd0), 1.0, 2.15, 0.75));
+  g.add(mesh(new THREE.PlaneGeometry(0.6, 0.4), DS(MY_HEX), 1.0, 2.15, 0.75));
   g.add(mesh(new THREE.CircleGeometry(0.1, 14), DS(0xc98a4b), 0.95, 2.15, 0.76));
   // 허수아비 과녁
   g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 6), M(0x8a5a33), -1.15, 0.55, 0.8));
@@ -1970,8 +1985,8 @@ function makePlayer() {
 const ents = new Set();
 const chunkEnts = Array.from({ length: NCX * NCZ }, () => []);
 const loadedCh = new Set();
-const BLOCK = { tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1 };
-const KEEP = { house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, barracks: 1 };
+const BLOCK = { tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1, bothall: 1 };
+const KEEP = { house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, barracks: 1, bothall: 1 };
 const inWindow = e => Math.abs(e.cx - camPos.x) < 32 && e.cz - camPos.z > -38 && e.cz - camPos.z < 15;
 function showEnt(e) {
   if (!e.mesh) { e.mesh = castAll(e.make()); if (e.onMake) e.onMake(e); }
@@ -2028,7 +2043,7 @@ const buildings = {};
   const te = findSpot(HX - 6, HZ + 3, 2, 2); reserve(te[0] - 1, te[1] - 1, 4, 5);
   addEnt({ type: 'tent', mesh: makeTent() }, te[0], te[1], 2, 2);
   for (const [lx, lz] of [[HX - 3, HZ + 3], [HX + 3, HZ + 7]]) { if (isBuildT(tget(lx, lz)) && !occAt(lx, lz)) addEnt({ type: 'lamp', make: makeLamp, fixed: true }, lx, lz); }
-  const sg = findSpot(HX, HZ + 10, 1, 1, 0, 4); if (sg) { reserve(sg[0], sg[1], 1, 1); addEnt({ type: 'sign', name: '도토리 마을', make: () => makeSign('도토리 마을') }, sg[0], sg[1]); }
+  const sg = findSpot(HX, HZ + 10, 1, 1, 0, 4); if (sg) { reserve(sg[0], sg[1], 1, 1); addEnt({ type: 'sign', name: HOME, make: () => makeSign(HOME) }, sg[0], sg[1]); }
 }
 /* --- 지역 주민 만들기: 그 고장 사투리로 말한다 --- */
 const SPECIES = {
@@ -2397,7 +2412,7 @@ const hasCost = c => Object.entries(c).every(([k, n]) => (k === 'coins' ? S.coin
 function payCost(c) { for (const [k, n] of Object.entries(c)) { if (k === 'coins') S.coins -= n; else removeItem(k, n); } updateHUD(); dirty(); }
 const townCost = () => ({ wood: 10, stone: 10, clay: 5, coins: 3000 + 2000 * S.civ.towns.length });
 // 내 마을들: 도토리 마을(레벨만큼 넓어짐) + 내가 세운 마을
-function myTowns() { return [{ name: '도토리 마을', x: HX + 0.5, z: HZ + 5.5, r: TERR[S.civ.lv], ax: HOME_ANCHOR[0], az: HOME_ANCHOR[1] }, ...S.civ.towns.map(t => ({ name: t.name, x: t.x + 1, z: t.z + 1, r: TOWN_R, ax: t.ax, az: t.az, t })), ...myForts().map(f => ({ name: f.n, x: f.cx, z: f.cz, r: KR, ax: f.cx, az: f.z + 5 }))]; }
+function myTowns() { return [{ name: HOME, x: HX + 0.5, z: HZ + 5.5, r: TERR[S.civ.lv], ax: HOME_ANCHOR[0], az: HOME_ANCHOR[1] }, ...S.civ.towns.map(t => ({ name: t.name, x: t.x + 1, z: t.z + 1, r: TOWN_R, ax: t.ax, az: t.az, t })), ...myForts().map(f => ({ name: f.n, x: f.cx, z: f.cz, r: KR, ax: f.cx, az: f.z + 5 }))]; }
 const inTerr = (x, z) => myTowns().some(t => Math.hypot(t.x - x, t.z - z) <= t.r);
 // 건물 자리의 나무·바위·잡초·꽃은 치운다 (플레이어가 심은 것은 건드리지 않는다)
 function clearTile(x, z) {
@@ -2510,7 +2525,7 @@ function laySeg(path) {
   refreshChunks(chs); terrDirty = true; dirty();
 }
 function connectTown(t) {
-  const cands = [{ name: '도토리 마을', ax: HOME_ANCHOR[0], az: HOME_ANCHOR[1] }, ...S.civ.towns.filter(o => o !== t)].sort((a, b) => Math.hypot(a.ax - t.ax, a.az - t.az) - Math.hypot(b.ax - t.ax, b.az - t.az));
+  const cands = [{ name: HOME, ax: HOME_ANCHOR[0], az: HOME_ANCHOR[1] }, ...S.civ.towns.filter(o => o !== t)].sort((a, b) => Math.hypot(a.ax - t.ax, a.az - t.az) - Math.hypot(b.ax - t.ax, b.az - t.az));
   for (const c of cands.slice(0, 3)) {
     if (Math.hypot(c.ax - t.ax, c.az - t.az) > 1800) break;
     const p = roadPath(t.ax, t.az, c.ax, c.az);
@@ -2553,7 +2568,7 @@ function doBuild(b) {
   reveal(HX, HZ + 5, TERR[S.civ.lv]);
   terrDirty = true; dirty(); closePanels();
   burst(e.cx, 1.2, e.cz, 0xffe08a, 16, 2.2, 0.9);
-  civBanner(b.i, `${b.n} 완공!`, `도토리 마을 Lv.${S.civ.lv} · ${ERA[S.civ.lv]}. 영토가 반경 ${TERR[S.civ.lv]}칸으로 넓어졌어요!`);
+  civBanner(b.i, `${b.n} 완공!`, `${HOME} Lv.${S.civ.lv} · ${ERA[S.civ.lv]}. 영토가 반경 ${TERR[S.civ.lv]}칸으로 넓어졌어요!`);
 }
 function learnTech(t) {
   if (S.civ.tech[t.id] || S.civ.lv < t.lv || (t.need && !S.civ.tech[t.need]) || !hasCost(t.cost)) return;
@@ -2578,6 +2593,7 @@ function settleCheck() {
   const px = Math.floor(P.x), pz = Math.floor(P.z);
   if (!pget(px, pz)) return { why: '이곳엔 마을을 세울 수 없어요.' };
   const kk = kingdomAt(P.x, P.z); if (kk) return { why: `${kk.n}의 영토예요. 먼저 요새를 빼앗아야 해요.` };
+  const bb = botAt(P.x, P.z); if (bb) return { why: `${bb.name}의 영토예요. 빼앗거나 다른 곳을 찾아야 해요.` };
   if (inTerr(P.x, P.z)) return { why: '여기는 이미 내 영토예요. 지도(M)의 주황 테두리 밖으로 나가 보세요.' };
   const c = CITIES.find(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 64 : c.size === 2 ? 44 : 28));
   if (c) return { why: `${josa(c.name, '과', '와')} 너무 가까워요. 조금 더 떨어진 빈 땅을 찾아보세요.` };
@@ -2608,16 +2624,16 @@ function relAdd(c, n, quiet) {
 function makeAlly(c) { S.civ.ally[c] = true; S.civ.sent[c] = -1e9; dirty(); SFX.fanfare(); toast(`🤝 ${josa(c, '과', '와')} 동맹을 맺었어요! 특산물이 정기적으로 도착해요.`); }
 function exchangeSteps(v) {
   const c = v.def.town, cp = v.def.cp, rel = S.civ.rel[c] || 0, g = CITY_GOODS[c], gi = g && ITEMS[g[0]];
-  if (S.civ.ally[c]) return [`${josa(c, '과', '와')} 도토리 마을은 든든한 동맹이지! ${cp}`, gi ? `${gi.n}, 꾸준히 보내 줄게. 마을 게시판(V)에서 받아 가. ${cp}` : `앞으로도 잘 지내자. ${cp}`];
+  if (S.civ.ally[c]) return [`${josa(c, '과', '와')} ${HOME}은 든든한 동맹이지! ${cp}`, gi ? `${gi.n}, 꾸준히 보내 줄게. 마을 게시판(V)에서 받아 가. ${cp}` : `앞으로도 잘 지내자. ${cp}`];
   const today = dayKey(gameNow()), ch = [];
-  if (rel >= ALLY_AT) ch.push({ l: '동맹을 맺자!', f: () => { makeAlly(c); return [`좋아! 오늘부터 ${josa(c, '과', '와')} 도토리 마을은 동맹이야! ${cp}`, `고마움의 뜻으로 ${gi ? josa(gi.n, '을', '를') : '특산물을'} 정기적으로 보내 줄게. ${cp}`]; } });
+  if (rel >= ALLY_AT) ch.push({ l: '동맹을 맺자!', f: () => { makeAlly(c); return [`좋아! 오늘부터 ${josa(c, '과', '와')} ${HOME}은 동맹이야! ${cp}`, `고마움의 뜻으로 ${gi ? josa(gi.n, '을', '를') : '특산물을'} 정기적으로 보내 줄게. ${cp}`]; } });
   if (S.civ.gift[c] !== today) ch.push({ l: `선물 보내기 (도토리 ${fmt(GIFT)}개)`, f: () => {
     if (S.coins < GIFT) return [`마음만 받을게. 도토리가 모자란 것 같아. ${cp}`];
     S.coins -= GIFT; updateHUD(); S.civ.gift[c] = today; SFX.coin(); const n = relAdd(c, 2, true);
     return [`우와, 고마워! ${c} 사람들 모두 기뻐할 거야. ${cp}`, n >= ALLY_AT ? `(${c} 우호도 ${n} / ${ALLY_AT} · 이제 동맹을 맺을 수 있어요!)` : `(${c} 우호도 ${n} / ${ALLY_AT})`];
   } });
   ch.push({ l: '다음에 할게', f: () => [`언제든 놀러 와. ${cp}`] });
-  return [{ t: `${josa(c, '과', '와')} 도토리 마을 사이 우호도는 지금 ${Math.min(rel, ALLY_AT)} / ${ALLY_AT}이야. 부탁을 들어주거나 선물을 보내 주면 더 친해질 거야. ${cp}`, choices: ch }];
+  return [{ t: `${josa(c, '과', '와')} ${HOME} 사이 우호도는 지금 ${Math.min(rel, ALLY_AT)} / ${ALLY_AT}이야. 부탁을 들어주거나 선물을 보내 주면 더 친해질 거야. ${cp}`, choices: ch }];
 }
 // 1초마다: 플레이 시간을 세고, 동맹 도시는 TRIBUTE_SEC마다 특산물을 마을 창고로 보낸다
 let civAcc = 0, civLast = 0;
@@ -2628,6 +2644,7 @@ function civTick() {
   const nowR = performance.now(); civAcc += Math.min(5, (nowR - (civLast || nowR)) / 1000) || 1; civLast = nowR;
   while (civAcc >= 1) { civAcc--; S.civ.play++; if (S.civ.play % 20 === 0) dirty(); }
   warTick();
+  botTick();
   const got = [];
   for (const c of Object.keys(S.civ.ally)) {
     if (S.civ.play - (S.civ.sent[c] ?? -1e9) < TRIBUTE_SEC) continue;
@@ -2671,7 +2688,8 @@ const CIV_ACT = {
   annex: () => ({ l: '말 걸기', f: talkShop }),
   myhouse: () => ({ l: '살펴보기', f: () => toast('내 집이다! 텐트 시절이 벌써 그립… 지는 않다.') }),
   barracks: () => ({ l: '병영', f: () => openCiv('war') }),
-  fort: o => ({ l: '살펴보기', f: () => { const st = fortSt(o.fort); toast(st.own === 'me' ? `${o.fort.n}. 이제 도토리 마을의 요새다!` : st.g > 0.5 ? `${o.fort.k.n}의 ${o.fort.n}. 수비대 ${Math.ceil(st.g)}명이 지키고 있다.` : `${o.fort.n}. 수비대가 무너졌다! 성문 앞 장수에게 말을 걸어 대장전!`); } }),
+  bothall: o => ({ l: '살펴보기', f: () => { const b = BOT_BY()[o.bot]; toast(b ? `${o.name}. ${SIDES[b.side].n} ${b.name}의 ${o.cap ? '수도' : '마을'}이다. ${botHostile(b) ? '적의 땅이다!' : '같은 편의 땅이다.'}` : o.name); } }),
+  fort: o => ({ l: '살펴보기', f: () => { const st = fortSt(o.fort); toast(st.own === 'me' ? `${o.fort.n}. 이제 ${HOME}의 요새다!` : st.g > 0.5 ? `${o.fort.k.n}의 ${o.fort.n}. 수비대 ${Math.ceil(st.g)}명이 지키고 있다.` : `${o.fort.n}. 수비대가 무너졌다! 성문 앞 장수에게 말을 걸어 대장전!`); } }),
   school: () => ({ l: '살펴보기', f: () => toast('도토리 학교. 아이들이 지도를 펴 놓고 바다 건너 도시를 공부하고 있다.') }),
 };
 /* --- 마을 발전 창 --- */
@@ -2710,7 +2728,7 @@ function renderCiv() {
     const hd = document.createElement('div'); hd.className = 'lvl';
     hd.innerHTML = '<div class="ic"></div><div style="flex:1;min-width:0"><b></b><span></span><div class="meter"><i></i></div></div>';
     hd.querySelector('.ic').textContent = ['⛺', '🏠', '🏪', '🔨', '⚓', '🏫'][lv];
-    hd.querySelector('b').textContent = `도토리 마을 Lv.${lv} · ${ERA[lv]}`;
+    hd.querySelector('b').textContent = `${HOME} Lv.${lv} · ${ERA[lv]}`;
     hd.querySelector('span').textContent = `영토 반경 ${TERR[lv]}칸 · 내 마을 ${1 + S.civ.towns.length}곳 · 동맹 ${Object.keys(S.civ.ally).length}곳`;
     hd.querySelector('i').style.width = (lv / BUILDS.length * 100) + '%';
     rows.append(hd);
@@ -2732,7 +2750,7 @@ function renderCiv() {
   } else if (civTab === 'town') {
     const ck = settleCheck(), nm = TOWN_NAMES[S.civ.towns.length] || '';
     civRow('🏡', '지금 이 자리에 새 마을 세우기', ck.ok ? `「${nm}」이 생겨요. 반경 ${TOWN_R}칸이 새 영토가 되고, 가까운 내 마을까지 길을 닦아요.` : ck.why, ck.cost || townCost(), cbtn('세우기', foundTown, !ck.ok || !hasCost(ck.cost)), ck.ok ? '' : 'lock');
-    civRow('🏠', '도토리 마을', `수도 · ${ERA[lv]} · 반경 ${TERR[lv]}칸`, null, ctag('거점'));
+    civRow('🏠', HOME, `수도 · ${ERA[lv]} · 반경 ${TERR[lv]}칸`, null, ctag('거점'));
     for (const t of S.civ.towns) {
       const km = Math.round(Math.hypot(t.x - HX, t.z - HZ) * GEO.S), pv = KR_PROV[pget(t.x, t.z) - 1];
       civRow('🏡', t.name, `${pv ? pv.n : ''} · 반경 ${TOWN_R}칸 · ${t.link ? josa(t.link, '과', '와') + ' 길로 이어짐' : '길 없음 (바다 건너, 배로 오가요)'}`, null, ctag(`${km}km`));
@@ -2755,6 +2773,7 @@ function renderCiv() {
     }
     note(`도시 주민의 부탁을 들어주면 +3, 하루 첫인사 +1, "교류하기"로 선물을 보내면 +2${S.civ.built.school ? ' (학교 덕분에 매번 +1 더)' : ''}. 우호도가 ${ALLY_AT}이 되면 그 고장 주민에게 동맹을 제안해요.`);
   } else if (civTab === 'war') renderWar(rows, note);
+  else if (civTab === 'side') renderSides(rows, note);
   else {
     const ws = S.civ.built.workshop;
     for (const cr of CRAFTS) {
@@ -2778,13 +2797,13 @@ const SQUAD = 5, RECRUIT_COST = { coins: 1500, iron: 2, wood: 2 }, BARRACKS_COST
 const MARCH_SPD = 10, SIEGE_SEC = 600, mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const warActive = () => !!S.civ.tech.war;
 const myForts = () => FORTS.filter(f => fortSt(f).own === 'me');
-const marching = () => S.war.marches.filter(m => m.kind !== 'raid').reduce((a, m) => a + m.n, 0);
+const marching = () => S.war.marches.filter(m => m.kind === 'atk' || m.kind === 'ret').reduce((a, m) => a + m.n, 0);
 const armyCap = () => 20 + 10 * S.civ.lv + 10 * S.civ.towns.length + 15 * myForts().length;
 function kingdomAt(x, z) { const f = FORTS.find(f => fortSt(f).own === 'k' && Math.hypot(f.cx - x, f.cz - z) < KR); return f ? f.k : null; }
 function warLog(t) { S.war.log.push(t); if (S.war.log.length > 12) S.war.log.shift(); dirty(); }
 // 내가 지켜야 하는 곳: 도토리 마을, 세운 마을, 빼앗은 요새
 function myPlaces() {
-  return [{ name: '도토리 마을', x: HOME_ANCHOR[0], z: HOME_ANCHOR[1], kind: 'home', id: 'home' },
+  return [{ name: HOME, x: HOME_ANCHOR[0], z: HOME_ANCHOR[1], kind: 'home', id: 'home' },
     ...S.civ.towns.map(t => ({ name: t.name, x: t.ax, z: t.az, kind: 'town', id: t.name })),
     ...myForts().map(f => ({ name: f.n, x: f.cx, z: f.z + 5, kind: 'fort', id: f.id }))];
 }
@@ -2821,12 +2840,17 @@ function sendAttack(f, n) {
   warLog(`⚔ 병사 ${n}명이 ${src.name}에서 ${josa(f.n, '으로', '로')} 진군 (${mmss(m.dur)})`);
   toast(`⚔ 병사 ${n}명이 ${josa(f.n, '으로', '로')} 출발! ${mmss(m.dur)} 뒤 도착해요.`); SFX.fanfare(); renderCiv();
 }
-function sendHome(n, from) { if (n > 0) newMarch({ kind: 'ret', n, from, to: HOME_ANCHOR.slice(), tname: '도토리 마을' }); }
+function sendHome(n, from) { if (n > 0) newMarch({ kind: 'ret', n, from, to: HOME_ANCHOR.slice(), tname: HOME }); }
 // 진군한 병사들이 요새에 닿으면: 병력 × 공격력 대 수비대 × 방어 보너스, 약간의 운
 function battleFort(m) {
   const f = FORT_BY[m.fort], st = fortSt(f);
   if (st.own === 'me') { warLog(`↩ ${josa(f.n, '은', '는')} 이미 우리 요새라 병사들이 돌아와요.`); sendHome(m.n, m.to); return; }
   const my = m.n * (1 + (S.civ.built.school ? 0.15 : 0)) * rand(0.85, 1.15), en = st.g * (f.cap ? 1.4 : 1.15);
+  if (my >= en && st.own.startsWith('b:')) {
+    const loss = Math.min(m.n - 1, Math.round(m.n * clamp(0.6 * en / my, 0, 0.9))), ob = BOT_BY()[st.own.slice(2)];
+    st.own = 'me'; st.g = 0; refreshFort(f); terrDirty = true; warLog(`🏯 ${ob ? ob.name + '의 ' : ''}${josa(f.n, '을', '를')} 빼앗았어요!`); toast(`🏯 ${josa(f.n, '을', '를')} 빼앗았어요!`); SFX.fanfare();
+    sendHome(m.n - loss, m.to); return;
+  }
   if (my >= en) {
     const loss = Math.min(m.n - 1, Math.round(m.n * clamp(0.6 * en / my, 0, 0.9)));
     st.g = 0; st.siege = S.civ.play; terrDirty = true;
@@ -2854,8 +2878,10 @@ function sendRaid(k) {
 }
 // 마을을 지키는 병사(집에 있는 병력)가 막는다. 내가 근처에 있으면 직접 지휘해서 더 세다.
 function defend(m) {
-  const k = KING_BY[m.k];
-  if (S.war.fallen[k.id]) { warLog(`🏳️ 항복한 ${k.n} 군대가 그냥 돌아갔어요.`); return; }
+  const bot = m.bot ? BOT_BY()[m.bot] : null, kk = m.k ? KING_BY[m.k] : null, k = kk || { n: bot ? bot.name : '적', id: '' };
+  if (bot && m.tgt) { m.tkind = m.tgt.pk; m.tid = m.tgt.pid; }
+  if (kk && S.war.fallen[kk.id]) { warLog(`🏳️ 항복한 ${kk.n} 군대가 그냥 돌아갔어요.`); return; }
+  if (bot && (!bot.alive || S.ai.truce[bot.id] > S.civ.play)) { if (bot.alive) bot.troops += m.n; warLog(`🕊️ 휴전 중이라 ${bot.name} 군대가 돌아갔어요.`); return; }
   const near = Math.hypot(P.x - m.to[0], P.z - m.to[1]) < 80, n0 = S.war.troops;
   const def = n0 * (m.tkind === 'home' ? 1.3 : 1) * (near ? 1.25 : 1) * rand(0.9, 1.1);
   if (def >= m.n) {
@@ -2866,10 +2892,16 @@ function defend(m) {
   } else {
     S.war.troops -= Math.ceil(n0 * 0.5);
     if (m.tkind === 'fort' && FORT_BY[m.tid] && fortSt(FORT_BY[m.tid]).own === 'me') {
-      const f = FORT_BY[m.tid], st = fortSt(f); st.own = 'k'; st.g = Math.max(6, Math.round(m.n - def)); st.siege = 0; refreshFort(f); terrDirty = true;
+      const f = FORT_BY[m.tid], st = fortSt(f); st.own = bot ? 'b:' + bot.id : 'k'; st.g = Math.max(6, Math.round(m.n - def)); st.siege = 0; refreshFort(f); terrDirty = true;
       warLog(`💔 ${josa(f.n, '을', '를')} ${k.n}에게 빼앗겼어요…`); toast(`💔 ${josa(f.n, '을', '를')} ${k.n}에게 빼앗겼어요… 병력을 모아 되찾아요!`);
+    } else if (bot && m.tkind === 'town' && S.civ.towns.some(t => t.name === m.tid)) {
+      // 봇은 내가 세운 마을을 빼앗아 간다
+      const t = S.civ.towns.find(t => t.name === m.tid); S.civ.towns.splice(S.civ.towns.indexOf(t), 1);
+      for (const e of [...ents]) if ((e.type === 'townhall' && e.town === t) || (e.type === 'sign' && e.name === t.name)) removeEnt(e);
+      const bt = { x: t.x, z: t.z, name: t.name }; bot.towns.push(bt); placeBotTown(bot, bt, false); bot.troops += Math.round(m.n * 0.5); terrDirty = true;
+      warLog(`💔 「${t.name}」을(를) ${bot.name}에게 빼앗겼어요…`); toast(`💔 ${bot.name}이(가) 우리 마을 「${t.name}」을(를) 빼앗았어요!`);
     } else {
-      const steal = Math.min(8000, Math.floor(S.coins * 0.15)); S.coins -= steal; updateHUD();
+      const steal = Math.min(8000, Math.floor(S.coins * 0.15)); S.coins -= steal; updateHUD(); if (bot) bot.res += steal / 100;
       warLog(`💔 ${josa(m.tname, '이', '가')} 약탈당했어요 (도토리 -${fmt(steal)})`);
       toast(`💔 ${josa(m.tname, '이', '가')} ${k.n}에게 약탈당했어요… 도토리 ${fmt(steal)}개를 빼앗겼어요. 병사를 모아 마을을 지켜요!`);
     }
@@ -2877,9 +2909,11 @@ function defend(m) {
   }
 }
 function arrive(m) {
-  if (m.kind === 'atk') battleFort(m);
+  if (m.kind === 'bot') botArrive(m);
+  else if (m.kind === 'atk' && m.bot) battleBotTown(m);
+  else if (m.kind === 'atk') battleFort(m);
   else if (m.kind === 'raid') defend(m);
-  else { S.war.troops += m.n; warLog(`↩ 병사 ${m.n}명이 도토리 마을로 돌아왔어요.`); toast(`↩ 병사 ${m.n}명이 돌아왔어요.`); }
+  else { S.war.troops += m.n; warLog(`↩ 병사 ${m.n}명이 ${HOME}로 돌아왔어요.`); toast(`↩ 병사 ${m.n}명이 돌아왔어요.`); }
 }
 function captureFort(f) {
   const st = fortSt(f), k = f.k; st.own = 'me'; st.g = 0; refreshFort(f);
@@ -2890,7 +2924,7 @@ function captureFort(f) {
     fell = true; S.war.fallen[k.id] = true;
     for (const o of k.forts) { const so = fortSt(o); if (so.own !== 'me') { so.own = 'me'; so.g = 0; refreshFort(o); } }
     S.war.marches = S.war.marches.filter(m => !(m.kind === 'raid' && m.k === k.id));
-    warLog(`🏳️ ${josa(k.n, '이', '가')} 항복했어요! 모든 요새가 도토리 마을의 땅이 되었어요.`);
+    warLog(`🏳️ ${josa(k.n, '이', '가')} 항복했어요! 모든 요새가 ${HOME}의 땅이 되었어요.`);
   }
   terrDirty = true; dirty();
   return { loot, fell };
@@ -2900,7 +2934,8 @@ function bossTalk(v) {
   const f = v.def.fort, st = fortSt(f), k = f.k, cp = v.def.cp;
   v.talking = true;
   let steps;
-  if (st.own === 'me') steps = [pick([`…${josa(f.n, '은', '는')} 이제 도토리 마을 것이다. 약속은 지킨다. ${cp}`, `너, 정말 강하더군. 다음엔 지지 않는다. ${cp}`, `이 성은 내가 대신 잘 지켜 주겠다. ${cp}`])];
+  if (st.own.startsWith('b:')) steps = [`…${josa(f.n, '은', '는')} 지금 ${(BOT_BY()[st.own.slice(2)] || { name: '다른 세력' }).name}의 손에 있다. 분하다. ${cp}`];
+  else if (st.own === 'me') steps = [pick([`…${josa(f.n, '은', '는')} 이제 ${HOME} 것이다. 약속은 지킨다. ${cp}`, `너, 정말 강하더군. 다음엔 지지 않는다. ${cp}`, `이 성은 내가 대신 잘 지켜 주겠다. ${cp}`])];
   else if (st.g > 0.5) steps = [`여기는 ${k.n}의 ${f.n}! 수비대 ${Math.ceil(st.g)}명이 지키고 있다. ${cp}`, `이 성을 원한다면 군대를 이끌고 와라. 대장전은 그다음이다! ${cp}`];
   else steps = [{ t: `수비대가 무너지다니… 좋다. 대장끼리 야차룰로 결판을 내자! 이기면 ${josa(f.n, '은', '는')} 네 것이다. ${cp}`, choices: [
     { l: '대장전, 덤벼라!', f: () => { pendingFight = v; return [FLINES[v.id].accept]; } },
@@ -2912,7 +2947,7 @@ function bossAfterFight(v, result) {
   let won = null;
   if (result === 'win' && st.own !== 'me') {
     won = captureFort(f); SFX.fanfare();
-    steps.push(L.win, `약속대로 ${josa(f.n, '은', '는')} 도토리 마을에 넘기겠다. 전리품으로 도토리 ${fmt(won.loot)}개도 가져가라. ${cp}`);
+    steps.push(L.win, `약속대로 ${josa(f.n, '은', '는')} ${HOME}에 넘기겠다. 전리품으로 도토리 ${fmt(won.loot)}개도 가져가라. ${cp}`);
     if (won.fell) steps.push(`…${josa(k.n, '은', '는')} 항복한다. 남은 요새도 모두 너희에게 넘기겠다. ${cp}`);
   } else if (result === 'win') steps.push(L.win);
   else {
@@ -2924,7 +2959,7 @@ function bossAfterFight(v, result) {
   openDialog(vSpeaker(v), steps, () => {
     v.talking = false; v.wait = rand(1, 3);
     if (!won) return;
-    if (KINGDOMS.every(o => S.war.fallen[o.id])) civBanner('👑', '천하 통일!', '모든 동물 왕국이 도토리 마을에 항복했어요. 이제 대한민국 어디든 평화로워요!');
+    if (KINGDOMS.every(o => S.war.fallen[o.id])) civBanner('👑', '천하 통일!', `모든 동물 왕국이 ${HOME}에 항복했어요. 이제 대한민국 어디든 평화로워요!`);
     else civBanner('🏯', `${f.n} 점령!`, won.fell ? `${josa(k.n, '이', '가')} 항복했어요! 모든 요새가 내 영토가 되었어요.` : '영토가 넓어지고 전리품을 얻었어요. 병영 정원도 늘었어요.');
   });
 }
@@ -2932,7 +2967,9 @@ function bossAfterFight(v, result) {
 function warTick() {
   const now = S.civ.play; let ch = false;
   for (const f of FORTS) {
-    const st = fortSt(f); if (st.own !== 'k') continue;
+    const st = fortSt(f);
+    if (st.own.startsWith('b:')) { if (st.g < f.maxG * 0.6) st.g = Math.min(f.maxG * 0.6, st.g + f.maxG / 600); continue; }
+    if (st.own !== 'k') continue;
     if (st.g <= 0.5) { if (Math.hypot(P.x - f.cx, P.z - f.cz) < 80) st.siege = now; if (now - st.siege < SIEGE_SEC) continue; }
     if (st.g < f.maxG) { const was = st.g <= 0.5; st.g = Math.min(f.maxG, st.g + f.maxG / 300); if (was) { ch = true; warLog(`⏳ ${f.n}에 지원군이 도착해 포위가 풀렸어요.`); } }
   }
@@ -2948,10 +2985,10 @@ function warTick() {
   if (ch) { dirty(); if (!$('#pCiv').hidden && civTab === 'war') renderCiv(); }
 }
 function updateWarAlert() {
-  const raids = S.war.marches.filter(m => m.kind === 'raid').sort((a, b) => (a.t0 + a.dur) - (b.t0 + b.dur)), el = $('#warAlert');
+  const raids = S.war.marches.filter(m => m.kind === 'raid' || (m.kind === 'bot' && m.tgt && m.tgt.kind === 'me')).sort((a, b) => (a.t0 + a.dur) - (b.t0 + b.dur)), el = $('#warAlert');
   if (!raids.length) { el.hidden = true; return; }
   const m = raids[0];
-  el.textContent = `🔥 ${KING_BY[m.k].n} ${m.n}명 → ${m.tname} · ${mmss(Math.max(0, m.t0 + m.dur - S.civ.play))}${raids.length > 1 ? ` 외 ${raids.length - 1}` : ''} · 우리 수비 ${S.war.troops}명`;
+  el.textContent = `🔥 ${m.k ? KING_BY[m.k].n : (BOT_BY()[m.bot] || { name: '적' }).name} ${m.n}명 → ${m.tname} · ${mmss(Math.max(0, m.t0 + m.dur - S.civ.play))}${raids.length > 1 ? ` 외 ${raids.length - 1}` : ''} · 우리 수비 ${S.war.troops}명`;
   el.hidden = false;
 }
 function renderWar(rows, note) {
@@ -2972,20 +3009,344 @@ function renderWar(rows, note) {
   }
   for (const k of KINGDOMS) {
     const fallen = S.war.fallen[k.id];
-    civRow(k.e, k.n, fallen ? '항복했어요. 이제 도토리 마을의 땅이에요.' : k.trait, null, fallen ? ctag('항복') : null, fallen ? 'done' : '');
+    civRow(k.e, k.n, fallen ? `항복했어요. 이제 ${HOME}의 땅이에요.` : k.trait, null, fallen ? ctag('항복') : null, fallen ? 'done' : '');
     for (const f of k.forts) {
       const st = fortSt(f), km = Math.round(Math.hypot(f.cx - P.x, f.cz - P.z) * GEO.S), sec = Math.round(Math.hypot(f.cx - HOME_ANCHOR[0], f.cz - HOME_ANCHOR[1]) / MARCH_SPD);
       const atk = S.war.marches.some(m => m.kind === 'atk' && m.fort === f.id);
       let desc, btn = null, cls = '';
+      const ob = st.own.startsWith('b:') ? BOT_BY()[st.own.slice(2)] : null;
       if (st.own === 'me') { desc = `점령함 · ${josa(f.boss.name, '이', '가')} 대신 지켜요 · 반경 ${KR}칸 영토`; cls = 'done'; }
+      else if (ob) desc = `${ob.name}의 요새 · 수비대 ${Math.ceil(st.g)}명 · 여기서 ${km}km${botHostile(ob) ? '' : ' · 같은 편'}`;
       else if (st.g <= 0.5) desc = `포위됨! 성문 앞 ${f.boss.name}에게 가서 대장전 (남은 ${mmss(Math.max(0, SIEGE_SEC - (S.civ.play - st.siege)))}) · 여기서 ${km}km`;
       else desc = `수비대 ${Math.ceil(st.g)}명${f.cap ? ' · 수도' : ''} · 여기서 ${km}km · 행군 약 ${mmss(sec)}${atk ? ' · 진군 중' : ''}`;
-      if (st.own !== 'me' && st.g > 0.5 && S.civ.built.barracks) btn = cbtn(`전군 진군 (${S.war.troops})`, () => sendAttack(f, S.war.troops), S.war.troops < 1);
+      if (st.own !== 'me' && (st.g > 0.5 || ob) && (!ob || botHostile(ob)) && S.civ.built.barracks) btn = cbtn(`전군 진군 (${S.war.troops})`, () => sendAttack(f, S.war.troops), S.war.troops < 1);
       civRow('🏯', f.n, desc, null, btn || (st.own === 'me' ? ctag('점령') : null), cls);
+    }
+  }
+  for (const o of (S.ai.bots || []).filter(b => b.alive && botHostile(b))) {
+    civRow('⚔️', `${o.name} (${SIDES[o.side].n})`, `적 · ${BOT_STYLE[o.style].n} · 병사 약 ${Math.round(o.troops / 5) * 5}명`, null, null, '');
+    const tg = [null, ...o.towns];
+    for (const t of tg) {
+      const x = (t ? t.x : o.cx) + 1, z = (t ? t.z : o.cz) + 1, km = Math.round(Math.hypot(x - P.x, z - P.z) * GEO.S);
+      civRow(t ? '🏘️' : '🏰', t ? t.name : `${botShort(o)} 마을 (수도)`, `여기서 ${km}km${t ? '' : ' · 빼앗으면 그 봇이 망해요'}`, null, S.civ.built.barracks ? cbtn(`전군 진군 (${S.war.troops})`, () => sendAttackBot(o, t, S.war.troops), S.war.troops < 1) : null);
     }
   }
   if (S.war.log.length) for (const t of S.war.log.slice(-6).reverse()) note(t);
   note('수비대를 무찌르면 직접 그 요새 성문 앞으로 가서 장수에게 말을 걸어 야차룰 대장전을 해요. 이기면 요새가 내 영토가 되고, 수도를 빼앗으면 그 왕국이 항복해요. 왕국들도 가끔 내 마을로 쳐들어오니 마을 수비 병력을 남겨 두세요.');
+}
+
+/* ================= 진영과 AI 봇 ================= */
+// 한반도는 남부 연합과 북부 연합으로 나뉜다. 플레이어는 한쪽을 골라 시작하고, AI 봇들이 양쪽에서 각자 수도를 세워
+// 키우고, 마을을 넓히고, 병사를 모아 동물 왕국 요새나 상대 진영 마을을 친다. 성향에 따라 같은 편 뒤통수도 친다.
+const SIDES = { south: { n: '남부 연합', e: '🌸', hex: 0x3f7fd0 }, north: { n: '북부 연합', e: '❄️', hex: 0xc0453a } };
+const sideOfP = p => isNorthP(p) ? 'north' : p >= 1 && p <= 17 ? 'south' : null;
+const OTHER = s => s === 'south' ? 'north' : 'south';
+const BOT_STYLE = { peace: { n: '평화', atk: 0.05, exp: 1.2 }, bal: { n: '균형', atk: 0.35, exp: 1 }, war: { n: '공격', atk: 0.75, exp: 0.8 }, traitor: { n: '배신자', atk: 0.55, exp: 0.9, betray: true } };
+const BOT_DIFF = { easy: 0.7, normal: 1, hard: 1.4 }, BOT_SPEED = { slow: 1.8, normal: 1, fast: 0.55 };
+const BOT_NAMES = ['까치 촌장', '두더지 대감', '고슴도치 이장', '부엉이 영감', '청설모 대장', '오소리 반장', '족제비 사장', '참새 회장', '살쾡이 두목', '반달곰 이사', '수리 교수', '뱁새 실장'];
+const BOT_COLS = [0x2e9e8a, 0x8e5ac8, 0xd06a2a, 0x4a8a2e, 0xc8a02a, 0x2a6ac8, 0xc83a7a, 0x6a6a7a, 0x9a4a2a, 0x2ab0c8, 0x9aa82a, 0x7a2ac8];
+const BOT_SPECIES = ['rabbit', 'squirrel', 'fox', 'sheep', 'bear', 'cat', 'otter'];
+const BOT_TICK = 9, BOT_RANGE = 170;
+S.ai = Object.assign({ on: true, per: 3, style: 'mix', diff: 'normal', speed: 'normal', bots: null, news: [], truce: {} }, S.ai || {});
+const BOT_BY = () => Object.fromEntries((S.ai.bots || []).map(b => [b.id, b]));
+const botHex = b => b.col, botShort = b => b.name.split(' ')[0];
+function news(t, loud) { S.ai.news.push(t); if (S.ai.news.length > 30) S.ai.news.shift(); if (loud) toast(t); dirty(); }
+// 봇과 플레이어의 사이: 다른 진영이거나 전쟁 중이면 적
+const botHostile = b => b.alive && (b.side !== MY_SIDE || b.war) && !(S.ai.truce[b.id] > S.civ.play);
+const lvCost = lv => Math.round(110 * (lv + 1) ** 1.5);
+const botCap = b => 20 + 12 * b.lv + 10 * b.towns.length;
+const botTerr = b => [{ x: b.cx + 1, z: b.cz + 1, r: TERR[b.lv], cap: true }, ...b.towns.map(t => ({ x: t.x + 1, z: t.z + 1, r: TOWN_R, t }))];
+// 누구의 영토든 이 칸을 차지하고 있으면 그 주인 (봇) 을 돌려준다
+function botAt(x, z) { for (const b of S.ai.bots || []) if (b.alive) for (const t of botTerr(b)) if (Math.hypot(t.x - x, t.z - z) <= t.r) return b; return null; }
+// 봇 수도 자리: 그 진영 땅에서, 도시·요새·다른 거점과 떨어진 빈 풀밭
+function botSite(side, r, near) {
+  const zr = side === 'south' ? [llz(38.3), llz(34.6)] : [llz(42.4), llz(38.4)], xr = side === 'south' ? [llx(126.4), llx(129.3)] : [llx(124.6), llx(130.0)];
+  for (let k = 0; k < 500; k++) {
+    let x, z;
+    if (near) { const a = r() * 6.283, d = 60 + r() * BOT_RANGE; x = Math.round(near.x + Math.cos(a) * d); z = Math.round(near.z + Math.sin(a) * d); }
+    else { x = Math.round(lerp(xr[0], xr[1], r())); z = Math.round(lerp(zr[0], zr[1], r())); }
+    if (!inB(x, z) || sideOfP(pget(x, z)) !== side) continue;
+    if (Math.hypot(x - HX, z - HZ) < (near ? 90 : 260)) continue;
+    if (CITIES.some(c => Math.hypot(c.x - x, c.z - z) < CITY_R(c) + 30)) continue;
+    if (FORTS.some(f => Math.hypot(f.cx - x, f.cz - z) < KR + 30)) continue;
+    if ((S.ai.bots || []).some(b => b.alive && botTerr(b).some(t => Math.hypot(t.x - x, t.z - z) < t.r + (near ? 30 : 220)))) continue;
+    if (inTerr(x, z)) continue;
+    if (!spotOK(x, z, 2, 2)) continue;
+    return [x, z];
+  }
+  return null;
+}
+function genBots() {
+  const r = mulberry32(hashStr('bots' + Date.now())), names = [...BOT_NAMES], cols = [...BOT_COLS], bots = [];
+  S.ai.bots = bots;
+  const styles = S.ai.style === 'mix' ? ['bal', 'war', 'peace', 'traitor', 'bal', 'war'] : S.ai.style === 'traitor' ? ['traitor', 'traitor', 'bal'] : [S.ai.style];
+  let n = 0;
+  for (const side of ['south', 'north']) for (let k = 0; k < S.ai.per; k++) {
+    const sp = botSite(side, r); if (!sp) continue;
+    const name = names.splice(Math.floor(r() * names.length), 1)[0] || ('봇 ' + (n + 1));
+    bots.push({ id: 'b' + (++n), name, side, col: cols.splice(Math.floor(r() * cols.length), 1)[0] || 0x888888, sp: BOT_SPECIES[Math.floor(r() * BOT_SPECIES.length)], style: styles[(k + (side === 'north' ? 1 : 0)) % styles.length],
+      cx: sp[0], cz: sp[1], lv: 0, res: 40, troops: 10, towns: [], roads: [], houses: [], next: S.civ.play + 20 + Math.floor(r() * 40), alive: true, war: false, rel: 0 });
+  }
+}
+/* --- 봇 거점을 세상에 놓기 --- */
+function makeBotHall(col, cap) {
+  const g = makeTownHall();
+  // 지붕과 깃발을 봇 색으로
+  g.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0xc98a4b) o.material = DS(col); });
+  if (cap) { g.add(mesh(new THREE.CylinderGeometry(0.03, 0.035, 3.4, 8), M(0xd8d4cc), -1.12, 1.7, 0.95)); g.add(mesh(new THREE.PlaneGeometry(0.7, 0.45), DS(col), -0.76, 3.15, 0.95)); }
+  return g;
+}
+const botEnts = new Map();     // 봇 id → 그 봇이 세상에 놓은 사물
+function placeBotTown(b, t, cap) {
+  const list = botEnts.get(b.id) || []; botEnts.set(b.id, list);
+  const x = cap ? b.cx : t.x, z = cap ? b.cz : t.z;
+  for (let zz = z; zz < z + 2; zz++) for (let xx = x; xx < x + 2; xx++) clearTile(xx, zz);
+  reserve(x, z, 2, 2);
+  const nm = cap ? `${botShort(b)} 마을` : t.name;
+  list.push(addEnt({ type: 'bothall', bot: b.id, cap, town: t, name: nm, make: () => makeBotHall(b.col, cap) }, x, z, 2, 2));
+  const s = t && t.sx != null ? [t.sx, t.sz] : civSpot(x - 2, z + 1, 1, 1, 3);
+  if (s) { if (t) { t.sx = s[0]; t.sz = s[1]; } else { b.sx = s[0]; b.sz = s[1]; } clearTile(s[0], s[1]); reserve(s[0], s[1], 1, 1); list.push(addEnt({ type: 'sign', name: nm, make: () => makeSign(nm) }, s[0], s[1])); }
+}
+function placeBotHouse(b, h) {
+  const list = botEnts.get(b.id) || []; botEnts.set(b.id, list);
+  for (let zz = h[1]; zz < h[1] + 2; zz++) for (let xx = h[0]; xx < h[0] + 2; xx++) clearTile(xx, zz);
+  reserve(h[0], h[1], 2, 2);
+  list.push(addEnt({ type: 'house', make: () => makeHouse(b.col), botHouse: b.id }, h[0], h[1], 2, 2));
+}
+function restoreBotRoads(b) { for (const s of b.roads) for (const tok of s.split('.')) { const i = parseInt(tok, 36); if (i >= 0 && i < NX * NZ) { road[i] = 1; clearTile(i % NX, Math.floor(i / NX)); } } }
+function placeBot(b) {
+  if (!b.alive) return;
+  restoreBotRoads(b);
+  placeBotTown(b, null, true);
+  for (const t of b.towns) placeBotTown(b, t, false);
+  for (const h of b.houses) placeBotHouse(b, h);
+}
+// 봇 길: 봇 것도 같은 흙길 배열에 칠하고, 봇 데이터에 따로 적어 둔다
+function botRoad(b, ax, az, bx, bz) {
+  const p = roadPath(ax, az, bx, bz, 400000); if (!p) return false;
+  const keep = [], chs = new Set();
+  for (const i of p) { const x = i % NX, z = (i - x) / NX, t = tget(x, z); clearTile(x, z); if (t === T.BRIDGE || t === T.CITY || road[i]) continue; road[i] = 1; roadC[Math.floor(z / CS) * CX + Math.floor(x / CS)] = 1; keep.push(i.toString(36)); chs.add(chunkOf(x, z)); }
+  if (keep.length) b.roads.push(keep.join('.'));
+  refreshChunks(chs); terrDirty = true; return true;
+}
+/* --- 봇 지도자: 수도 앞에서 서성이는 주민 --- */
+const botLeaders = new Map();
+function botLeaderDef(b) {
+  const S0 = SPECIES[b.sp], D = DIALECT[b.side === 'north' ? 'seobuk' : 'chung'], id = 'botl_' + b.id;
+  FDEF_X[id] = Object.assign({}, D.fd, { hp: D.fd.hp + 20 }); FLINES_X[id] = D.f; OPENERS_X[id] = D.open;
+  try { FDEF[id] = FDEF_X[id]; FLINES[id] = D.f; OPENERS[id] = D.open; } catch (e) { }
+  return { id, name: b.name, sp: S0.sp, cp: D.cp[0], pitch: 180, fur: S0.furs[0], muzzle: S0.muzzles[0], ear: S0.ear, earIn: S0.earIn, tail: S0.tail, mouth: S0.mouth,
+    shirt: b.col, pants: 0x3a2e28, pattern: 'check', face: { iris: '#24160e', eyeW: 13, eyeH: 15 }, roof: b.col, color: '#' + new THREE.Color(b.col).multiplyScalar(0.8).getHexString(),
+    botLeader: true, bot: b.id, home: { x: b.cx + 1, z: b.cz + 3.4 }, greet: D.greet, chat: D.chat };
+}
+function addBotLeader(b) {
+  if (!b.alive || botLeaders.has(b.id)) return;
+  const def = botLeaderDef(b), v = { def, id: def.id, mesh: null, x: def.home.x, z: def.home.z, rot: 0, target: null, wait: 1, walk: 0, talking: false, vis: true };
+  villagers.push(v); botLeaders.set(b.id, v);
+}
+function removeBotWorld(b) {
+  for (const e of botEnts.get(b.id) || []) if (ents.has(e)) removeEnt(e);
+  botEnts.delete(b.id);
+  const v = botLeaders.get(b.id); if (v) { if (v.mesh) scene.remove(v.mesh); const i = villagers.indexOf(v); if (i >= 0) villagers.splice(i, 1); botLeaders.delete(b.id); }
+}
+// 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
+if (S.ai.on && !S.ai.bots) genBots();
+for (const b of S.ai.bots || []) placeBot(b);
+/* --- 봇의 하루: 일정 시간마다 한 가지씩 한다 --- */
+function botAct(b) {
+  const st = BOT_STYLE[b.style] || BOT_STYLE.bal, mul = BOT_DIFF[S.ai.diff] || 1, cap = `${botShort(b)} 마을`;
+  const forts = FORTS.filter(f => fortSt(f).own === 'b:' + b.id).length;
+  b.res += (2 + 1.1 * b.lv + 1 * b.towns.length + 1.5 * forts) * mul;
+  // 1) 마을 키우기
+  if (b.lv < 5 && b.res >= lvCost(b.lv)) {
+    b.res -= lvCost(b.lv); b.lv++;
+    const h = civSpot(b.cx + (b.lv % 2 ? -5 : 5), b.cz + (b.lv > 2 ? 5 : -4), 2, 2, 10); if (h) { b.houses.push(h); placeBotHouse(b, h); }
+    terrDirty = true; news(`🏗️ ${josa(cap, '이', '가')} Lv.${b.lv}로 커졌어요. (${b.name}, ${SIDES[b.side].n})`); return;
+  }
+  // 2) 마을 넓히기
+  if (b.towns.length < 1 + Math.floor(b.lv / 1.5) && b.res >= 70 && R() < 0.6 * st.exp) {
+    const r = mulberry32(hashStr(b.id + S.civ.play)), base = [b, ...b.towns][Math.floor(r() * (b.towns.length + 1))];
+    const sp = botSite(b.side, r, { x: base.cx ?? base.x, z: base.cz ?? base.z });
+    if (sp) {
+      b.res -= 70;
+      const t = { x: sp[0], z: sp[1], name: `${botShort(b)}${['골', '촌', '벌', '리', '동', '내'][b.towns.length % 6]}` };
+      b.towns.push(t); placeBotTown(b, t, false);
+      const near = [{ x: b.cx, z: b.cz }, ...b.towns.filter(o => o !== t)].sort((a, c) => Math.hypot(a.x - t.x, a.z - t.z) - Math.hypot(c.x - t.x, c.z - t.z))[0];
+      botRoad(b, t.x + 1, t.z + 2, near.x + 1, near.z + 2);
+      terrDirty = true; news(`🏡 ${b.name}이(가) 새 마을 「${t.name}」을(를) 세웠어요.`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)).replace('을(를)', josa(t.name, '을', '를').slice(t.name.length)));
+      return;
+    }
+  }
+  // 3) 병사 모으기: 다음 레벨 비용은 남겨 두고 남는 것으로만
+  const keep = b.lv < 5 ? lvCost(b.lv) * 0.7 : 0, spare = b.res - keep;
+  if (spare >= 25 && b.troops < botCap(b)) { const k = Math.min(Math.floor(spare / 25), botCap(b) - b.troops, 6); b.troops += k; b.res -= 25 * k; }
+  // 4) 배신자는 같은 편 플레이어에게 뒤통수를 친다
+  if (st.betray && !b.war && b.side === MY_SIDE && b.lv >= 2 && R() < 0.06) {
+    b.war = true; news(`🗡️ ${b.name}이(가) 뒤통수를 쳤어요! 같은 ${SIDES[b.side].n}인데 우리를 적으로 돌렸어요.`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)), true);
+  }
+  // 5) 공격
+  if (b.lv >= 2 && b.troops >= 20 && R() < st.atk * 0.5 && !S.war.marches.some(m => m.kind === 'bot' && m.bot === b.id)) {
+    // 이길 만한 목표만 고르고, 필요한 만큼(넉넉히)만 보낸다
+    const can = Math.round(b.troops * 0.8), tgt = botTarget(b, can); if (!tgt) return;
+    const n = Math.min(can, Math.max(10, Math.ceil(tgt.def * 1.35))); b.troops -= n;
+    const from = [b.cx + 1, b.cz + 3], m = newMarch({ kind: 'bot', bot: b.id, n, tgt, tname: tgt.name, from, to: [tgt.x, tgt.z], minDur: tgt.kind === 'me' ? 60 : 20 });
+    if (tgt.kind === 'me') { b.lastMe = S.civ.play; toast(`🔥 ${b.name}의 군대 ${n}명이 ${josa(tgt.name, '으로', '로')} 쳐들어와요! ${mmss(m.dur)} 뒤 도착`); tone(330, 0.3, { type: 'square', vol: 0.06 }); }
+    news(`⚔ ${b.name} 군대 ${n}명 → ${tgt.name}`);
+  }
+}
+// 공격 목표: 가까운 동물 왕국 요새, 다른 진영(또는 전쟁 중인) 봇 마을, 적이면 플레이어 거점
+function botTarget(b, can) {
+  const BB = BOT_BY(), c = [], bx = b.cx, bz = b.cz, d = (x, z) => Math.hypot(x - bx, z - bz);
+  for (const f of FORTS) { const st = fortSt(f), o = st.own; if (o === 'k' || (o.startsWith('b:') && BB[o.slice(2)] && BB[o.slice(2)].side !== b.side)) c.push({ kind: 'fort', id: f.id, name: f.n, x: f.cx, z: f.z + 5, d: d(f.cx, f.cz) * (o === 'k' ? 1.8 : 1), def: st.g * (o === 'k' ? (f.cap ? 1.9 : 1.5) : (f.cap ? 1.4 : 1.15)) }); }
+  for (const o of S.ai.bots) if (o !== b && o.alive && (o.side !== b.side || (b.style === 'traitor' && R() < 0.2))) {
+    c.push({ kind: 'bot', bot: o.id, cap: true, name: `${botShort(o)} 마을`, x: o.cx + 1, z: o.cz + 3, d: d(o.cx, o.cz) * 1.3, def: o.troops * 1.4 + 4 });
+    o.towns.forEach((t, i) => c.push({ kind: 'bot', bot: o.id, ti: i, name: t.name, x: t.x + 1, z: t.z + 3, d: d(t.x, t.z), def: o.troops * 1.1 + 4 }));
+  }
+  // 플레이어는 군사를 배우거나 Lv.3이 되기 전엔 건드리지 않고, 한 봇이 8분에 한 번까지만 친다
+  const meOK = (warActive() || S.civ.lv >= 3) && S.civ.play - (b.lastMe ?? -1e9) > 480 && !S.war.marches.some(m => m.kind === 'bot' && m.tgt && m.tgt.kind === 'me');
+  if ((b.side !== MY_SIDE || b.war) && meOK) for (const p of myPlaces()) c.push({ kind: 'me', pk: p.kind, pid: p.id, name: p.name, x: p.x, z: p.z, d: d(p.x, p.z) * (p.kind === 'home' ? 1.4 : 1), def: S.war.troops * (p.kind === 'home' ? 1.3 : 1) + 2 });
+  const ok = c.filter(t => t.d < 900 && t.def * 1.15 <= (can ?? b.troops)).sort((a, z) => a.d - z.d);
+  return ok[Math.floor(R() * Math.min(3, ok.length))] || null;
+}
+// 봇 군대가 닿으면
+function botArrive(m) {
+  const BB = BOT_BY(), b = BB[m.bot], t = m.tgt; if (!b) return;
+  const back = n => { if (n > 0 && b.alive) b.troops += n; };
+  if (t.kind === 'me') { m.bname = b.name; defend(m); return; }
+  if (t.kind === 'fort') {
+    const f = FORT_BY[t.id], st = fortSt(f), ob = st.own.startsWith('b:') ? BB[st.own.slice(2)] : null;
+    // 가는 동안 같은 편이 먼저 차지했으면 그냥 돌아온다
+    if (st.own === 'b:' + b.id || (ob && ob.side === b.side && b.style !== 'traitor')) { back(m.n); return; }
+    if (st.own === 'me') { m.bname = b.name; m.tkind = 'fort'; m.tid = f.id; defend(m); return; }
+    const en = st.g * (st.own === 'k' ? (f.cap ? 1.9 : 1.5) : (f.cap ? 1.4 : 1.15)), my = m.n * rand(0.85, 1.15);
+    if (my >= en) {
+      const left = Math.max(1, Math.round(m.n - en * 0.6)); st.own = 'b:' + b.id; st.g = Math.round(left / 2); st.siege = 0; back(left - st.g); refreshFort(f); terrDirty = true;
+      let fell = false; const k = f.k;
+      if (f.cap && !S.war.fallen[k.id]) { fell = true; S.war.fallen[k.id] = true; for (const o of k.forts) { const so = fortSt(o); if (so.own === 'k') { so.own = 'b:' + b.id; so.g = 4; refreshFort(o); } } }
+      news(`🏯 ${b.name}이(가) ${josa(f.n, '을', '를')} 빼앗았어요.${fell ? ` ${josa(k.n, '이', '가')} ${b.name}에게 항복!` : ''}`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)), fell);
+    } else { st.g = Math.max(1, st.g - Math.round(my * 0.4)); back(Math.round(m.n * 0.25)); news(`💥 ${b.name} 군대가 ${f.n} 공격에 실패했어요.`); }
+    return;
+  }
+  // 다른 봇 마을
+  const o = BB[t.bot]; if (!o || !o.alive) { back(m.n); return; }
+  const def = o.troops * (t.cap ? 1.4 : 1.1) * rand(0.85, 1.15) + 4;
+  if (m.n >= def) {
+    o.troops = Math.max(0, Math.round(o.troops - m.n * 0.5)); back(Math.round(m.n - def * 0.5));
+    if (t.cap) { botFall(o, b); }
+    else if (o.towns[t.ti]) { const tw = o.towns.splice(t.ti, 1)[0]; moveBotTown(tw, o, b); news(`🏳️ ${b.name}이(가) ${o.name}의 「${tw.name}」을(를) 빼앗았어요.`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)).replace('을(를)', josa(tw.name, '을', '를').slice(tw.name.length))); }
+  } else { o.troops = Math.max(0, Math.round(o.troops - m.n * 0.4)); back(Math.round(m.n * 0.25)); news(`🛡 ${o.name}이(가) ${b.name}의 공격을 막아냈어요.`.replace('이(가)', josa(o.name, '이', '가').slice(o.name.length))); }
+  terrDirty = true;
+}
+// 마을의 주인이 바뀐다 (to = 봇 또는 'me')
+function moveBotTown(t, from, to) {
+  for (const e of [...(botEnts.get(from.id) || [])]) if (e.town === t) { removeEnt(e); }
+  for (const e of [...(botEnts.get(from.id) || [])]) if (e.type === 'sign' && e.name === t.name) removeEnt(e);
+  delete t.sx; delete t.sz;
+  if (to === 'me') { const mt = { name: t.name, x: t.x, z: t.z, ax: t.x + 1, az: t.z + 2 }; S.civ.towns.push(mt); placeTown(mt); }
+  else { to.towns.push(t); placeBotTown(to, t, false); }
+  terrDirty = true; dirty();
+}
+// 수도를 빼앗기면 그 봇은 망하고 남은 마을은 이긴 쪽으로
+function botFall(o, by) {
+  o.alive = false; removeBotWorld(o);
+  const byName = by === 'me' ? '우리' : by.name;
+  for (const t of o.towns) { delete t.sx; delete t.sz; if (by === 'me') { const mt = { name: t.name, x: t.x, z: t.z, ax: t.x + 1, az: t.z + 2 }; S.civ.towns.push(mt); placeTown(mt); } else { by.towns.push(t); placeBotTown(by, t, false); } }
+  o.towns = [];
+  for (const f of FORTS) { const st = fortSt(f); if (st.own === 'b:' + o.id) { st.own = by === 'me' ? 'me' : 'b:' + by.id; refreshFort(f); } }
+  news(`☠️ ${o.name}의 수도가 무너졌어요! 남은 땅은 ${byName}에게.`, true);
+  terrDirty = true; dirty();
+}
+function resetBots() {
+  const chs = new Set();
+  for (const b of S.ai.bots || []) { removeBotWorld(b); for (const r of b.roads) for (const tok of r.split('.')) { const i = parseInt(tok, 36); if (i >= 0 && i < NX * NZ) { road[i] = 0; chs.add(chunkOf(i % NX, Math.floor(i / NX))); } } }
+  for (const r of S.civ.roads) for (const tok of r.split('.')) { const i = parseInt(tok, 36); if (i >= 0 && i < NX * NZ) road[i] = 1; }
+  roadC.fill(0); for (let i = 0; i < NX * NZ; i++) if (road[i]) { const x = i % NX, z = (i - x) / NX; roadC[Math.floor(z / CS) * CX + Math.floor(x / CS)] = 1; }
+  for (const f of FORTS) { const st = fortSt(f); if (st.own.startsWith('b:')) { st.own = 'k'; st.g = f.maxG; refreshFort(f); } }
+  S.war.marches = S.war.marches.filter(m => m.kind !== 'bot');
+  S.ai.news = []; S.ai.truce = {}; S.ai.bots = null;
+  if (S.ai.on) genBots();
+  for (const b of S.ai.bots || []) { placeBot(b); addBotLeader(b); }
+  refreshChunks(chs); terrDirty = true; dirty();
+}
+function botTick() {
+  if (!S.ai.on || !S.ai.bots) return;
+  const sp = BOT_SPEED[S.ai.speed] || 1;
+  for (const b of S.ai.bots) if (b.alive && S.civ.play >= b.next) { b.next = S.civ.play + Math.round(BOT_TICK * sp * rand(0.7, 1.3)); botAct(b); }
+}
+/* --- 봇 지도자와 이야기 --- */
+function botTalk(v) {
+  const b = BOT_BY()[v.def.bot]; if (!b) return;
+  v.talking = true;
+  const cp = v.def.cp, hostile = botHostile(b), side = SIDES[b.side], st = BOT_STYLE[b.style];
+  const ch = [];
+  const close = () => { v.talking = false; v.wait = rand(1, 3); if (pendingFight === v) { pendingFight = null; startFight(v); } };
+  ch.push({ l: '형편이 어때?', f: () => [`나는 ${side.e} ${side.n}의 ${b.name}. ${botShort(b)} 마을 Lv.${b.lv}, 마을 ${b.towns.length + 1}곳, 병사 ${b.troops}명이다. ${cp}`, `${st.n} 성향이지. ${b.style === 'traitor' ? '…세상에 영원한 편은 없거든.' : b.style === 'war' ? '힘이 곧 땅이다.' : b.style === 'peace' ? '싸우기보단 키우는 게 좋아.' : '때를 보는 거지.'} ${cp}`] });
+  if (hostile) {
+    ch.push({ l: `휴전하자 (도토리 5,000개)`, f: () => {
+      if (S.coins < 5000) return [`빈손으로 휴전? 웃기지 마. ${cp}`];
+      S.coins -= 5000; updateHUD(); S.ai.truce[b.id] = S.civ.play + 900; dirty();
+      return [`좋아, 15분 동안은 손대지 않지. 그다음은 장담 못 해. ${cp}`];
+    } });
+  } else {
+    ch.push({ l: `선물 (도토리 1,000개)`, f: () => { if (S.coins < 1000) return [`마음만 받지. ${cp}`]; S.coins -= 1000; updateHUD(); b.rel += 2; b.res += 30; dirty(); return [`고맙다. 이 은혜는 잊지 않지… 아마도. ${cp}`]; } });
+    ch.push({ l: '선전포고!', f: () => { b.war = true; news(`⚔ 우리가 ${b.name}에게 선전포고했어요.`, false); dirty(); return [`이런 뒤통수를… 좋다, 각오해라! ${cp}`]; } });
+  }
+  ch.push({ l: '야차룰로 한판 붙자!', f: () => { pendingFight = v; return [FLINES[v.id].accept]; } });
+  ch.push({ l: '그냥 지나가', f: () => 'close' });
+  openDialog(vSpeaker(v), [{ t: hostile ? `${side.n}의 ${b.name}이다. 여긴 네가 올 데가 아닌데? ${cp}` : `오, ${SIDES[MY_SIDE].n} 동지! 무슨 일이지? ${cp}`, choices: ch }], close);
+}
+// 플레이어가 봇 마을을 치면
+function battleBotTown(m) {
+  const BB = BOT_BY(), o = BB[m.bot];
+  if (!o || !o.alive) { warLog(`↩ ${m.tname}은(는) 이미 없어졌어요.`); sendHome(m.n, m.to); return; }
+  const def = o.troops * (m.cap ? 1.4 : 1.1) * rand(0.85, 1.15) + 4, my = m.n * (1 + (S.civ.built.school ? 0.15 : 0));
+  if (my >= def) {
+    const loss = Math.min(m.n - 1, Math.round(m.n * clamp(0.6 * def / my, 0, 0.9)));
+    o.troops = Math.max(0, Math.round(o.troops - my * 0.5));
+    if (m.cap) { botFall(o, 'me'); warLog(`☠️ ${o.name}의 수도를 무너뜨렸어요!`); civBanner('☠️', `${botShort(o)} 마을 함락!`, `${o.name}의 남은 마을이 모두 우리 땅이 되었어요.`); }
+    else { const i = o.towns.findIndex(t => t.name === m.tname); if (i >= 0) { const tw = o.towns.splice(i, 1)[0]; moveBotTown(tw, o, 'me'); warLog(`🏳️ 「${tw.name}」을(를) 빼앗았어요!`); toast(`🏳️ ${o.name}의 「${tw.name}」을(를) 빼앗았어요!`); } }
+    sendHome(m.n - loss, m.to);
+  } else {
+    o.troops = Math.max(0, Math.round(o.troops - my * 0.4)); const back = Math.round(m.n * 0.3);
+    warLog(`💥 ${m.tname} 공격 실패… 병사 ${m.n - back}명을 잃었어요.`); toast(`💥 ${m.tname} 공격 실패! (${o.name}의 병사가 생각보다 많아요)`); SFX.miss(); sendHome(back, m.to);
+  }
+  terrDirty = true; dirty();
+}
+function sendAttackBot(o, t, n) {
+  n = Math.min(n, S.war.troops); if (n < 1) return;
+  const tx = (t ? t.x : o.cx) + 1, tz = (t ? t.z : o.cz) + 3, name = t ? t.name : `${botShort(o)} 마을`;
+  const src = myPlaces().sort((a, b) => Math.hypot(a.x - tx, a.z - tz) - Math.hypot(b.x - tx, b.z - tz))[0];
+  S.war.troops -= n;
+  const m = newMarch({ kind: 'atk', n, bot: o.id, cap: !t, tname: name, from: [src.x, src.z], to: [tx, tz] });
+  if (!o.war && o.side === MY_SIDE) { o.war = true; news(`⚔ 우리가 같은 편 ${o.name}에게 칼을 겨눴어요!`); }
+  warLog(`⚔ 병사 ${n}명이 ${josa(name, '으로', '로')} 진군 (${mmss(m.dur)})`); toast(`⚔ 병사 ${n}명이 ${josa(name, '으로', '로')} 출발!`); SFX.fanfare(); renderCiv();
+}
+// 진영 점수: 영토 넓이(반지름²)로 어림
+function sideScore() {
+  const sc = { south: 0, north: 0 };
+  for (const t of myTowns()) sc[MY_SIDE] += t.r * t.r;
+  for (const b of S.ai.bots || []) if (b.alive) for (const t of botTerr(b)) sc[b.side] += t.r * t.r;
+  for (const f of FORTS) { const o = fortSt(f).own; if (o.startsWith('b:')) { const b = BOT_BY()[o.slice(2)]; if (b) sc[b.side] += KR * KR; } }
+  return sc;
+}
+function renderSides(rows, note) {
+  const sc = sideScore(), tot = sc.south + sc.north || 1;
+  const hd = document.createElement('div'); hd.className = 'lvl';
+  hd.innerHTML = '<div class="ic"></div><div style="flex:1;min-width:0"><b></b><span></span><div class="meter"><i></i></div></div>';
+  hd.querySelector('.ic').textContent = SIDES[MY_SIDE].e;
+  hd.querySelector('b').textContent = `나는 ${SIDES[MY_SIDE].n} · 영토 남 ${Math.round(sc.south / tot * 100)}% : 북 ${Math.round(sc.north / tot * 100)}%`;
+  hd.querySelector('span').textContent = S.ai.on ? `AI 봇 ${(S.ai.bots || []).filter(b => b.alive).length}명이 움직이고 있어요 (설정에서 바꿀 수 있어요)` : 'AI 봇이 꺼져 있어요. 설정 › AI 봇에서 켜요.';
+  hd.querySelector('i').style.width = (sc.south / tot * 100) + '%'; hd.querySelector('i').style.background = '#3f7fd0';
+  hd.querySelector('.meter').style.background = '#e7a39d';
+  rows.append(hd);
+  for (const b of S.ai.bots || []) {
+    const hostile = botHostile(b), side = SIDES[b.side];
+    const desc = b.alive ? `${side.e} ${side.n} · ${BOT_STYLE[b.style].n} · Lv.${b.lv} · 마을 ${b.towns.length + 1}곳 · 병사 약 ${Math.round(b.troops / 5) * 5}명${S.ai.truce[b.id] > S.civ.play ? ' · 휴전 중' : ''}` : '망했어요';
+    const r = civRow(b.alive ? (hostile ? '⚔️' : '🤝') : '☠️', `${b.name} (${botShort(b)} 마을)`, desc, null, b.alive ? ctag(hostile ? '적' : '같은 편') : null, b.alive ? (hostile ? '' : 'done') : 'lock');
+    r.querySelector('.ic').style.color = '#' + new THREE.Color(b.col).getHexString();
+  }
+  if (!(S.ai.bots || []).length) note('AI 봇이 없어요. 설정 › AI 봇에서 봇 수를 정하고 "봇 새로 만들기"를 눌러요.');
+  for (const t of S.ai.news.slice(-10).reverse()) note(t);
 }
 
 /* --- 매일 바뀌는 것들 --- */
@@ -3045,6 +3406,7 @@ const villagers = VDEF.filter(v => v.home).map(v => {
 });
 // 요새의 장수들도 주민처럼 성문 앞을 서성인다
 for (const f of FORTS) { const b = f.boss; f.v = { def: b, id: b.id, mesh: null, x: b.home.x, z: b.home.z, rot: 0, target: null, wait: 1, walk: 0, talking: false, vis: true }; villagers.push(f.v); }
+for (const b of S.ai.bots || []) addBotLeader(b);
 const VS = id => S.vill[id] || (S.vill[id] = { fr: 0, quest: null });
 const vSpeaker = v => ({ name: v.def.name, sub: v.def.sp, color: v.def.color, pitch: v.def.pitch, fr: VS(v.id).fr });
 function greetFor(v, h) { const g = v.def.greet; return h < 11 ? g.m : h < 17 ? g.d : h < 20 ? g.e : g.n; }
@@ -3067,6 +3429,7 @@ Object.assign(OPENERS, OPENERS_X);
 let pendingFight = null;
 function talkVillager(v) {
   if (v.def.boss) { bossTalk(v); return; }
+  if (v.def.botLeader) { botTalk(v); return; }
   v.talking = true; const st = VS(v.id), h = hour(), cp = v.def.cp;
   const first = !S.daily.talked[v.id];
   if (first) { S.daily.talked[v.id] = true; st.fr += 1; dirty(); if (v.def.town) relAdd(v.def.town, 1); }
@@ -3126,7 +3489,7 @@ function updateVillagers(dt, h) {
     const far = Math.hypot(v.x - camPos.x, v.z - camPos.z);
     if (far > 46) { if (v.mesh && far > 60) { scene.remove(v.mesh); v.mesh = null; } continue; }
     if (!v.mesh) { v.mesh = makeVillMesh(v.def); scene.add(v.mesh); }
-    v.vis = !sleeping || !!v.def.boss; v.mesh.visible = v.vis && v.inView !== false;
+    v.vis = !sleeping || !!v.def.boss || !!v.def.botLeader; v.mesh.visible = v.vis && v.inView !== false;
     if (!v.vis) { v.x = v.def.home.x; v.z = v.def.home.z; continue; }
     const u = v.mesh.userData; let moving = false;
     if (v.talking) { v.rot = lerpAngle(v.rot, Math.atan2(P.x - v.x, P.z - v.z), 1 - Math.exp(-dt * 10)); }
@@ -3711,9 +4074,20 @@ function renderSettings() {
   document.querySelectorAll('#segTime button').forEach(b => b.classList.toggle('on', b.dataset.v === S.timeMode));
   document.querySelectorAll('#segSound button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === S.sound));
   document.querySelectorAll('#segMusic button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === S.music));
+  for (const [id, key] of [['#segAiOn', 'on'], ['#segAiPer', 'per'], ['#segAiStyle', 'style'], ['#segAiDiff', 'diff'], ['#segAiSpeed', 'speed']]) document.querySelectorAll(id + ' button').forEach(b => b.classList.toggle('on', key === 'on' ? (b.dataset.v === '1') === S.ai.on : String(S.ai[key]) === b.dataset.v));
+  $('#btnAiReset').textContent = aiArm ? '정말요? 한 번 더 누르세요' : '새로 만들기';
   $('#btnReset').textContent = resetArm ? '정말 초기화할까요? 한 번 더 누르세요' : '초기화';
 }
-let resetArm = false;
+let resetArm = false, aiArm = false;
+for (const [id, key] of [['#segAiOn', 'on'], ['#segAiPer', 'per'], ['#segAiStyle', 'style'], ['#segAiDiff', 'diff'], ['#segAiSpeed', 'speed']]) document.querySelectorAll(id + ' button').forEach(b => b.addEventListener('click', () => {
+  S.ai[key] = key === 'on' ? b.dataset.v === '1' : key === 'per' ? +b.dataset.v : b.dataset.v; SFX.ui(); dirty(); renderSettings();
+  if (key === 'on') toast(S.ai.on ? 'AI 봇이 다시 움직여요.' : 'AI 봇이 멈췄어요. (마을은 그대로 남아요)');
+  if (key === 'per' || key === 'style') toast('"봇 새로 만들기"를 누르면 적용돼요.');
+}));
+$('#btnAiReset').addEventListener('click', () => {
+  if (!aiArm) { aiArm = true; renderSettings(); setTimeout(() => { aiArm = false; renderSettings(); }, 4000); return; }
+  aiArm = false; resetBots(); renderSettings(); toast(`🤖 AI 봇 ${(S.ai.bots || []).length}명을 새로 만들었어요.`);
+});
 document.querySelectorAll('#segTime button').forEach(b => b.addEventListener('click', () => { setTimeMode(b.dataset.v); updateClock(); renderSettings(); }));
 document.querySelectorAll('#segSound button').forEach(b => b.addEventListener('click', () => { S.sound = b.dataset.v === '1'; audioInit(); applyVolumes(); dirty(); renderSettings(); }));
 document.querySelectorAll('#segMusic button').forEach(b => b.addEventListener('click', () => { S.music = b.dataset.v === '1'; audioInit(); applyVolumes(); dirty(); renderSettings(); }));
@@ -3802,7 +4176,13 @@ function reveal(px, pz, r) {
 function flushFog() { if (fogDirty) { fogCtx.putImageData(fogImg, 0, 0); fogDirty = false; } }
 // 영토·길 겹그림 (전체 지도용, 거친 칸)
 const terrCv = document.createElement('canvas'); terrCv.width = CX; terrCv.height = CZ;
-const terrCircles = () => [...myTowns().map(t => ({ x: t.x, z: t.z, r: t.r, mine: 1 })), ...FORTS.filter(f => fortSt(f).own === 'k').map(f => ({ x: f.cx, z: f.cz, r: KR, k: KINGDOMS.indexOf(f.k) + 1, col: new THREE.Color(f.k.hex) }))];
+const terrCircles = () => {
+  const bots = S.ai.bots || [], bi = id => bots.findIndex(b => b.id === id);
+  return [...myTowns().map(t => ({ x: t.x, z: t.z, r: t.r, mine: 1 })),
+    ...FORTS.filter(f => fortSt(f).own === 'k').map(f => ({ x: f.cx, z: f.cz, r: KR, k: KINGDOMS.indexOf(f.k) + 1, col: new THREE.Color(f.k.hex) })),
+    ...FORTS.filter(f => fortSt(f).own.startsWith('b:') && bi(fortSt(f).own.slice(2)) >= 0).map(f => { const i = bi(fortSt(f).own.slice(2)); return { x: f.cx, z: f.cz, r: KR, k: 20 + i, col: new THREE.Color(bots[i].col) }; }),
+    ...bots.flatMap((b, i) => b.alive ? botTerr(b).map(t => ({ x: t.x, z: t.z, r: t.r, k: 20 + i, col: new THREE.Color(b.col) })) : [])];
+};
 function paintTerr(W, H, ox, oz, s, d) {
   // s: 한 점이 몇 칸인지. own: 1 = 내 영토, 2.. = 왕국 번호 + 1
   const own = new Uint8Array(W * H), cols = [];
@@ -3885,7 +4265,7 @@ function drawMarks(ctx, k, ox, oz, big) {
     if (big || c.size >= 2) label(X(c.x), Z(c.z) - (big ? 13 : 11), c.name, big ? (c.size === 3 ? 15 : 12) : 11, '#4b3a28');
   }
   for (const f of FORTS) if (vis(f.cx, f.cz)) {
-    const st = fortSt(f), col = st.own === 'me' ? '#3f7fd0' : '#' + f.k.hex.toString(16).padStart(6, '0');
+    const st = fortSt(f), ob = st.own.startsWith('b:') && (S.ai.bots || []).find(b => b.id === st.own.slice(2)), col = '#' + (st.own === 'me' ? MY_HEX : ob ? ob.col : f.k.hex).toString(16).padStart(6, '0');
     ctx.fillStyle = col; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(f.cx), Z(f.cz), big ? 9 : 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     label(X(f.cx), Z(f.cz) + 1, st.own === 'me' ? '🏯' : st.g <= 0.5 ? '🏳️' : f.k.e, big ? 12 : 10, '#000');
     if (big && k > 0.6) label(X(f.cx), Z(f.cz) + 17, f.n, 11, col);
@@ -3896,8 +4276,13 @@ function drawMarks(ctx, k, ox, oz, big) {
     ctx.beginPath(); ctx.moveTo(X(mx), Z(mz)); ctx.lineTo(X(m.to[0]), Z(m.to[1])); ctx.stroke(); ctx.setLineDash([]);
     if (vis(mx, mz)) label(X(mx), Z(mz), raid ? '🔥' : m.kind === 'atk' ? '⚔️' : '↩️', big ? 15 : 12, '#000');
   }
+  for (const b of S.ai.bots || []) if (b.alive) {
+    const col = '#' + b.col.toString(16).padStart(6, '0');
+    if (vis(b.cx + 1, b.cz + 1)) { label(X(b.cx + 1), Z(b.cz + 1), '🏰', big ? 15 : 12, '#000'); if (big) label(X(b.cx + 1), Z(b.cz + 1) + 14, `${botShort(b)} 마을 ${SIDES[b.side].e}`, 11, col); }
+    for (const t of b.towns) if (vis(t.x + 1, t.z + 1)) { label(X(t.x + 1), Z(t.z + 1), '🏘️', big ? 13 : 11, '#000'); if (big && k > 0.6) label(X(t.x + 1), Z(t.z + 1) + 13, t.name, 10, col); }
+  }
   for (const t of S.civ.towns) if (vis(t.x + 1, t.z + 1)) { label(X(t.x + 1), Z(t.z + 1), '🏡', big ? 15 : 12, '#000'); if (big) label(X(t.x + 1), Z(t.z + 1) + 14, t.name, 11, '#2f7a35'); }
-  if (vis(HX, HZ)) { label(X(HX + 0.5), Z(HZ + 3), '🏠', big ? 16 : 13, '#000'); if (big) label(X(HX + 0.5), Z(HZ + 3) + 15, '도토리 마을', 12, '#2f7a35'); }
+  if (vis(HX, HZ)) { label(X(HX + 0.5), Z(HZ + 3), '🏠', big ? 16 : 13, '#000'); if (big) label(X(HX + 0.5), Z(HZ + 3) + 15, HOME, 12, '#2f7a35'); }
   ctx.save(); ctx.translate(X(P.x), Z(P.z)); ctx.rotate(Math.PI - P.rot);
   ctx.fillStyle = '#e0453c'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(7, 7); ctx.lineTo(0, 3); ctx.lineTo(-7, 7); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
 }
@@ -3937,9 +4322,10 @@ $('#mapC').addEventListener('click', () => { mapZoom = !mapZoom; SFX.ui(); drawW
 // 지금 있는 곳의 이름: 가까운 도시 → 시·도
 function placeName() {
   const near = CITIES.filter(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 52 : 32)).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
-  if (Math.hypot(HX - P.x, HZ + 3 - P.z) < 12) return '도토리 마을';
+  if (Math.hypot(HX - P.x, HZ + 3 - P.z) < 12) return HOME;
   for (const t of S.civ.towns) if (Math.hypot(t.x + 1 - P.x, t.z + 1 - P.z) < 30) return t.name;
   for (const f of FORTS) if (Math.hypot(f.cx - P.x, f.cz - P.z) < 24) return f.n;
+  for (const b of S.ai.bots || []) if (b.alive) { if (Math.hypot(b.cx + 1 - P.x, b.cz + 1 - P.z) < 30) return `${botShort(b)} 마을`; for (const t of b.towns) if (Math.hypot(t.x + 1 - P.x, t.z + 1 - P.z) < 24) return t.name; }
   if (P.sail && tget(Math.floor(P.x), Math.floor(P.z)) === T.SEA && !near) return '바다 위 (나무배)';
   if (near) return near.name;
   const p = pget(Math.floor(P.x), Math.floor(P.z)); return p === PV.FOREIGN ? '국경 너머' : p === PV.BORDER ? '국경의 강' : p ? KR_PROV[p - 1].n : '바다';
@@ -4555,6 +4941,13 @@ if (S.civ.relayout) {
 groundLive = true; updateHUD(); updateClock(); updateCull(true); slowTick(); updateEnv(hour());
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawSign());
 if (S.seenHelp) $('#btnStart').textContent = '이어서 하기';
+if (!S.faction) { $('#sidePick').hidden = false; $('#btnStart').hidden = true; }
+document.querySelectorAll('[data-side]').forEach(b => b.addEventListener('click', () => {
+  S.faction = b.dataset.side; SFX.ui();
+  // 북부는 집이 다른 곳이라 세상을 다시 만든다 (떠날 때 저장되는 위치·게시판 자리도 비운다)
+  if (S.faction === 'north') { S.ai.bots = null; S.civ.bpos = {}; S.seen = ''; P.x = 0; P.z = 0; seen.fill(0); save(); location.reload(); return; }
+  $('#sidePick').hidden = true; $('#btnStart').hidden = false; $('#btnStart').click();
+}));
 $('#pHelp').hidden = false;
 requestAnimationFrame(frame);
 // 콘솔에서 dotori.setHour(21) 처럼 섬의 시간을 바로 바꿀 수 있다 (빠른 시간 모드로 전환됨)
