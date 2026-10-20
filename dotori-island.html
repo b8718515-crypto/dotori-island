@@ -122,6 +122,23 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 .mapp{width:min(100%,820px)}
 #mapC{width:100%;height:auto;aspect-ratio:1;border-radius:16px;display:block;background:#d8c9a0}
 @media (max-width:520px){#mini{width:96px;height:96px;top:calc(var(--gt) + 64px)}}
+/* 마을 발전 (문명식 발전) */
+.civp{width:min(100%,640px)}
+.res{display:flex;gap:6px;flex-wrap:wrap}
+.res span{background:var(--paper-2);border-radius:999px;padding:4px 11px;font-family:var(--f-display);font-size:14px;font-variant-numeric:tabular-nums}
+.lvl{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:18px;background:#e9f3d6}
+.lvl .ic{font-size:34px}
+.lvl b{font-family:var(--f-display);font-weight:400;font-size:19px;display:block}
+.lvl span{font-size:13px;color:var(--ink-soft)}
+.meter{height:10px;border-radius:999px;background:var(--paper);overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;background:var(--leaf);border-radius:999px}
+.cost{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.cost i{font-style:normal;font-size:12px;background:var(--paper);border-radius:999px;padding:1px 8px;color:var(--ink)}
+.cost i.no{color:var(--berry);box-shadow:inset 0 0 0 1.5px #f2b8b2}
+.row.done{background:#e9f3d6}
+.row.lock{opacity:.62}
+.tag{font-family:var(--f-display);font-size:13px;color:var(--leaf-dark);white-space:nowrap}
+.tree-arrow{text-align:center;color:var(--ink-soft);font-size:13px;margin:-2px 0}
 /* 야차룰 맞짱 */
 #fightHud{top:calc(var(--gt) + 64px);left:50%;transform:translateX(-50%);width:min(calc(100% - 32px),600px);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;pointer-events:none}
 .fbar{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -167,6 +184,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 <button id="clock" class="hud card" title="설정 열기"><div id="clkTime">--:--</div><div id="clkDate"></div></button>
 <div id="tr" class="hud">
   <div id="money" class="card" title="도토리 (섬의 화폐)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6V2.5" stroke="#6d4320" stroke-width="2" stroke-linecap="round"/><path d="M4.5 10.5c0-3.2 3.4-5 7.5-5s7.5 1.8 7.5 5z" fill="#7a4a24"/><path d="M5.5 10.5h13c0 5.2-3 9.3-6.5 10.5-3.5-1.2-6.5-5.3-6.5-10.5z" fill="#c98a4b"/><path d="M8.5 13c.3 2 1.2 3.7 2.4 4.8" stroke="#e8b47a" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg><b id="coins">0</b></div>
+  <button class="pill" id="btnCiv">마을 <kbd>V</kbd></button>
   <button class="pill" id="btnMap">지도 <kbd>M</kbd></button>
   <button class="pill" id="btnBag">가방 <kbd>I</kbd></button>
   <button class="pill" id="btnDex">도감 <kbd>C</kbd></button>
@@ -221,7 +239,12 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pMap" hidden><div class="panel mapp" role="dialog" aria-label="대한민국 지도">
   <header><div>대한민국 지도 <span class="sub" id="mapSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><canvas id="mapC" width="960" height="960"></canvas><p class="fine">가 본 곳만 지도에 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · ● 도시 · ★ 명소 · ⚓ 여객선 부두</p></div>
+  <div class="body"><canvas id="mapC" width="960" height="960"></canvas><p class="fine">가 본 곳만 지도에 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
+</div></div>
+
+<div class="wrap" id="pCiv" hidden><div class="panel civp" role="dialog" aria-label="마을 발전">
+  <header><div>마을 발전 <span class="sub" id="civSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="res" id="civRes"></div><div class="tabs"><button class="tab" data-civ="build">건물</button><button class="tab" data-civ="tech">기술</button><button class="tab" data-civ="town">새 마을</button><button class="tab" data-civ="ally">교류</button><button class="tab" data-civ="craft">공방</button></div><div class="rows" id="civRows"></div></div>
 </div></div>
 
 <div class="wrap" id="pSet" hidden><div class="panel" role="dialog" aria-label="설정">
@@ -245,6 +268,9 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>Space · E</kbd><span>행동: 줍기, 흔들기, 말 걸기, 던지기, 파기</span>
       <kbd>1 2 3 4</kbd><span>맨손 · 잠자리채 · 낚싯대 · 삽</span>
       <kbd>M</kbd><span>대한민국 지도 (가 본 곳만 보여요)</span>
+      <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술(농업·건축·항해)을 배우고, 영토 밖에 새 마을을 세워요</span>
+      <kbd>교류 · 동맹</kbd><span>도시 주민의 부탁을 들어주거나 선물을 보내 우호도를 올리면 동맹이 되어 특산물을 보내 줘요</span>
+      <kbd>나무배</kbd><span>항해를 배우고 항구에서 배를 만들면, 맨손으로 물가를 보고 Space를 눌러 바다·강을 자유롭게 오가요</span>
       <kbd>I · C</kbd><span>가방 · 도감</span>
       <kbd>Esc</kbd><span>창 닫기 · 낚싯대 거두기</span>
       <kbd>야차룰 맞짱</kbd><span>주민에게 말을 걸고 "야차룰로 한판 붙자!"를 고르세요. 주먹, 막기(F), 구르기(Shift), 가방 속 돌이나 과일 던지기(E)까지 전부 허용!</span>
@@ -301,9 +327,28 @@ for (const [k, f] of Object.entries(FLOWERS)) {
 }
 defItem('sapling_apple', { n: '사과 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'apple' });
 defItem('sapling_orange', { n: '오렌지 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'orange' });
+defItem('sapling_peach', { n: '복숭아 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'peach' });
 defItem('lamp', { n: '정원 램프', i: '🏮', v: 300, buy: 1200, cat: '가구', place: 'lamp' });
-defItem('bench', { n: '통나무 벤치', i: '🪵', v: 375, buy: 1500, cat: '가구', place: 'bench' });
+defItem('bench', { n: '통나무 벤치', i: '🪑', v: 375, buy: 1500, cat: '가구', place: 'bench' });
+defItem('wood', { n: '목재', i: '🪵', v: 60, buy: 300, stack: 30, cat: '재료' });
 const SHOP_STOCK = ['seed_tulip', 'seed_cosmos', 'seed_daisy', 'sapling_apple', 'sapling_orange', 'lamp', 'bench'];
+// 상점을 넓히면 별관에서 더 판다
+const SHOP_STOCK2 = ['wood', 'sapling_peach'];
+// 동맹 도시가 보내 주는 고장 특산물
+const GOODS = {
+  sp_keyring: ['N타워 열쇠고리', '🗼', 800], sp_eomuk: ['부산 어묵', '🍢', 600], sp_jjajang: ['인천 짜장면', '🍜', 600], sp_soboro: ['대전 튀김소보로', '🥐', 500],
+  sp_tteokgalbi: ['광주 떡갈비', '🍖', 700], sp_galbi: ['수원 왕갈비', '🍖', 900], sp_jikji: ['직지 책갈피', '📖', 800], sp_bibim: ['전주 비빔밥', '🍲', 700],
+  sp_dakgalbi: ['춘천 닭갈비', '🍗', 700], sp_tofu: ['초당 순두부', '🧈', 500], sp_gwamegi: ['포항 과메기', '🐟', 700], sp_jjimdak: ['안동 찜닭', '🍗', 700],
+  sp_hwangnam: ['경주 황남빵', '🥮', 600], sp_nakji: ['목포 세발낙지', '🐙', 700], sp_gatkimchi: ['여수 돌산 갓김치', '🥬', 500], sp_kkomak: ['순천만 꼬막', '🦪', 500],
+  sp_gul: ['통영 굴', '🦪', 600], sp_danpat: ['군산 단팥빵', '🍞', 500], sp_hallabong: ['서귀포 한라봉', '🍊', 800], sp_kanari: ['백령도 까나리', '🐟', 500],
+};
+for (const [id, [n, i, v]] of Object.entries(GOODS)) defItem(id, { n, i, v, stack: 30, cat: '특산물' });
+const CITY_GOODS = {
+  서울: ['sp_keyring', 1], 부산: ['sp_eomuk', 2], 인천: ['sp_jjajang', 1], 대구: ['apple', 4], 대전: ['sp_soboro', 2], 광주: ['sp_tteokgalbi', 1], 울산: ['iron', 3],
+  세종: ['stone', 5], 수원: ['sp_galbi', 1], 청주: ['sp_jikji', 1], 전주: ['sp_bibim', 1], 춘천: ['sp_dakgalbi', 1], 강릉: ['sp_tofu', 2], 포항: ['sp_gwamegi', 1], 창원: ['iron', 3], 제주: ['orange', 5],
+  원주: ['wood', 6], 속초: ['squid', 2], 안동: ['sp_jjimdak', 1], 경주: ['sp_hwangnam', 2], 목포: ['sp_nakji', 1], 여수: ['sp_gatkimchi', 2], 순천: ['sp_kkomak', 2], 진주: ['lamp', 1],
+  통영: ['sp_gul', 2], 군산: ['sp_danpat', 2], 서귀포: ['sp_hallabong', 2], 울릉: ['squid', 2], 백령: ['sp_kanari', 1],
+};
 
 // h: [시작시, 끝시) — 끝이 시작보다 작으면 자정을 넘김. r: 출현 가중치
 const FISH = [
@@ -354,7 +399,7 @@ let S = load() || freshState();
 let dirtyFlag = false;
 const dirty = () => { dirtyFlag = true; };
 function save() {
-  S.px = P.x; S.pz = P.z; S.rot = P.rot;
+  S.px = P.x; S.pz = P.z; S.rot = P.rot; S.civ.sail = !!P.sail;
   S.ground = [...groundMap.values()].filter(g => !g.daily).map(g => ({ x: g.x, z: g.z, id: g.id }));
   if (S.timeMode === 'fast') S.fastGame = gameNow().getTime();
   S.seen = packSeen();
@@ -460,6 +505,7 @@ const KR_PROV = [{"s": "서울", "n": "서울특별시", "x": 164, "z": 94}, {"s
 const T = { SEA: 0, SAND: 1, GRASS: 2, RIVER: 3, BRIDGE: 4, PADDY: 5, SNOW: 6, MOUNT: 7, MUD: 8, CITY: 9, NORTH: 10 };
 const tiles = new Uint8Array(N * N), resv = new Uint8Array(N * N), forest = new Uint8Array(N * N), elev = new Float32Array(N * N), brDir = new Uint8Array(N * N), prov = new Uint8Array(N * N);
 const occ = new Array(N * N).fill(null);
+const road = new Uint8Array(N * N);   // 내가 닦은 흙길 (지형 위에 덧칠한다)
 const idx = (x, z) => z * N + x;
 const inB = (x, z) => x >= 0 && z >= 0 && x < N && z < N;
 const tget = (x, z) => inB(x, z) ? tiles[idx(x, z)] : T.SEA;
@@ -655,6 +701,8 @@ if (S.world !== 3) {
   S.daily = { key: '' };
 }
 S.found = S.found || {};
+// 문명식 발전: 마을 레벨·건물·기술·새 마을·길·도시 우호도와 동맹·나무배 (예전 세이브엔 빈 값으로 채운다)
+S.civ = Object.assign({ lv: 0, built: {}, bpos: {}, tech: {}, towns: [], roads: [], rel: {}, ally: {}, gift: {}, sent: {}, store: {}, boat: false, sail: false, play: 0 }, S.civ || {});
 
 /* ================= Three.js 기본 ================= */
 const canvas = $('#c');
@@ -859,6 +907,13 @@ function tileColor(t, i, x, z, out) {
     default: return out.set(0x8d8a7f);
   }
 }
+// 흙길: 다져진 황토색, 가장자리 쪽은 살짝 풀빛이 섞인다
+function roadColor(x, z, out) {
+  const n = 0.5 + 0.5 * Math.sin(x * 0.9 + z * 0.37) * Math.cos(z * 0.71 - x * 0.29);
+  const rt = (a, b) => inB(a, b) && road[idx(a, b)];
+  const edge = rt(x - 1, z - 1) && rt(x, z - 1) && rt(x - 1, z) && rt(x, z) ? 0 : 0.35;
+  return out.set(0xd9b47e).lerp(_c1.set(0xe8c894), n * 0.8).lerp(_c2.set(0x9fc46a), edge);
+}
 function buildGround(cx, cz) {
   const P0 = [[], [], [], [], []], N0 = [[], [], [], [], []], C0 = [[], [], [], [], []];
   const quad = (g, v, nrm, cols) => {
@@ -870,8 +925,9 @@ function buildGround(cx, cz) {
   const cc = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()], sc = new THREE.Color();
   for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) {
     const i = idx(x, z), t = tiles[i]; if (!isLandT(t)) continue;
-    const g = GROUP(t), y = TOPY(t);
-    tileColor(t, i, x, z, cc[0]); tileColor(t, i, x + 1, z, cc[1]); tileColor(t, i, x + 1, z + 1, cc[2]); tileColor(t, i, x, z + 1, cc[3]);
+    const rd = road[i], g = rd ? 1 : GROUP(t), y = TOPY(t);
+    if (rd) { roadColor(x, z, cc[0]); roadColor(x + 1, z, cc[1]); roadColor(x + 1, z + 1, cc[2]); roadColor(x, z + 1, cc[3]); }
+    else { tileColor(t, i, x, z, cc[0]); tileColor(t, i, x + 1, z, cc[1]); tileColor(t, i, x + 1, z + 1, cc[2]); tileColor(t, i, x, z + 1, cc[3]); }
     quad(g, [[x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z]], [0, 1, 0], [cc[0], cc[3], cc[2], cc[1]]);
     sc.set(SIDE[t] || 0x9a7552);
     for (const [dx, dz, e0, e1] of [[1, 0, [x + 1, z], [x + 1, z + 1]], [-1, 0, [x, z + 1], [x, z]], [0, 1, [x + 1, z + 1], [x, z + 1]], [0, -1, [x, z], [x + 1, z]]]) {
@@ -981,7 +1037,7 @@ const chunkMeshes = new Map();
 function ensureChunk(cx, cz) {
   const ci = cz * NC + cx; if (chunkMeshes.has(ci)) return chunkMeshes.get(ci);
   const g = new THREE.Group(), gm = buildGround(cx, cz), wm = buildWater(cx, cz);
-  if (gm) g.add(gm); if (wm) g.add(wm);
+  if (gm) g.add(gm); if (wm) g.add(wm); g.userData.gm = gm;
   for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) if (tiles[idx(x, z)] === T.BRIDGE) g.add(makeBridgeTile(x, z));
   chunkMeshes.set(ci, g); return g;
 }
@@ -1402,6 +1458,109 @@ function makeFlag() {
 // 녹차밭: 산비탈을 따라 이어지는 둥근 차나무 이랑
 const teaGeo = shadeGeo(lumpy(new THREE.SphereGeometry(0.5, 16, 10), 0.08, 4, 7), 0x2f7a35, 0x7fcf5a, 0.05);
 function makeTea() { const g = new THREE.Group(); put(g, mesh(teaGeo, VC, 0, 0.18, 0)).scale.set(1.05, 0.55, 0.62); return g; }
+/* --- 마을 발전 건물 --- */
+// 마을 게시판: 통나무 기둥 두 개에 판자, 알록달록한 쪽지
+function makeBoard() {
+  const g = new THREE.Group(); g.add(blob(0.9));
+  for (const s of [-0.45, 0.45]) { g.add(mesh(new THREE.CylinderGeometry(0.05, 0.065, 1.55, 10), TM(barkTex, 0x8a5a33), s, 0.77, 0)); g.add(mesh(capGeo, M(0x8a5a33), s, 1.56, 0)); }
+  put(g, mesh(G.box, TM(plankTex, 0xc98c4f), 0, 1.02, 0.02)).scale.set(0.98, 0.62, 0.06);
+  put(g, mesh(G.box, TM(woodTex, 0x8a5a33), 0, 1.38, 0.03)).scale.set(1.12, 0.07, 0.16);
+  [[-0.27, 1.1, 0xfff6dc, 0.05], [0.04, 1.06, 0xffd34e, -0.08], [0.3, 1.12, 0xf29ac2, 0.1], [-0.12, 0.86, 0xbfe3f2, -0.04], [0.24, 0.86, 0xfff6dc, 0.06]].forEach(([x, y, c, r]) => { const n = mesh(G.box, M(c), x, y, 0.06); n.scale.set(0.2, 0.22, 0.01); n.rotation.z = r; g.add(n); g.add(mesh(G.dot, M(0xe0453c), x, y + 0.08, 0.075)); });
+  return g;
+}
+// 상점 별관: 줄무늬 차양을 단 작은 가게
+function makeAnnex() {
+  const g = new THREE.Group(); g.add(blob(2.4));
+  const white = M(0xfffaf0);
+  put(g, mesh(G.box, M(0xbab3a7), 0, 0.07, 0)).scale.set(1.94, 0.14, 1.74);
+  put(g, mesh(G.box, TM(sidingTex, 0xfff3e2), 0, 0.68, 0)).scale.set(1.8, 1.1, 1.56);
+  put(g, mesh(G.box, M(0x3f8a6a), 0, 1.28, 0)).scale.set(2.0, 0.12, 1.76);
+  put(g, mesh(G.box, M(0x2f6f55), 0, 1.38, 0)).scale.set(1.7, 0.1, 1.46);
+  const aw = mesh(G.box, TM(awningTex, 0xffffff), 0, 1.06, 0.98); aw.scale.set(1.9, 0.05, 0.56); aw.rotation.x = 0.42; g.add(aw);
+  put(g, mesh(G.box, white, -0.42, 0.56, 0.79)).scale.set(0.5, 0.82, 0.05);
+  put(g, mesh(G.box, TM(doorTex, 0x6a9a5a), -0.42, 0.53, 0.81)).scale.set(0.4, 0.74, 0.05);
+  put(g, mesh(G.box, white, 0.45, 0.62, 0.79)).scale.set(0.66, 0.5, 0.05);
+  put(g, mesh(G.box, winMat, 0.45, 0.62, 0.81)).scale.set(0.56, 0.4, 0.04);
+  const sg = mesh(new THREE.PlaneGeometry(1.3, 0.4), MB(0xffffff, { map: signTexOf('상점 별관') }), 0, 1.58, 0.74); g.add(sg);
+  for (const [x, c] of [[0.3, 0xe33b2e], [0.62, 0xf7a3a0]]) { put(g, mesh(G.box, TM(woodTex, 0xa06a3a), x, 0.14, 1.12)).scale.set(0.3, 0.2, 0.26); for (const [ox, oz] of [[-0.06, -0.04], [0.06, 0.05], [0, 0]]) put(g, mesh(TG.fruit, M(c), x + ox, 0.3, 1.12 + oz)).scale.setScalar(0.55); }
+  return g;
+}
+// 공방: 기둥과 경사 지붕만 있는 열린 작업장, 작업대·모루·통나무 더미
+function makeWorkshop() {
+  const g = new THREE.Group(); g.add(blob(2.6));
+  const post = TM(barkTex, 0x8a5a33);
+  put(g, mesh(G.box, TM(plankTex, 0xb88654), 0, 0.05, 0)).scale.set(1.9, 0.1, 1.7);
+  for (const [px, pz] of [[-0.88, 0.78], [0.88, 0.78], [-0.88, -0.78], [0.88, -0.78]]) g.add(mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.5, 10), post, px, 0.8, pz));
+  put(g, mesh(G.box, TM(plankTex, 0xa06a3a), 0, 0.75, -0.8)).scale.set(1.8, 1.3, 0.1);
+  const rf = mesh(G.box, TM(shingleTex, 0x8a5a3a), 0, 1.62, 0.02); rf.scale.set(2.2, 0.1, 2.05); rf.rotation.x = 0.22; g.add(rf);
+  put(g, mesh(G.box, TM(brickTex, 0xc06a4c), 0.62, 1.9, -0.6)).scale.set(0.24, 0.7, 0.24);
+  put(g, mesh(G.box, TM(woodTex, 0xc98c4f), -0.3, 0.58, 0.05)).scale.set(1.0, 0.08, 0.5);
+  for (const [lx, lz] of [[-0.74, -0.15], [0.14, -0.15], [-0.74, 0.25], [0.14, 0.25]]) put(g, mesh(G.box, M(0x7a5536), lx, 0.3, lz)).scale.set(0.06, 0.5, 0.06);
+  put(g, mesh(G.box, M(0x9aa3a8), -0.5, 0.67, 0.05)).scale.set(0.3, 0.06, 0.1);
+  put(g, mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.32, 6), M(0x8a5a33), -0.1, 0.65, 0.1)).rotation.z = Math.PI / 2;
+  put(g, mesh(G.box, M(0x3d3a38), 0.55, 0.22, 0.35)).scale.set(0.22, 0.34, 0.2);
+  put(g, mesh(G.box, M(0x4a4744), 0.55, 0.43, 0.35)).scale.set(0.42, 0.1, 0.22);
+  for (let k = 0; k < 3; k++) { const l = mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.7, 12), TM(barkTex, 0x9a6a43), 0.62, 0.12 + (k === 2 ? 0.2 : 0), -0.3 + (k === 2 ? 0.11 : k * 0.22)); l.rotation.x = Math.PI / 2; g.add(l); }
+  const sg = mesh(new THREE.PlaneGeometry(0.8, 0.3), MB(0xffffff, { map: signTexOf('공방') }), 0, 1.3, 0.86); g.add(sg);
+  return g;
+}
+// 나루터(항구): 물 쪽으로 뻗은 나무 덱, 계류 기둥, 밧줄 더미, 등불
+function makeDock(sx, sz) {
+  const g = new THREE.Group();
+  const deck = mesh(G.box, TM(plankTex, 0xb07b4c), sx * 0.75, -0.02, sz * 0.75); deck.scale.set(Math.abs(sx) ? 2.4 : 1.1, 0.09, Math.abs(sz) ? 2.4 : 1.1); g.add(deck);
+  for (const k of [-1, 1]) for (const d of [0.9, 1.8]) g.add(mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.75, 8), TM(barkTex, 0x6b4a2a), sx * d + sz * k * 0.5, -0.05, sz * d + sx * k * 0.5));
+  put(g, mesh(new THREE.TorusGeometry(0.13, 0.04, 6, 14), M(0xe8dcc0), -sz * 0.3, 0.06, -sx * 0.3)).rotation.x = Math.PI / 2;
+  put(g, mesh(G.box, TM(woodTex, 0xa06a3a), sz * 0.3, 0.14, sx * 0.3)).scale.set(0.3, 0.28, 0.3);
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.035, 1.0, 8), M(0x34463d), -sx * 0.35 - sz * 0.35, 0.5, -sz * 0.35 - sx * 0.35));
+  put(g, mesh(G.box, lampMat, -sx * 0.35 - sz * 0.35, 1.06, -sz * 0.35 - sx * 0.35)).scale.set(0.16, 0.2, 0.16);
+  const h = mesh(new THREE.SphereGeometry(0.5, 12, 8), haloMat, -sx * 0.35 - sz * 0.35, 1.06, -sz * 0.35 - sx * 0.35); h.visible = false; g.add(h); halos.push(h);
+  return g;
+}
+// 학교: 2층 건물, 창문 줄, 시계, 태극기 게양대
+function makeSchool() {
+  const g = new THREE.Group(); g.add(blob(3.4));
+  const white = M(0xfffaf0), wall = TM(sidingTex, 0xfff0d6);
+  put(g, mesh(G.box, M(0xbab3a7), 0, 0.08, 0)).scale.set(2.9, 0.16, 1.8);
+  put(g, mesh(G.box, wall, 0, 0.98, 0)).scale.set(2.7, 1.8, 1.5);
+  put(g, mesh(G.box, white, 0, 1.02, 0.76)).scale.set(2.72, 0.06, 0.04);
+  const gab = new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-0.8, 0), new THREE.Vector2(0.8, 0), new THREE.Vector2(0, 0.52)]), { depth: 2.7, bevelEnabled: false }).translate(0, 0, -1.35);
+  const gm = mesh(gab, wall, 0, 1.88, 0); gm.rotation.y = Math.PI / 2; g.add(gm);
+  for (const s of [-1, 1]) { const pnl = mesh(G.box, TM(shingleTex, 0x4f7fbf), 0, 2.15, s * 0.43); pnl.scale.set(3.0, 0.1, 1.0); pnl.rotation.x = s * 0.58; g.add(pnl); }
+  for (const fy of [0.58, 1.38]) for (const wx of [-1.0, -0.5, 0.5, 1.0]) { put(g, mesh(G.box, white, wx, fy, 0.76)).scale.set(0.36, 0.36, 0.04); put(g, mesh(G.box, winMat, wx, fy, 0.78)).scale.set(0.28, 0.28, 0.03); }
+  put(g, mesh(G.box, white, 0, 0.5, 0.76)).scale.set(0.5, 0.82, 0.05);
+  put(g, mesh(G.box, TM(doorTex, 0x8a5a33), 0, 0.47, 0.785)).scale.set(0.4, 0.74, 0.04);
+  const clk = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.04, 20), white, 0, 1.42, 0.79); clk.rotation.x = Math.PI / 2; g.add(clk);
+  put(g, mesh(G.box, M(0x4b3a28), 0, 1.47, 0.815)).scale.set(0.025, 0.12, 0.01);
+  put(g, mesh(G.box, M(0x4b3a28), 0.04, 1.42, 0.815)).scale.set(0.09, 0.022, 0.01);
+  const sg = mesh(new THREE.PlaneGeometry(1.1, 0.34), MB(0xffffff, { map: signTexOf('도토리 학교') }), 0, 1.05, 0.8); sg.position.y = 1.0; sg.scale.setScalar(0.85); g.add(sg);
+  g.add(mesh(new THREE.CylinderGeometry(0.025, 0.03, 2.6, 8), M(0xd8d4cc), -1.32, 1.3, 0.92));
+  g.add(mesh(new THREE.SphereGeometry(0.05, 8, 6), M(0xf2c14e), -1.32, 2.63, 0.92));
+  g.add(mesh(new THREE.PlaneGeometry(0.66, 0.44), bend(new THREE.MeshLambertMaterial({ map: flagTex, side: THREE.DoubleSide })), -0.97, 2.32, 0.92));
+  return g;
+}
+// 새 마을 회관: 초록 지붕 집에 도토리 깃발
+function makeTownHall() {
+  const g = makeHouse(0x4fa06a);
+  g.add(mesh(new THREE.CylinderGeometry(0.025, 0.03, 2.9, 8), M(0xd8d4cc), 1.12, 1.45, 0.95));
+  g.add(mesh(new THREE.SphereGeometry(0.05, 8, 6), M(0xf2c14e), 1.12, 2.92, 0.95));
+  const pen = mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.62, -0.17), new THREE.Vector2(0, -0.36)])), DS(0xc98a4b), 1.14, 2.85, 0.95); g.add(pen);
+  return g;
+}
+// 나무배: 둥근 선체, 가로 좌석, 돛대와 하얀 돛 (앞쪽이 +z)
+function makeBoat() {
+  const g = new THREE.Group();
+  const hull = mesh(new THREE.CylinderGeometry(0.3, 0.46, 1.8, 18, 1, true, -Math.PI / 2, Math.PI), DS(0xb07b4c), 0, 0.12, 0); hull.rotation.x = Math.PI / 2; hull.scale.set(1, 1, 0.9); g.add(hull);
+  for (const [r, z] of [[0.3, 0.9], [0.46, -0.9]]) put(g, mesh(new THREE.CircleGeometry(r, 14, Math.PI, Math.PI), DS(0xa06a3a), 0, 0.12, z)).scale.y = 0.9;
+  for (const s of [-1, 1]) { const rim = mesh(G.box, TM(woodTex, 0x8a5a33), s * 0.4, 0.13, 0); rim.scale.set(0.07, 0.07, 1.8); rim.rotation.y = -s * 0.07; g.add(rim); }
+  put(g, mesh(G.box, TM(woodTex, 0x9a6a43), 0, 0.12, 0.9)).scale.set(0.62, 0.08, 0.08);
+  put(g, mesh(G.box, TM(woodTex, 0x9a6a43), 0, 0.12, -0.9)).scale.set(0.92, 0.08, 0.08);
+  put(g, mesh(G.box, TM(plankTex, 0xc98c4f), 0, 0.02, 0.35)).scale.set(0.74, 0.05, 0.22);
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.035, 1.9, 8), M(0x8a5a33), 0, 0.95, 0.45));
+  const sail = mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0, 1.35), new THREE.Vector2(0.95, 0)])), DS(0xfff6e4), 0, 0.42, 0.42); sail.rotation.y = Math.PI / 2; g.add(sail);
+  const pen = mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.34, -0.09), new THREE.Vector2(0, -0.18)])), DS(0xe0453c), 0, 1.88, 0.45); pen.rotation.y = Math.PI / 2; g.add(pen);
+  put(g, mesh(new THREE.CircleGeometry(0.15, 16), DS(0xc98a4b), -0.01, 0.95, 0.12)).rotation.y = Math.PI / 2;
+  return g;
+}
 // 해운대 파라솔
 function makeParasol(seed) {
   const g = new THREE.Group(); g.add(blob(0.6));
@@ -1673,8 +1832,8 @@ function makePlayer() {
 const ents = [];
 const chunkEnts = Array.from({ length: NC * NC }, () => []);
 const loadedCh = new Set();
-const BLOCK = { tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1 };
-const KEEP = { house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1 };
+const BLOCK = { tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1 };
+const KEEP = { house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1 };
 const inWindow = e => Math.abs(e.cx - camPos.x) < 32 && e.cz - camPos.z > -38 && e.cz - camPos.z < 15;
 function showEnt(e) {
   if (!e.mesh) { e.mesh = castAll(e.make()); if (e.onMake) e.onMake(e); }
@@ -1972,7 +2131,7 @@ function spawnPlaced(rec) {
   if (rec.k === 'sapling') { const st = saplingStage(rec); return addEnt({ type: 'sapling', rec, stage: st, make: () => makeSapling(st, rec.fruit), x: rec.x, z: rec.z }, rec.x, rec.z); }
 }
 const STAGE_MS = 60000;
-const saplingStage = rec => Math.min(3, Math.floor((Date.now() - rec.t) / STAGE_MS));
+const saplingStage = rec => Math.min(3, Math.floor((Date.now() - rec.t) / (S.civ.tech.farm ? STAGE_MS / 2 : STAGE_MS)));
 S.placed = S.placed.filter(r => { if (r.k === 'sapling' && saplingStage(r) >= 3) r.k = 'tree'; return true; });
 for (const rec of S.placed) spawnPlaced(rec);
 
@@ -1997,6 +2156,408 @@ function showGround(g) {
 function removeGround(k) { const g = groundMap.get(k); if (!g) return; if (g.mesh) scene.remove(g.mesh); groundMap.delete(k); }
 for (const g of S.ground) addGround(g.x, g.z, g.id, false);
 function groundY(x, z) { const t = tget(Math.floor(x), Math.floor(z)); return t === T.BRIDGE ? 0.02 : TOPY(t); }
+
+/* ================= 문명식 발전 ================= */
+// 도토리 마을을 거점으로 건물을 지어 레벨을 올리고(영토가 넓어진다), 기술을 배우고, 영토 밖에 새 마을을 세워 길로 잇고, 도시들과 동맹을 맺는다.
+const BUILDS = [
+  { id: 'myhouse', n: '내 집', i: '🏠', w: 2, h: 2, near: [-8, 8], cost: { wood: 8, stone: 5, coins: 3000 }, d: '텐트를 떠나 진짜 집으로! 마을이 Lv.1이 되고 영토가 넓어져요.' },
+  { id: 'annex', n: '상점 확장', i: '🏪', w: 2, h: 2, near: [7, 1], cost: { wood: 12, clay: 8, coins: 6000 }, d: '상점 별관이 생겨 목재와 복숭아 묘목도 팔아요.' },
+  { id: 'workshop', n: '공방', i: '🔨', w: 2, h: 2, near: [-7, -4], cost: { wood: 15, stone: 10, iron: 4, coins: 10000 }, d: '재료로 램프·벤치·묘목을 만들 수 있어요.' },
+  { id: 'dock', n: '항구', i: '⚓', w: 1, h: 1, water: true, tech: 'sail', cost: { wood: 20, stone: 15, iron: 8, coins: 15000 }, d: '가까운 물가(금강)에 나루터를 지어요. 여기서 나무배를 만들어요.' },
+  { id: 'school', n: '학교', i: '🏫', w: 3, h: 2, near: [4, -8], cost: { wood: 25, clay: 15, iron: 10, amethyst: 1, coins: 25000 }, d: '배움의 시대! 도시들과 우호도가 더 빨리 올라요.' },
+];
+const ERA = ['움막 시대', '마을 시대', '장터 시대', '공방 시대', '항해 시대', '배움 시대'];
+const TERR = [10, 16, 22, 28, 34, 42], TOWN_R = 12;
+const TECHS = [
+  { id: 'farm', n: '농업', i: '🌾', lv: 1, cost: { weed: 10, coins: 3000 }, d: '잡초로 퇴비를 만들어요. 과일과 목재가 두 배 빨리 다시 나고, 묘목도 두 배 빨리 자라요.' },
+  { id: 'build', n: '건축', i: '🧱', lv: 2, need: 'farm', cost: { stone: 10, clay: 10, coins: 5000 }, d: '영토 밖에 새 마을을 세울 수 있어요. 건물 짓는 비용이 20% 줄어요.' },
+  { id: 'sail', n: '항해', i: '⛵', lv: 3, need: 'build', cost: { wood: 15, iron: 5, coins: 8000 }, d: '항구를 짓고 나무배를 만들어 바다와 강을 자유롭게 오가요.' },
+];
+const TECH_BY = Object.fromEntries(TECHS.map(t => [t.id, t]));
+const CRAFTS = [
+  { id: 'boat', boat: true, cost: { wood: 12, iron: 3, coins: 3000 }, d: '울릉도·제주도·백령도까지 직접 노 저어 가요. 맨손으로 물가를 보고 Space!' },
+  { id: 'lamp', cost: { iron: 2, wood: 3 } }, { id: 'bench', cost: { wood: 6 } },
+  { id: 'sapling_apple', cost: { apple: 3, wood: 1 } }, { id: 'sapling_orange', cost: { orange: 3, wood: 1 } }, { id: 'sapling_peach', cost: { peach: 3, wood: 1 } },
+];
+const TOWN_NAMES = ['밤나무골', '솔빛마을', '다람골', '햇살마을', '개나리골', '민들레마을', '은행골', '참나무골', '바람골', '별빛마을'];
+const ALLY_AT = 10, TRIBUTE_SEC = 300, GIFT = 1000, HOME_ANCHOR = [HX, HZ + 6];
+const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const REMOVABLE = { tree: 1, palm: 1, rock: 1, weed: 1, flower: 1, spot: 1 };
+const CIV_DEF = { board: { w: 1, h: 1, make: makeBoard }, myhouse: { w: 2, h: 2, make: () => makeHouse(0xe0645a) }, annex: { w: 2, h: 2, make: makeAnnex }, workshop: { w: 2, h: 2, make: makeWorkshop }, dock: { w: 1, h: 1 }, school: { w: 3, h: 2, make: makeSchool } };
+let civLive = false, terrDirty = true;
+const costOf = c => { if (!S.civ.tech.build) return c; const o = {}; for (const k in c) o[k] = Math.ceil(c[k] * 0.8); return o; };
+const hasCost = c => Object.entries(c).every(([k, n]) => (k === 'coins' ? S.coins : countItem(k)) >= n);
+function payCost(c) { for (const [k, n] of Object.entries(c)) { if (k === 'coins') S.coins -= n; else removeItem(k, n); } updateHUD(); dirty(); }
+const townCost = () => ({ wood: 10, stone: 10, clay: 5, coins: 3000 + 2000 * S.civ.towns.length });
+// 내 마을들: 도토리 마을(레벨만큼 넓어짐) + 내가 세운 마을
+function myTowns() { return [{ name: '도토리 마을', x: HX + 0.5, z: HZ + 5.5, r: TERR[S.civ.lv], ax: HOME_ANCHOR[0], az: HOME_ANCHOR[1] }, ...S.civ.towns.map(t => ({ name: t.name, x: t.x + 1, z: t.z + 1, r: TOWN_R, ax: t.ax, az: t.az, t }))]; }
+const inTerr = (x, z) => myTowns().some(t => Math.hypot(t.x - x, t.z - z) <= t.r);
+// 건물 자리의 나무·바위·잡초·꽃은 치운다 (플레이어가 심은 것은 건드리지 않는다)
+function clearTile(x, z) {
+  const o = occAt(x, z); if (!o || !REMOVABLE[o.type] || o.rec) return;
+  removeEnt(o);
+  if (o.type === 'tree' || o.type === 'palm') { const k = allTrees.indexOf(o); if (k >= 0) allTrees.splice(k, 1); }
+  if (o.id && (o.type === 'weed' || o.type === 'flower')) S.removed[o.id] = true;
+}
+const freeOcc = o => !o || (REMOVABLE[o.type] && !o.rec);
+function spotOK(x0, z0, w, h) {
+  const pl = civLive ? [Math.floor(P.x), Math.floor(P.z)] : null;
+  for (let z = z0 - 1; z <= z0 + h; z++) for (let x = x0 - 1; x <= x0 + w; x++) {
+    if (!inB(x, z)) return false;
+    const i = idx(x, z), o = occ[i];
+    if (resv[i]) return false;
+    if (x >= x0 && x < x0 + w && z >= z0 && z < z0 + h) {
+      if (!isBuildT(tiles[i]) || road[i] || !freeOcc(o) || groundMap.has(tk(x, z)) || (pl && pl[0] === x && pl[1] === z)) return false;
+    } else if (o && BLOCK[o.type] && !freeOcc(o)) return false;
+  }
+  const fx = x0 + (w >> 1), fz = z0 + h, fo = occAt(fx, fz);
+  return isWalkT(tget(fx, fz)) && tget(fx, fz) !== T.BRIDGE && (!fo || !BLOCK[fo.type] || freeOcc(fo));
+}
+function civSpot(px, pz, w, h, maxR) {
+  for (let r = 0; r <= maxR; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    if (spotOK(px + dx, pz + dz, w, h)) return [px + dx, pz + dz];
+  }
+  return null;
+}
+// 항구 자리: 도토리 마을에서 가장 가까운 물가 (물 쪽으로 두 칸 이상 트인 곳을 먼저 찾는다)
+function dockSpot() {
+  const [hx, hz] = HOME_ANCHOR, water = t => t === T.RIVER || t === T.SEA;
+  for (const deep of [2, 1]) for (let r = 1; r <= 32; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    const x = hx + dx, z = hz + dz; if (!inB(x, z)) continue;
+    const i = idx(x, z), t = tiles[i];
+    if (!(isBuildT(t) || t === T.SAND || t === T.PADDY) || resv[i] || road[i] || !freeOcc(occ[i]) || groundMap.has(tk(x, z))) continue;
+    for (const [sx, sz] of D4) if (water(tget(x + sx, z + sz)) && (deep < 2 || water(tget(x + sx * 2, z + sz * 2))) && isWalkT(tget(x - sx, z - sz)) && freeOcc(occAt(x - sx, z - sz))) return { x, z, sx, sz };
+  }
+  return null;
+}
+function placeCivEnt(id, pos) {
+  const def = CIV_DEF[id], [x, z] = pos;
+  for (let zz = z; zz < z + def.h; zz++) for (let xx = x; xx < x + def.w; xx++) clearTile(xx, zz);
+  reserve(x, z, def.w, def.h);
+  return addEnt({ type: id, make: id === 'dock' ? () => makeDock(pos[2], pos[3]) : def.make }, x, z, def.w, def.h);
+}
+const frontOf = (id, p) => id === 'dock' ? [p[0] - p[2], p[1] - p[3]] : [p[0] + (CIV_DEF[id].w >> 1), p[1] + CIV_DEF[id].h];
+function placeTown(t) {
+  for (let z = t.z; z < t.z + 2; z++) for (let x = t.x; x < t.x + 2; x++) clearTile(x, z);
+  reserve(t.x, t.z, 2, 2);
+  addEnt({ type: 'townhall', name: t.name, town: t, make: makeTownHall }, t.x, t.z, 2, 2);
+  if (t.sx == null) { const s = civSpot(t.x - 2, t.z + 1, 1, 1, 3); if (s) { t.sx = s[0]; t.sz = s[1]; } else t.sx = -1; }
+  if (t.sx >= 0) { clearTile(t.sx, t.sz); reserve(t.sx, t.sz, 1, 1); addEnt({ type: 'sign', name: t.name, make: () => makeSign(t.name) }, t.sx, t.sz); }
+}
+/* --- 길: 4방향 A* 로 걷기 쉬운 땅을 따라 잇는다. 다리는 그대로 건너고, 나무·바위는 베어 낸다 --- */
+const STEPC = []; STEPC[T.CITY] = 0.6; STEPC[T.BRIDGE] = 0.8; STEPC[T.GRASS] = 1; STEPC[T.SAND] = 1.3; STEPC[T.PADDY] = 1.5; STEPC[T.SNOW] = 1.8; STEPC[T.MUD] = 2.5;
+function stepCost(i) {
+  const t = tiles[i]; if (!isWalkT(t)) return -1;
+  const o = occ[i]; let extra = 0;
+  if (o && BLOCK[o.type]) { if (freeOcc(o)) extra = 2.5; else return -1; }
+  return (road[i] ? 0.35 : STEPC[t]) + extra;
+}
+function roadPath(ax, az, bx, bz, maxPop = 300000) {
+  const s0 = idx(ax, az), g0 = idx(bx, bz);
+  const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), done = new Uint8Array(N * N);
+  const hn = [], hk = [];
+  const swap = (a, b) => { let t = hn[a]; hn[a] = hn[b]; hn[b] = t; t = hk[a]; hk[a] = hk[b]; hk[b] = t; };
+  const push = (k, n) => { hn.push(n); hk.push(k); let i = hn.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (hk[p] <= hk[i]) break; swap(p, i); i = p; } };
+  const pop = () => {
+    const n = hn[0], lk = hk.pop(), ln = hn.pop();
+    if (hn.length) { hn[0] = ln; hk[0] = lk; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < hn.length && hk[l] < hk[m]) m = l; if (r < hn.length && hk[r] < hk[m]) m = r; if (m === i) break; swap(m, i); i = m; } }
+    return n;
+  };
+  g[s0] = 0; push(0, s0);
+  for (let pops = 0; hn.length && pops < maxPop; pops++) {
+    const cur = pop(); if (done[cur]) continue; done[cur] = 1;
+    if (cur === g0) { const path = []; for (let n = g0; n !== -1; n = from[n]) path.push(n); return path.reverse(); }
+    const cx = cur % N, cz = (cur - cx) / N;
+    for (const [dx, dz] of D4) {
+      const x = cx + dx, z = cz + dz; if (!inB(x, z)) continue;
+      const ni = idx(x, z); if (done[ni]) continue;
+      const c = ni === g0 ? 1 : stepCost(ni); if (c < 0) continue;
+      const ng = g[cur] + c;
+      if (ng < g[ni]) { g[ni] = ng; from[ni] = cur; push(ng + (Math.abs(x - bx) + Math.abs(z - bz)) * 0.5, ni); }
+    }
+  }
+  return null;
+}
+// 바뀐 지면 구역은 메시를 다시 만든다
+function refreshChunks(chs) {
+  for (const ci of chs) {
+    const g = chunkMeshes.get(ci); if (!g) continue;
+    scene.remove(g); if (g.userData.gm) g.userData.gm.geometry.dispose(); chunkMeshes.delete(ci);
+    if (loadedCh.has(ci)) scene.add(ensureChunk(ci % NC, Math.floor(ci / NC)));
+  }
+}
+function laySeg(path) {
+  const chs = new Set(), keep = [];
+  for (const i of path) {
+    const x = i % N, z = (i - x) / N, t = tiles[i];
+    clearTile(x, z); reveal(x, z, 3);
+    if (t === T.BRIDGE || t === T.CITY || road[i]) continue;
+    road[i] = 1; keep.push(i.toString(36)); chs.add(Math.floor(z / CH) * NC + Math.floor(x / CH));
+  }
+  if (keep.length) S.civ.roads.push(keep.join('.'));
+  refreshChunks(chs); terrDirty = true; dirty();
+}
+function connectTown(t) {
+  const cands = [{ name: '도토리 마을', ax: HOME_ANCHOR[0], az: HOME_ANCHOR[1] }, ...S.civ.towns.filter(o => o !== t)].sort((a, b) => Math.hypot(a.ax - t.ax, a.az - t.az) - Math.hypot(b.ax - t.ax, b.az - t.az));
+  for (const c of cands.slice(0, 3)) {
+    if (Math.hypot(c.ax - t.ax, c.az - t.az) > 280) break;
+    const p = roadPath(t.ax, t.az, c.ax, c.az);
+    if (p) { laySeg(p); t.link = c.name; return { to: c.name, len: p.length }; }
+  }
+  return null;
+}
+// 저장된 길·건물·마을을 되살린다 (자연물을 만든 뒤라 숲의 배치는 그대로)
+{
+  for (const s of S.civ.roads) for (const tok of s.split('.')) { const i = parseInt(tok, 36); if (i >= 0 && i < N * N) { road[i] = 1; clearTile(i % N, Math.floor(i / N)); } }
+  if (!S.civ.bpos.board) S.civ.bpos.board = civSpot(HX - 4, HZ + 8, 1, 1, 8) || [HX - 4, HZ + 8];
+  placeCivEnt('board', S.civ.bpos.board);
+  for (const b of BUILDS) if (S.civ.built[b.id] && S.civ.bpos[b.id]) placeCivEnt(b.id, S.civ.bpos[b.id]);
+  for (const t of S.civ.towns) placeTown(t);
+}
+function civBanner(icon, title, quip) {
+  $('#bnIcon').textContent = icon; $('#bnTitle').textContent = title; $('#bnQuip').textContent = quip;
+  $('#bnNew').textContent = '마을 발전!'; $('#bnNew').hidden = false; $('#banner').hidden = false; bannerT = 3.4; P.hop = 0.5; SFX.fanfare();
+}
+// 새로 지은 건물 자리에 서 있던 주민은 집 앞으로 비켜 준다
+function unstickVillagers() { for (const v of villagers) if (!canStand(v.x, v.z, 0.25)) { v.x = v.def.home.x; v.z = v.def.home.z; v.target = null; } }
+function doBuild(b) {
+  const i = BUILDS.indexOf(b); if (S.civ.lv !== i || S.civ.built[b.id]) return;
+  if (b.tech && !S.civ.tech[b.tech]) { toast(`${TECH_BY[b.tech].n} 기술이 먼저 필요해요.`); SFX.miss(); return; }
+  const cost = costOf(b.cost); if (!hasCost(cost)) { toast('재료가 모자라요.'); SFX.miss(); return; }
+  let pos;
+  if (b.water) { const d = dockSpot(); if (!d) { toast('영토 안에 배를 댈 물가가 없어요.'); SFX.miss(); return; } pos = [d.x, d.z, d.sx, d.sz]; }
+  else { pos = civSpot(HX + b.near[0], HZ + b.near[1], b.w, b.h, 18); if (!pos) { toast('지을 만한 빈 땅이 없어요.'); SFX.miss(); return; } }
+  payCost(cost);
+  S.civ.built[b.id] = true; S.civ.bpos[b.id] = pos; S.civ.lv = i + 1;
+  const e = placeCivEnt(b.id, pos); unstickVillagers();
+  const f = frontOf(b.id, pos), path = roadPath(HOME_ANCHOR[0], HOME_ANCHOR[1], f[0], f[1], 80000); if (path) laySeg(path);
+  reveal(HX, HZ + 5, TERR[S.civ.lv]);
+  terrDirty = true; dirty(); closePanels();
+  burst(e.cx, 1.2, e.cz, 0xffe08a, 16, 2.2, 0.9);
+  civBanner(b.i, `${b.n} 완공!`, `도토리 마을 Lv.${S.civ.lv} · ${ERA[S.civ.lv]}. 영토가 반경 ${TERR[S.civ.lv]}칸으로 넓어졌어요!`);
+}
+function learnTech(t) {
+  if (S.civ.tech[t.id] || S.civ.lv < t.lv || (t.need && !S.civ.tech[t.need]) || !hasCost(t.cost)) return;
+  payCost(t.cost); S.civ.tech[t.id] = true; dirty(); closePanels();
+  civBanner(t.i, `${t.n} 기술을 배웠다!`, t.d);
+}
+function craft(cr) {
+  if (!hasCost(cr.cost)) return;
+  if (cr.boat) {
+    if (!S.civ.built.dock || !S.civ.tech.sail || S.civ.boat) return;
+    payCost(cr.cost); S.civ.boat = true; dirty(); closePanels();
+    civBanner('⛵', '나무배 완성!', '맨손(1)으로 바다나 강을 보고 Space를 누르면 출항해요. 울릉도도, 제주도도 마음대로!'); return;
+  }
+  if (!S.civ.built.workshop) return;
+  if (!addItem(cr.id)) { toast('가방이 가득 찼어요.'); SFX.miss(); return; }
+  payCost(cr.cost); SFX.coin(); toast(`${josa(ITEMS[cr.id].n, '을', '를')} 만들었어요!`); renderCiv();
+}
+function settleCheck() {
+  if (!S.civ.tech.build) return { why: '건축 기술을 먼저 배워야 해요. (기술 탭)' };
+  if (S.civ.towns.length >= TOWN_NAMES.length) return { why: '더 이상 마을을 세울 수 없어요.' };
+  if (P.sail) return { why: '배에서 내려서 땅 위에서 세워야 해요.' };
+  const px = Math.floor(P.x), pz = Math.floor(P.z);
+  if (!pget(px, pz)) return { why: '이곳엔 마을을 세울 수 없어요.' };
+  if (inTerr(P.x, P.z)) return { why: '여기는 이미 내 영토예요. 지도(M)의 주황 테두리 밖으로 나가 보세요.' };
+  const c = CITIES.find(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 16 : c.size === 2 ? 11 : 8));
+  if (c) return { why: `${josa(c.name, '과', '와')} 너무 가까워요. 조금 더 떨어진 빈 땅을 찾아보세요.` };
+  const sp = civSpot(px - 1, pz - 3, 2, 2, 4);
+  if (!sp) return { why: '주변에 2×2칸 빈 풀밭이 필요해요. (모래·논·물가는 안 돼요)' };
+  return { ok: true, sp, cost: townCost() };
+}
+function foundTown() {
+  const ck = settleCheck(); if (!ck.ok) { toast(ck.why); SFX.miss(); return; }
+  if (!hasCost(ck.cost)) { toast('재료가 모자라요.'); SFX.miss(); return; }
+  payCost(ck.cost);
+  const [x, z] = ck.sp, t = { name: TOWN_NAMES[S.civ.towns.length], x, z, ax: x + 1, az: z + 2 };
+  S.civ.towns.push(t); placeTown(t); unstickVillagers();
+  reveal(x + 1, z + 1, TOWN_R);
+  const res = connectTown(t);
+  terrDirty = true; dirty(); closePanels();
+  burst(x + 1, 1.2, z + 1, 0xffe08a, 16, 2.2, 0.9);
+  civBanner('🏡', `새 마을 「${t.name}」!`, res ? `${res.to}까지 ${res.len}칸 길을 닦았어요.` : '바다 건너라 길은 못 이었지만, 배로 오갈 수 있어요.');
+}
+/* --- 도시와 교류: 우호도 → 동맹 → 특산물 --- */
+function relAdd(c, n, quiet) {
+  const before = S.civ.rel[c] || 0, add = n + (S.civ.built.school ? 1 : 0), now = before + add;
+  S.civ.rel[c] = now; dirty();
+  if (!quiet) toast(`${c} 우호도 +${add} (${Math.min(now, ALLY_AT)} / ${ALLY_AT})`);
+  if (before < ALLY_AT && now >= ALLY_AT && !S.civ.ally[c]) toast(`🤝 ${josa(c, '과', '와')} 동맹을 맺을 수 있어요! 그 고장 주민에게 "교류하기"로 말을 걸어 보세요.`);
+  return now;
+}
+function makeAlly(c) { S.civ.ally[c] = true; S.civ.sent[c] = -1e9; dirty(); SFX.fanfare(); toast(`🤝 ${josa(c, '과', '와')} 동맹을 맺었어요! 특산물이 정기적으로 도착해요.`); }
+function exchangeSteps(v) {
+  const c = v.def.town, cp = v.def.cp, rel = S.civ.rel[c] || 0, g = CITY_GOODS[c], gi = g && ITEMS[g[0]];
+  if (S.civ.ally[c]) return [`${josa(c, '과', '와')} 도토리 마을은 든든한 동맹이지! ${cp}`, gi ? `${gi.n}, 꾸준히 보내 줄게. 마을 게시판(V)에서 받아 가. ${cp}` : `앞으로도 잘 지내자. ${cp}`];
+  const today = dayKey(gameNow()), ch = [];
+  if (rel >= ALLY_AT) ch.push({ l: '동맹을 맺자!', f: () => { makeAlly(c); return [`좋아! 오늘부터 ${josa(c, '과', '와')} 도토리 마을은 동맹이야! ${cp}`, `고마움의 뜻으로 ${gi ? josa(gi.n, '을', '를') : '특산물을'} 정기적으로 보내 줄게. ${cp}`]; } });
+  if (S.civ.gift[c] !== today) ch.push({ l: `선물 보내기 (도토리 ${fmt(GIFT)}개)`, f: () => {
+    if (S.coins < GIFT) return [`마음만 받을게. 도토리가 모자란 것 같아. ${cp}`];
+    S.coins -= GIFT; updateHUD(); S.civ.gift[c] = today; SFX.coin(); const n = relAdd(c, 2, true);
+    return [`우와, 고마워! ${c} 사람들 모두 기뻐할 거야. ${cp}`, n >= ALLY_AT ? `(${c} 우호도 ${n} / ${ALLY_AT} · 이제 동맹을 맺을 수 있어요!)` : `(${c} 우호도 ${n} / ${ALLY_AT})`];
+  } });
+  ch.push({ l: '다음에 할게', f: () => [`언제든 놀러 와. ${cp}`] });
+  return [{ t: `${josa(c, '과', '와')} 도토리 마을 사이 우호도는 지금 ${Math.min(rel, ALLY_AT)} / ${ALLY_AT}이야. 부탁을 들어주거나 선물을 보내 주면 더 친해질 거야. ${cp}`, choices: ch }];
+}
+// 1초마다: 플레이 시간을 세고, 동맹 도시는 TRIBUTE_SEC마다 특산물을 마을 창고로 보낸다
+function civTick() {
+  if (!started) return;
+  S.civ.play++; if (S.civ.play % 20 === 0) dirty();
+  const got = [];
+  for (const c of Object.keys(S.civ.ally)) {
+    if (S.civ.play - (S.civ.sent[c] ?? -1e9) < TRIBUTE_SEC) continue;
+    S.civ.sent[c] = S.civ.play; const [id, q] = CITY_GOODS[c] || ['apple', 1];
+    S.civ.store[id] = Math.min(30, (S.civ.store[id] || 0) + q); got.push(c);
+  }
+  if (got.length) { dirty(); SFX.coin(); toast(`📦 ${got.join('·')}에서 특산물이 도착했어요! 마을 발전(V) › 교류에서 받으세요.`); if (!$('#pCiv').hidden) renderCiv(); }
+}
+function collectStore() {
+  let got = 0, left = 0;
+  for (const id of Object.keys(S.civ.store)) { while (S.civ.store[id] > 0 && addItem(id)) { S.civ.store[id]--; got++; } left += S.civ.store[id]; if (!S.civ.store[id]) delete S.civ.store[id]; }
+  if (got) { SFX.pickup(); toast(left ? `특산물 ${got}개를 받았어요. 가방이 가득 차서 ${left}개는 창고에 남겼어요.` : `특산물 ${got}개를 가방에 넣었어요!`); } else toast('가방이 가득 찼어요.');
+  dirty(); renderCiv();
+}
+/* --- 나무배: 바다·강·다리 밑으로 다닌다 --- */
+const WATER_T = t => t === T.SEA || t === T.RIVER || t === T.BRIDGE;
+function canSail(x, z, r = 0.32) { for (const [a, b] of [[-r, -r], [r, -r], [-r, r], [r, r]]) { const tx = Math.floor(x + a), tz = Math.floor(z + b); if (!inB(tx, tz) || !WATER_T(tiles[idx(tx, tz)])) return false; } return true; }
+let boatMesh = null;
+function showBoat(on) { if (on) { if (!boatMesh) { boatMesh = castAll(makeBoat()); boatMesh.scale.setScalar(1.15); } if (!boatMesh.parent) scene.add(boatMesh); } else if (boatMesh && boatMesh.parent) scene.remove(boatMesh); }
+function launchSpot() {
+  if (!S.civ.boat || P.sail || S.tool !== 'hand') return null;
+  for (const t of frontTiles()) { const tt = tget(t.x, t.z); if ((tt === T.SEA || tt === T.RIVER) && canSail(t.x + 0.5, t.z + 0.5)) return [t.x + 0.5, t.z + 0.5]; }
+  return null;
+}
+function dockLaunch() { const [x, z, sx, sz] = S.civ.bpos.dock; for (const d of [2, 1]) if (canSail(x + sx * d + 0.5, z + sz * d + 0.5)) return [x + sx * d + 0.5, z + sz * d + 0.5]; return null; }
+function landSpot() { for (const t of frontTiles()) { const tt = tget(t.x, t.z); if (isWalkT(tt) && canStand(t.x + 0.5, t.z + 0.5)) return [t.x + 0.5, t.z + 0.5]; } return null; }
+function launch(p) {
+  if (!p) { toast('배를 띄울 물이 부족해요.'); return; }
+  if (FS) endFishing();
+  P.sail = true; S.civ.sail = true; P.x = p[0]; P.z = p[1]; showBoat(true); SFX.plop(); P.busy = 0.3;
+  if (!S.found.sailTip) { S.found.sailTip = true; toast('⛵ 출항! 바다와 강을 자유롭게 오가요. 땅을 보고 Space를 누르면 내려요.'); } else toast('⛵ 출항!');
+  dirty();
+}
+function disembark(p) { P.sail = false; S.civ.sail = false; P.x = p[0]; P.z = p[1]; showBoat(false); P.hop = 0.5; P.busy = 0.3; SFX.pickup(); toast('뭍에 내렸어요.'); dirty(); }
+// 마을 발전 건물 앞에서 할 수 있는 일
+const CIV_ACT = {
+  board: () => ({ l: '마을 발전', f: () => openCiv() }),
+  townhall: o => ({ l: '마을 회관', f: () => { toast(`${o.name} 마을 회관이에요.`); openCiv('town'); } }),
+  workshop: () => ({ l: '공방 쓰기', f: () => openCiv('craft') }),
+  dock: () => S.civ.boat ? { l: '배 띄우기', f: () => launch(dockLaunch()) } : { l: '살펴보기', f: () => openCiv('craft') },
+  annex: () => ({ l: '말 걸기', f: talkShop }),
+  myhouse: () => ({ l: '살펴보기', f: () => toast('내 집이다! 텐트 시절이 벌써 그립… 지는 않다.') }),
+  school: () => ({ l: '살펴보기', f: () => toast('도토리 학교. 아이들이 지도를 펴 놓고 바다 건너 도시를 공부하고 있다.') }),
+};
+/* --- 지도 위 영토와 길 --- */
+const terrCv = document.createElement('canvas'); terrCv.width = terrCv.height = N;
+function drawTerr() {
+  const ctx = terrCv.getContext('2d'), img = ctx.createImageData(N, N), d = img.data, own = new Uint8Array(N * N);
+  for (const t of myTowns()) for (let z = Math.max(0, Math.floor(t.z - t.r)); z <= Math.min(N - 1, Math.ceil(t.z + t.r)); z++) for (let x = Math.max(0, Math.floor(t.x - t.r)); x <= Math.min(N - 1, Math.ceil(t.x + t.r)); x++) if (Math.hypot(x + 0.5 - t.x, z + 0.5 - t.z) <= t.r) own[idx(x, z)] = 1;
+  for (let i = 0; i < N * N; i++) {
+    const x = i % N, z = (i - x) / N;
+    if (road[i]) { d.set([150, 98, 56, 255], i * 4); continue; }
+    if (!own[i]) continue;
+    const edge = x === 0 || z === 0 || x === N - 1 || z === N - 1 || !own[i - 1] || !own[i + 1] || !own[i - N] || !own[i + N];
+    if (edge) d.set([238, 128, 40, 255], i * 4);
+    else if (tiles[i] !== T.SEA) d.set([255, 196, 70, 52], i * 4);
+  }
+  ctx.putImageData(img, 0, 0); terrDirty = false;
+}
+/* --- 마을 발전 창 --- */
+let civTab = 'build';
+function openCiv(tab) { if (tab) civTab = tab; renderCiv(); openPanel('#pCiv'); }
+function chipEl(c) {
+  const box = document.createElement('div'); box.className = 'cost';
+  for (const [k, n] of Object.entries(c)) {
+    const i = document.createElement('i'), have = k === 'coins' ? S.coins : countItem(k);
+    i.className = have >= n ? '' : 'no';
+    i.textContent = k === 'coins' ? `도토리 ${fmt(n)}` : `${ITEMS[k].i} ${ITEMS[k].n} ${Math.min(have, n)}/${n}`;
+    box.append(i);
+  }
+  return box;
+}
+function civRow(icon, name, desc, cost, btn, cls) {
+  const r = document.createElement('div'); r.className = 'row' + (cls ? ' ' + cls : '');
+  r.innerHTML = '<div class="ic"></div><div class="nm"><span></span><small></small></div>';
+  r.querySelector('.ic').textContent = icon; r.querySelector('.nm span').textContent = name; r.querySelector('small').textContent = desc;
+  if (cost) r.querySelector('.nm').append(chipEl(cost));
+  if (btn) r.append(btn);
+  $('#civRows').append(r); return r;
+}
+const cbtn = (t, f, dis) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = t; b.disabled = !!dis; b.onclick = f; return b; };
+const ctag = t => { const s = document.createElement('span'); s.className = 'tag'; s.textContent = t; return s; };
+function renderCiv() {
+  document.querySelectorAll('[data-civ]').forEach(b => b.classList.toggle('on', b.dataset.civ === civTab));
+  const lv = S.civ.lv, rows = $('#civRows'), res = $('#civRes');
+  $('#civSub').textContent = `Lv.${lv} · ${ERA[lv]}`;
+  res.innerHTML = '';
+  for (const id of ['wood', 'stone', 'clay', 'iron', 'amethyst']) { const s = document.createElement('span'); s.textContent = `${ITEMS[id].i} ${countItem(id)}`; s.title = ITEMS[id].n; res.append(s); }
+  { const s = document.createElement('span'); s.textContent = `도토리 ${fmt(S.coins)}`; res.append(s); }
+  rows.innerHTML = '';
+  const note = t => { const p = document.createElement('p'); p.className = 'fine'; p.textContent = t; rows.append(p); };
+  if (civTab === 'build') {
+    const hd = document.createElement('div'); hd.className = 'lvl';
+    hd.innerHTML = '<div class="ic"></div><div style="flex:1;min-width:0"><b></b><span></span><div class="meter"><i></i></div></div>';
+    hd.querySelector('.ic').textContent = ['⛺', '🏠', '🏪', '🔨', '⚓', '🏫'][lv];
+    hd.querySelector('b').textContent = `도토리 마을 Lv.${lv} · ${ERA[lv]}`;
+    hd.querySelector('span').textContent = `영토 반경 ${TERR[lv]}칸 · 내 마을 ${1 + S.civ.towns.length}곳 · 동맹 ${Object.keys(S.civ.ally).length}곳`;
+    hd.querySelector('i').style.width = (lv / BUILDS.length * 100) + '%';
+    rows.append(hd);
+    BUILDS.forEach((b, i) => {
+      if (i < lv) { civRow(b.i, b.n, b.d, null, ctag('완공'), 'done'); return; }
+      if (i > lv) { civRow(b.i, b.n, `${josa(BUILDS[i - 1].n, '을', '를')} 먼저 지어야 해요.`, null, null, 'lock'); return; }
+      const c = costOf(b.cost), need = b.tech && !S.civ.tech[b.tech];
+      civRow(b.i, b.n, need ? `${TECH_BY[b.tech].n} 기술이 필요해요. ${b.d}` : b.d, c, cbtn('짓기', () => doBuild(b), need || !hasCost(c)), need ? 'lock' : '');
+    });
+    note('목재는 나무를 흔들어서, 돌·점토·철광석은 삽으로 바위를 두드려서, 도토리는 낚시·채집한 것을 상점에 팔아서 모아요. 건물을 지을 때마다 마을 레벨이 오르고 영토가 넓어져요.');
+  } else if (civTab === 'tech') {
+    TECHS.forEach((t, k) => {
+      if (k) { const a = document.createElement('div'); a.className = 'tree-arrow'; a.textContent = `▼ ${josa(TECHS[k - 1].n, '을', '를')} 배우면`; rows.append(a); }
+      if (S.civ.tech[t.id]) { civRow(t.i, t.n, t.d, null, ctag('배움'), 'done'); return; }
+      const why = lv < t.lv ? `마을 Lv.${t.lv}부터 배울 수 있어요.` : t.need && !S.civ.tech[t.need] ? `${josa(TECH_BY[t.need].n, '을', '를')} 먼저 배워야 해요.` : '';
+      civRow(t.i, t.n, why ? `${why} ${t.d}` : t.d, t.cost, cbtn('배우기', () => learnTech(t), !!why || !hasCost(t.cost)), why ? 'lock' : '');
+    });
+    note('기술 트리: 농업 → 건축 → 항해. 항해를 배우면 항구를 짓고 나무배를 만들어 울릉도·제주도 같은 섬까지 직접 노 저어 갈 수 있어요.');
+  } else if (civTab === 'town') {
+    const ck = settleCheck(), nm = TOWN_NAMES[S.civ.towns.length] || '';
+    civRow('🏡', '지금 이 자리에 새 마을 세우기', ck.ok ? `「${nm}」이 생겨요. 반경 ${TOWN_R}칸이 새 영토가 되고, 가까운 내 마을까지 길을 닦아요.` : ck.why, ck.cost || townCost(), cbtn('세우기', foundTown, !ck.ok || !hasCost(ck.cost)), ck.ok ? '' : 'lock');
+    civRow('🏠', '도토리 마을', `수도 · ${ERA[lv]} · 반경 ${TERR[lv]}칸`, null, ctag('거점'));
+    for (const t of S.civ.towns) {
+      const km = Math.round(Math.hypot(t.x - HX, t.z - HZ) * GEO.S), pv = KR_PROV[pget(t.x, t.z) - 1];
+      civRow('🏡', t.name, `${pv ? pv.n : ''} · 반경 ${TOWN_R}칸 · ${t.link ? josa(t.link, '과', '와') + ' 길로 이어짐' : '길 없음 (바다 건너, 배로 오가요)'}`, null, ctag(`${km}km`));
+    }
+    note('영토(지도의 주황 테두리) 밖, 도시에서 떨어진 빈 풀밭에 서서 세워요. 마을끼리는 흙길로 이어지고, 길 위에서는 조금 더 빨리 걸어요.');
+  } else if (civTab === 'ally') {
+    const st = Object.entries(S.civ.store).filter(([, q]) => q > 0);
+    if (st.length) {
+      const r = civRow('📦', '도착한 특산물', '동맹 도시가 보내 온 선물이에요.', null, cbtn('받기', collectStore));
+      const box = document.createElement('div'); box.className = 'cost';
+      for (const [id, q] of st) { const i = document.createElement('i'); i.textContent = `${ITEMS[id].i} ${ITEMS[id].n} ×${q}`; box.append(i); }
+      r.querySelector('.nm').append(box);
+    }
+    const list = CITIES.filter(c => S.found[c.name] || S.civ.rel[c.name]).sort((a, b) => (S.civ.ally[b.name] ? 1 : 0) - (S.civ.ally[a.name] ? 1 : 0) || (S.civ.rel[b.name] || 0) - (S.civ.rel[a.name] || 0));
+    if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = '아직 가 본 도시가 없어요. 도시에 가서 주민과 친해져 보세요.'; rows.append(e); }
+    for (const c of list) {
+      const rel = Math.min(S.civ.rel[c.name] || 0, ALLY_AT), [gid, gq] = CITY_GOODS[c.name], gi = ITEMS[gid], al = S.civ.ally[c.name];
+      const r = civRow(al ? '🤝' : c.size === 3 ? '🏙️' : '🏘️', c.name, al ? `동맹 · ${gi.i} ${gi.n} ${gq}개씩 ${TRIBUTE_SEC / 60}분마다 보내 줘요` : `우호도 ${rel} / ${ALLY_AT} · 동맹이 되면 ${gi.i} ${gi.n}`, null, al ? ctag('동맹') : rel >= ALLY_AT ? ctag('동맹 가능!') : null, al ? 'done' : '');
+      if (!al) { const m = document.createElement('div'); m.className = 'meter'; m.innerHTML = '<i></i>'; m.firstChild.style.width = (rel / ALLY_AT * 100) + '%'; r.querySelector('.nm').append(m); }
+    }
+    note(`도시 주민의 부탁을 들어주면 +3, 하루 첫인사 +1, "교류하기"로 선물을 보내면 +2${S.civ.built.school ? ' (학교 덕분에 매번 +1 더)' : ''}. 우호도가 ${ALLY_AT}이 되면 그 고장 주민에게 동맹을 제안해요.`);
+  } else {
+    const ws = S.civ.built.workshop;
+    for (const cr of CRAFTS) {
+      if (cr.boat) {
+        if (S.civ.boat) { civRow('⛵', '나무배', '이미 있어요. 맨손으로 물가(바다·강)를 보고 Space를 누르면 출항해요.', null, ctag('보유'), 'done'); continue; }
+        const why = !S.civ.tech.sail ? '항해 기술이 필요해요.' : !S.civ.built.dock ? '항구를 먼저 지어야 해요.' : '';
+        civRow('⛵', '나무배', why ? `${why} ${cr.d}` : cr.d, cr.cost, cbtn('만들기', () => craft(cr), !!why || !hasCost(cr.cost)), why ? 'lock' : ''); continue;
+      }
+      const it = ITEMS[cr.id];
+      civRow(it.i, it.n, ws ? `${it.cat} · 판매가 도토리 ${fmt(it.v)}` : '공방을 지으면 만들 수 있어요.', cr.cost, cbtn('만들기', () => craft(cr), !ws || !hasCost(cr.cost)), ws ? '' : 'lock');
+    }
+  }
+}
+document.querySelectorAll('[data-civ]').forEach(b => b.addEventListener('click', () => { civTab = b.dataset.civ; SFX.ui(); renderCiv(); }));
 
 /* --- 매일 바뀌는 것들 --- */
 let dailyEnts = [];
@@ -2030,11 +2591,12 @@ function setupDaily() {
 }
 
 /* ================= 플레이어 ================= */
-const P = { x: S.px, z: S.pz, rot: S.rot || 0, busy: 0, walk: 0, moving: false, running: false, swing: -1, shakeT: 0, crouch: 0, hop: 0, mesh: makePlayer() };
+const P = { x: S.px, z: S.pz, rot: S.rot || 0, sail: false, busy: 0, walk: 0, moving: false, running: false, swing: -1, shakeT: 0, crouch: 0, hop: 0, mesh: makePlayer() };
 scene.add(castAll(P.mesh));
 function canWalkTile(tx, tz) { const t = tget(tx, tz); if (!isWalkT(t)) return false; const o = occAt(tx, tz); return !(o && BLOCK[o.type]); }
 function canStand(x, z, r = 0.27) { return canWalkTile(Math.floor(x - r), Math.floor(z - r)) && canWalkTile(Math.floor(x + r), Math.floor(z - r)) && canWalkTile(Math.floor(x - r), Math.floor(z + r)) && canWalkTile(Math.floor(x + r), Math.floor(z + r)); }
-if (!canStand(P.x, P.z)) { P.x = HX + 0.5; P.z = HZ + 6.5; }
+if (S.civ.sail && S.civ.boat && canSail(P.x, P.z)) P.sail = true;
+else { S.civ.sail = false; if (!canStand(P.x, P.z)) { P.x = HX + 0.5; P.z = HZ + 6.5; } }
 function setTool(t) {
   if (FS) endFishing();
   S.tool = t; dirty();
@@ -2073,10 +2635,11 @@ let pendingFight = null;
 function talkVillager(v) {
   v.talking = true; const st = VS(v.id), h = hour(), cp = v.def.cp;
   const first = !S.daily.talked[v.id];
-  if (first) { S.daily.talked[v.id] = true; st.fr += 1; dirty(); }
+  if (first) { S.daily.talked[v.id] = true; st.fr += 1; dirty(); if (v.def.town) relAdd(v.def.town, 1); }
   const opener = first ? greetFor(v, h) : pick(OPENERS[v.id]);
   openDialog(vSpeaker(v), [{ t: opener, choices: [
     { l: '이야기하자', f: () => villagerTalkSteps(v) },
+    ...(v.def.town ? [{ l: '교류하기', f: () => exchangeSteps(v) }] : []),
     { l: '야차룰로 한판 붙자!', f: () => challengeSteps(v) },
     { l: '그냥 인사했어', f: () => 'close' }] }], () => {
     v.talking = false; v.wait = rand(1, 3);
@@ -2094,6 +2657,7 @@ function villagerTalkSteps(v) {
           removeItem(st.quest.item, 1); const rw = st.quest.reward; st.quest = null; st.fr += 3; S.coins += rw; SFX.coin(); dirty(); updateHUD();
           const out = [`고마워! 정말 필요했거든. ${cp}`, `답례로 도토리 ${fmt(rw)}개 줄게!`];
           if (R() < 0.35) { const gift = pick(['lamp', 'bench', 'seed_tulip', 'seed_cosmos', 'seed_daisy']); if (addItem(gift)) out.push(`그리고 이것도 받아. ${ITEMS[gift].n}! ${cp}`); }
+          if (v.def.town) { relAdd(v.def.town, 3); out.push(`${v.def.town} 사람들한테도 네 얘기 잘 해 둘게. ${cp}`); }
           return out;
         } },
         { l: '아직이야', f: () => [`그래? 천천히 줘도 괜찮아. ${cp}`] }] });
@@ -2302,7 +2866,7 @@ function updateBugs(dt, h) {
     b.t += dt;
     if (!inHours(h, b.sp.h) && !b.flee) b.flee = 0.01;
     if (b.on) {
-      if (!ents.includes(b.on)) { removeBug(b); continue; }
+      if (!ents.includes(b.on) || !b.on.mesh) { removeBug(b); continue; }
       b.mesh.rotation.y = Math.sin(b.t * 0.7) * 2;
       if (b.flee) { removeBug(b); continue; }
     } else if (b.flee) {
@@ -2382,9 +2946,12 @@ function nearestInFront(list, maxD, minDot) {
 }
 function currentAction() {
   if (FS) return FS.state === 'bite' ? { l: '낚아채기!', f: reelCatch } : { l: '건지기', f: reelCancel };
+  if (P.sail) { const l = landSpot(); return l ? { l: '배에서 내리기', f: () => disembark(l) } : null; }
   const v = nearestInFront(villagers.filter(v => v.vis), 1.6, 0.3); if (v) return { l: '말 걸기', f: () => talkVillager(v) };
   if (frontOcc(o => o.type === 'shop')) return { l: '말 걸기', f: talkShop };
   const po = frontOcc(o => o.type === 'pier'); if (po) return { l: '배 타기', f: () => rideFerry(po.pier) };
+  const co = frontOcc(o => CIV_ACT[o.type]); if (co) return CIV_ACT[co.type](co);
+  const ls = launchSpot(); if (ls) return { l: '배 띄우기', f: () => launch(ls) };
   const pt = { x: Math.floor(P.x), z: Math.floor(P.z) }; pt.k = tk(pt.x, pt.z);
   for (const t of [pt, ...frontTiles()]) if (groundMap.has(t.k)) return { l: '줍기', f: () => pickup(t.k) };
   const o = frontOcc();
@@ -2454,6 +3021,7 @@ function dropNear(x, z, id, fallFrom) {
   return addItem(id);
 }
 const REGROW = 4 * 60 * 1000;
+const regrowMs = () => S.civ.tech.farm ? REGROW / 2 : REGROW;
 const treeHasFruit = e => !!FRUITCOL[e.fruit] && !(S.trees[e.key] > Date.now());
 function refreshFruit(e) { if (e.mesh) e.mesh.userData.fruits.visible = treeHasFruit(e); }
 function shakeTree(e) {
@@ -2462,7 +3030,12 @@ function shakeTree(e) {
   burst(e.cx, top, e.cz, e.type === 'palm' ? 0x5db955 : e.fruit === 'cedar' ? 0x3f8f4f : 0x6cc35c, 6, 1.2, 0.9);
   later(0.25, () => {
     let got = false;
-    if (treeHasFruit(e)) { const n = e.type === 'palm' ? 2 : 3; for (let i = 0; i < n; i++) dropNear(e.x, e.z, e.fruit, top); S.trees[e.key] = Date.now() + REGROW; refreshFruit(e); got = true; dirty(); }
+    if (treeHasFruit(e)) { const n = e.type === 'palm' ? 2 : 3; for (let i = 0; i < n; i++) dropNear(e.x, e.z, e.fruit, top); S.trees[e.key] = Date.now() + regrowMs(); refreshFruit(e); got = true; dirty(); }
+    // 나뭇가지(목재): 나무마다 한 번 떨어지면 과일처럼 시간이 지나야 다시 난다
+    if (e.type === 'tree' && !(S.trees['w' + e.key] > Date.now()) && R() < 0.5) {
+      dropNear(e.x, e.z, 'wood', top); S.trees['w' + e.key] = Date.now() + regrowMs(); got = true; dirty();
+      if (!S.found.woodTip) { S.found.woodTip = true; toast('나뭇가지가 떨어졌다! 목재는 마을 발전(V)에 쓰여요.'); }
+    }
     if (S.daily.lucky === e.key && !S.daily.luckyDone) { S.daily.luckyDone = true; dropNear(e.x, e.z, 'acornbag', top); toast('나무에서 도토리 자루가 떨어졌다!'); got = true; dirty(); }
     if (!got && R() < 0.25) toast('나뭇잎만 우수수 떨어진다.');
   });
@@ -2608,7 +3181,7 @@ function updateClock() {
   $('#clkTime').textContent = `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`;
   $('#clkDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일${S.timeMode === 'fast' ? ' · 빠른 시간' : ''}`;
 }
-const panels = ['#pBag', '#pShop', '#pDex', '#pSet', '#pHelp', '#pMap'];
+const panels = ['#pBag', '#pShop', '#pDex', '#pSet', '#pHelp', '#pMap', '#pCiv'];
 const panelOpen = () => panels.some(p => !$(p).hidden);
 function closePanels() { if (!started) return; for (const p of panels) $(p).hidden = true; canvas.focus(); }
 function openPanel(id, force) { if (!started || FT || (D.open && !force)) return; for (const p of panels) $(p).hidden = p !== id; SFX.ui(); }
@@ -2662,9 +3235,9 @@ function renderShop() {
     const all = btn(`전부 팔기 (도토리 ${fmt(total)}개)`, () => { for (let i = 0; i < S.inv.length; i++) if (S.inv[i]) sell(i, S.inv[i].q, true); SFX.coin(); toast('전부 팔았어요! 감사합니다!'); renderShop(); }, true);
     all.style.alignSelf = 'flex-end'; rows.append(all);
   } else {
-    for (const id of SHOP_STOCK) {
+    for (const id of [...SHOP_STOCK, ...(S.civ.built.annex ? SHOP_STOCK2 : [])]) {
       const it = ITEMS[id];
-      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : '섬 어디든 놓을 수 있어요', fmt(it.buy), [btn('사기', () => {
+      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : it.place ? '섬 어디든 놓을 수 있어요' : '마을 발전에 쓰는 재료예요 (별관)', fmt(it.buy), [btn('사기', () => {
         if (S.coins < it.buy) { toast('도토리가 부족해요.'); SFX.miss(); return; }
         if (!addItem(id)) { toast('가방이 가득 찼어요.'); SFX.miss(); return; }
         S.coins -= it.buy; SFX.coin(); updateHUD(); toast(`${josa(it.n, '을', '를')} 샀어요!`); renderShop();
@@ -2720,6 +3293,7 @@ const openBag = () => { bagSel = -1; renderBag(); openPanel('#pBag'); };
 const openDex = () => { renderDex(); openPanel('#pDex'); };
 const openSet = () => { renderSettings(); openPanel('#pSet'); };
 $('#btnBag').addEventListener('click', openBag);
+$('#btnCiv').addEventListener('click', () => openCiv());
 $('#btnDex').addEventListener('click', openDex);
 $('#btnSet').addEventListener('click', openSet);
 $('#clock').addEventListener('click', openSet);
@@ -2791,9 +3365,11 @@ function drawMarks(ctx, k, ox, oz, big) {
   for (const p of PIERS) if (p.x != null && S.found['pier:' + p.id] && vis(p.x, p.z)) label(X(p.x + 0.5), Z(p.z + 0.5), '⚓', big ? 14 : 12, '#2f6fa8');
   for (const l of LANDMARKS) if (S.found['lm:' + l.name] && vis(l.x, l.z)) { label(X(l.x), Z(l.z), '★', big ? 14 : 12, '#e0453c'); if (big) label(X(l.x), Z(l.z) + 13, l.name, 11, '#7a3a2a'); }
   for (const c of CITIES) if (S.found[c.name] && vis(c.x, c.z)) {
+    if (S.civ.ally[c.name]) { ctx.strokeStyle = '#3f9a45'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(X(c.x), Z(c.z), (c.size === 3 ? 5 : 3.5) + 4, 0, Math.PI * 2); ctx.stroke(); }
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#4b3a28'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(c.x), Z(c.z), c.size === 3 ? 5 : 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     if (big || c.size >= 2) label(X(c.x), Z(c.z) - (big ? 13 : 11), c.name, big ? (c.size === 3 ? 15 : 12) : 11, '#4b3a28');
   }
+  for (const t of S.civ.towns) if (vis(t.x + 1, t.z + 1)) { label(X(t.x + 1), Z(t.z + 1), '🏡', big ? 15 : 12, '#000'); if (big) label(X(t.x + 1), Z(t.z + 1) + 14, t.name, 11, '#2f7a35'); }
   if (vis(HX, HZ)) { label(X(HX + 0.5), Z(HZ + 3), '🏠', big ? 16 : 13, '#000'); if (big) label(X(HX + 0.5), Z(HZ + 3) + 15, '도토리 마을', 12, '#2f7a35'); }
   ctx.save(); ctx.translate(X(P.x), Z(P.z)); ctx.rotate(Math.PI - P.rot);
   ctx.fillStyle = '#e0453c'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(7, 7); ctx.lineTo(0, 3); ctx.lineTo(-7, 7); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
@@ -2806,7 +3382,8 @@ function drawMini() {
   miniCtx.imageSmoothingEnabled = false;
   miniCtx.fillStyle = `rgb(${FOGC})`; miniCtx.fillRect(0, 0, W, W);
   const sx = clamp(ox, 0, N), sz = clamp(oz, 0, N), ex = clamp(ox + MINI, 0, N), ez = clamp(oz + MINI, 0, N);
-  if (ex > sx && ez > sz) miniCtx.drawImage(fogCv, sx, sz, ex - sx, ez - sz, (sx - ox) * k, (sz - oz) * k, (ex - sx) * k, (ez - sz) * k);
+  if (terrDirty) drawTerr();
+  if (ex > sx && ez > sz) for (const cv of [fogCv, terrCv]) miniCtx.drawImage(cv, sx, sz, ex - sx, ez - sz, (sx - ox) * k, (sz - oz) * k, (ex - sx) * k, (ez - sz) * k);
   drawMarks(miniCtx, k, ox, oz, false);
 }
 function drawWorldMap() {
@@ -2814,6 +3391,7 @@ function drawWorldMap() {
   const cv = $('#mapC'), ctx = cv.getContext('2d'), W = cv.width, k = W / N;
   ctx.imageSmoothingEnabled = false; ctx.fillStyle = `rgb(${FOGC})`; ctx.fillRect(0, 0, W, W);
   ctx.drawImage(fogCv, 0, 0, N, N, 0, 0, W, W);
+  if (terrDirty) drawTerr(); ctx.drawImage(terrCv, 0, 0, N, N, 0, 0, W, W);
   ctx.strokeStyle = 'rgba(80,60,30,.08)'; ctx.lineWidth = 1;
   for (let g = 0; g <= N; g += 40) { ctx.beginPath(); ctx.moveTo(g * k, 0); ctx.lineTo(g * k, W); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, g * k); ctx.lineTo(W, g * k); ctx.stroke(); }
   drawMarks(ctx, k, 0, 0, true);
@@ -2826,6 +3404,8 @@ function openMap() { openPanel('#pMap'); drawWorldMap(); }
 function placeName() {
   const near = CITIES.filter(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 13 : 8)).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
   if (Math.hypot(HX - P.x, HZ + 3 - P.z) < 12) return '도토리 마을';
+  for (const t of S.civ.towns) if (Math.hypot(t.x + 1 - P.x, t.z + 1 - P.z) < 9) return t.name;
+  if (P.sail && tget(Math.floor(P.x), Math.floor(P.z)) === T.SEA && !near) return '바다 위 (나무배)';
   if (near) return near.name;
   const p = pget(Math.floor(P.x), Math.floor(P.z)); return p ? KR_PROV[p - 1].n : '바다';
 }
@@ -2894,6 +3474,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'i' || k === 'tab') { if (!$('#pBag').hidden) closePanels(); else openBag(); }
   else if (k === 'c') { if (!$('#pDex').hidden) closePanels(); else openDex(); }
   else if (k === 'm') { if (!$('#pMap').hidden) closePanels(); else openMap(); }
+  else if (k === 'v') { if (!$('#pCiv').hidden) closePanels(); else openCiv(); }
   else if (TOOLKEYS[k] && !D.open && !panelOpen()) setTool(TOOLKEYS[k]);
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -3300,17 +3881,20 @@ function updatePlayer(dt) {
   if (P.moving && FS) reelCancel();
   P.running = P.moving && (keys['shift'] || joy.mag > 0.92);
   if (P.moving) {
-    const sp = (P.running ? 5.4 : 3.1) * Math.min(1, len);
-    P.rot = lerpAngle(P.rot, Math.atan2(mx, mz), 1 - Math.exp(-dt * 14));
-    const nx = P.x + mx * sp * dt; if (canStand(nx, P.z)) P.x = nx;
-    const nz = P.z + mz * sp * dt; if (canStand(P.x, nz)) P.z = nz;
-    for (const v of villagers) { if (!v.vis) continue; const dx = P.x - v.x, dz = P.z - v.z, d = Math.hypot(dx, dz); if (d < 0.6 && d > 0.001) { const px = v.x + dx / d * 0.6, pz = v.z + dz / d * 0.6; if (canStand(px, pz)) { P.x = px; P.z = pz; } } }
+    // 흙길 위에선 조금 빠르게, 배를 타면 훨씬 빠르게
+    const onRoad = road[idx(clamp(Math.floor(P.x), 0, N - 1), clamp(Math.floor(P.z), 0, N - 1))];
+    const sp = (P.sail ? (P.running ? 9 : 6) : (P.running ? 5.4 : 3.1) * (onRoad ? 1.25 : 1)) * Math.min(1, len);
+    P.rot = lerpAngle(P.rot, Math.atan2(mx, mz), 1 - Math.exp(-dt * (P.sail ? 6 : 14)));
+    const ok = P.sail ? canSail : canStand;
+    const nx = P.x + mx * sp * dt; if (ok(nx, P.z)) P.x = nx;
+    const nz = P.z + mz * sp * dt; if (ok(P.x, nz)) P.z = nz;
+    if (!P.sail) for (const v of villagers) { if (!v.vis) continue; const dx = P.x - v.x, dz = P.z - v.z, d = Math.hypot(dx, dz); if (d < 0.6 && d > 0.001) { const px = v.x + dx / d * 0.6, pz = v.z + dz / d * 0.6; if (canStand(px, pz)) { P.x = px; P.z = pz; } } }
     P.walk += dt * sp * 2.3;
-    if (P.running && R() < dt * 10) burst(P.x, 0.05, P.z, tget(Math.floor(P.x), Math.floor(P.z)) === T.SAND ? 0xeedca5 : 0xc9e3a0, 1, 0.5, 0.35);
+    if (P.running && !P.sail && R() < dt * 10) burst(P.x, 0.05, P.z, tget(Math.floor(P.x), Math.floor(P.z)) === T.SAND ? 0xeedca5 : 0xc9e3a0, 1, 0.5, 0.35);
   }
   P.busy = Math.max(0, P.busy - dt);
   // 애니메이션
-  const sw = P.moving ? Math.sin(P.walk) * 0.65 : 0;
+  const sw = P.moving && !P.sail ? Math.sin(P.walk) * 0.65 : 0;
   u.lL.rotation.x = sw; u.lR.rotation.x = -sw;
   u.aL.rotation.x = -sw * 0.6;
   P.crouch = Math.max(0, P.crouch - dt); P.hop = Math.max(0, P.hop - dt); P.shakeT = Math.max(0, P.shakeT - dt);
@@ -3328,8 +3912,13 @@ function updatePlayer(dt) {
   if (S.tool === 'hand') { u.aR.rotation.x = P.shakeT > 0 ? -1.3 - shk : sw * 0.6; } else u.aR.rotation.x = hx + 0.6;
   u.hold.rotation.x = hx;
   u.head.rotation.y = 0;
-  const gy = groundY(P.x, P.z);
-  P.mesh.position.set(P.x, lerp(P.mesh.position.y, gy, 1 - Math.exp(-dt * 12)), P.z); P.mesh.rotation.y = P.rot;
+  const tNow = performance.now(), gy = P.sail ? -0.24 + Math.sin(tNow / 420) * 0.03 : groundY(P.x, P.z);
+  P.mesh.position.set(P.x, P.sail ? gy : lerp(P.mesh.position.y, gy, 1 - Math.exp(-dt * 12)), P.z); P.mesh.rotation.y = P.rot;
+  if (P.sail && boatMesh) {
+    const fx = Math.sin(P.rot), fz = Math.cos(P.rot);
+    boatMesh.position.set(P.x + fx * 0.22, gy + 0.05, P.z + fz * 0.22); boatMesh.rotation.set(Math.sin(tNow / 610) * 0.04, P.rot, Math.sin(tNow / 500) * 0.035);
+    if (P.moving && R() < dt * 16) burst(P.x - fx * 0.85 + rand(-0.2, 0.2), -0.22, P.z - fz * 0.85 + rand(-0.2, 0.2), 0xf2fbff, 1, 0.5, 0.55);
+  }
 }
 function updateCull(force) {
   const ccx = Math.floor(camPos.x / CH), ccz = Math.floor(camPos.z / CH), want = new Set();
@@ -3367,6 +3956,7 @@ function slowTick() {
       dirty();
     }
   }
+  civTick();
   updateClock();
 }
 let last = performance.now();
@@ -3412,6 +4002,7 @@ window.addEventListener('pagehide', save);
 
 /* ================= 시작 ================= */
 setTool(S.tool || 'hand');
+civLive = true; if (P.sail) showBoat(true);
 groundLive = true; updateHUD(); updateClock(); updateCull(true); slowTick(); updateEnv(hour());
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawSign());
 if (S.seenHelp) $('#btnStart').textContent = '이어서 하기';
