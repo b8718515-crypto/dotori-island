@@ -707,25 +707,165 @@ function makeSapling(stage, fruit) {
   if (stage === 0) { const g = new THREE.Group(); g.add(mesh(G.tuft, M(0x5fae4a), 0, 0.12, 0)); g.add(mesh(new THREE.CircleGeometry(0.22, 10).rotateX(-Math.PI / 2), M(0x8a6a44), 0, 0.012, 0)); return g; }
   const g = makeTree(fruit); g.userData.fruits.visible = false; g.scale.setScalar(stage === 1 ? 0.4 : 0.68); return g;
 }
+/* --- 캐릭터 얼굴 --- */
+// 얼굴은 원작처럼 그림이다: 눈·눈썹·볼터치·입을 캔버스에 그려 머리 앞쪽에 얇게 씌우고,
+// 깜빡이거나 말할 때는 그림만 바꿔 끼운다.
+const texCache = {};
+function canvasTex(key, w, h, draw) {
+  if (texCache[key]) return texCache[key];
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d'); x.lineCap = 'round'; x.lineJoin = 'round'; draw(x, w, h);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return (texCache[key] = t);
+}
+function drawEye(x, cx, cy, f, state, out) {
+  const rx = f.eyeW || 15, ry = f.eyeH || 19, line = f.line || '#2e1c12';
+  x.strokeStyle = line; x.lineWidth = 6;
+  if (state === 'blink') { x.beginPath(); x.moveTo(cx - rx, cy + 2); x.quadraticCurveTo(cx, cy + 9, cx + rx, cy + 2); x.stroke(); return; }
+  if (state === 'happy') { x.beginPath(); x.moveTo(cx - rx, cy + 6); x.quadraticCurveTo(cx, cy - 14, cx + rx, cy + 6); x.stroke(); return; }
+  x.save(); x.translate(cx, cy); if (f.tilt) x.rotate(out * f.tilt);
+  x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); x.fillStyle = f.iris || '#24160e'; x.fill();
+  if (f.irisLight) { x.save(); x.clip(); x.fillStyle = f.irisLight; x.beginPath(); x.ellipse(0, ry * 0.55, rx * 0.85, ry * 0.55, 0, 0, Math.PI * 2); x.fill(); x.restore(); }
+  x.fillStyle = '#fff';
+  x.beginPath(); x.arc(-out * rx * 0.28, -ry * 0.36, rx * 0.42, 0, Math.PI * 2); x.fill();
+  x.beginPath(); x.arc(out * rx * 0.35, ry * 0.4, rx * 0.18, 0, Math.PI * 2); x.fill();
+  if (f.lash) {
+    x.strokeStyle = f.iris || line; x.lineWidth = 4.5;
+    x.beginPath(); x.moveTo(out * rx * 0.7, -ry * 0.62); x.lineTo(out * (rx + 7), -ry * 0.95); x.stroke();
+    x.beginPath(); x.moveTo(out * rx * 0.95, -ry * 0.2); x.lineTo(out * (rx + 9), -ry * 0.42); x.stroke();
+  }
+  x.restore();
+}
+function faceTex(f, state) {
+  return canvasTex('f' + f.key + state, 256, 160, x => {
+    const ey = f.eyeY || 64, gap = f.gap || 40;
+    if (f.blush) for (const s of [-1, 1]) {
+      const bx = 128 + s * (gap + 26), by = ey + 32, g = x.createRadialGradient(bx, by, 2, bx, by, 24);
+      g.addColorStop(0, f.blush + 'bb'); g.addColorStop(1, f.blush + '00'); x.fillStyle = g; x.fillRect(bx - 30, by - 30, 60, 60);
+    }
+    if (f.brow) for (const s of [-1, 1]) {
+      x.strokeStyle = f.brow; x.lineWidth = f.browW || 6; const bx = 128 + s * gap, by = ey - (f.eyeH || 19) - 13;
+      x.beginPath(); x.moveTo(bx - 11, by + 2); x.quadraticCurveTo(bx, by - 4, bx + 11, by + 2); x.stroke();
+    }
+    for (const s of [-1, 1]) drawEye(x, 128 + s * gap, ey, f, state, s);
+  });
+}
+function mouthTex(kind, open) {
+  return canvasTex('m' + kind + open, 128, 96, x => {
+    const cx = 64, cy = 40; x.strokeStyle = '#4a2418'; x.lineWidth = 5;
+    if (open) {
+      x.fillStyle = '#7e2a26'; x.beginPath(); x.ellipse(cx, cy + 4, 12, 10, 0, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#ef7d7a'; x.beginPath(); x.ellipse(cx, cy + 9, 7, 4.5, 0, 0, Math.PI * 2); x.fill();
+      if (kind === 'y') { x.beginPath(); x.moveTo(cx, cy - 18); x.lineTo(cx, cy - 7); x.stroke(); }
+      return;
+    }
+    if (kind === 'y') { x.beginPath(); x.moveTo(cx, cy - 18); x.lineTo(cx, cy - 2); x.stroke(); }
+    if (kind === 'w' || kind === 'y') { x.beginPath(); x.moveTo(cx - 17, cy - 3); x.quadraticCurveTo(cx - 8, cy + 11, cx, cy - 1); x.quadraticCurveTo(cx + 8, cy + 11, cx + 17, cy - 3); x.stroke(); }
+    else { x.beginPath(); x.moveTo(cx - 13, cy); x.quadraticCurveTo(cx, cy + 12, cx + 13, cy); x.stroke(); }
+  });
+}
+// 구 표면의 앞쪽 일부를 잘라 낸 얇은 껍질에 그림을 붙인다 (phi: 가로 폭, t0·tl: 위에서부터 세로 범위, 라디안)
+function faceShell(parent, r, tex, phi, t0, tl) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 16, Math.PI / 2 - phi / 2, phi, t0, tl),
+    bend(new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })));
+  m.renderOrder = 2; parent.add(m); return m;
+}
+function makeFace(u, f, eyes, mouth, mk) {
+  f.key = f.key || JSON.stringify(f);
+  u.face = { f, eyes, mouth, mk, blinkT: rand(1, 4), blink: 0, es: 'open', mo: false, mood: null };
+}
+// 깜빡임과 말할 때 입 뻐끔거림
+function faceTick(u, dt, talk) {
+  const F = u.face; if (!F) return;
+  F.blinkT -= dt; if (F.blinkT <= 0) { F.blink = 0.12; F.blinkT = rand(2, 5); }
+  F.blink -= dt;
+  const es = F.mood || (F.blink > 0 ? 'blink' : 'open');
+  if (F.es !== es) { F.es = es; F.eyes.material.map = faceTex(F.f, es); }
+  const mo = !!talk && Math.sin(performance.now() / 65) > -0.2;
+  if (F.mouth && F.mo !== mo) { F.mo = mo; F.mouth.material.map = mouthTex(F.mk, mo); }
+}
+const speaking = name => D.open && D.typing && D.sp && D.sp.name === name;
+
+/* --- 캐릭터 몸 --- */
+// 원작 비율: 머리가 크고 몸은 짧은 2~2.5등신. 팔다리는 어깨·엉덩이 관절을 축으로 돌아간다.
+const CG = {
+  head: new THREE.SphereGeometry(0.42, 40, 28),
+  muzzle: new THREE.SphereGeometry(0.19, 28, 18),
+  shirt: new THREE.LatheGeometry([[0, 0.25], [0.17, 0.26], [0.195, 0.32], [0.19, 0.42], [0.175, 0.52], [0.135, 0.6], [0.07, 0.645], [0, 0.655]].map(([x, y]) => new THREE.Vector2(x, y)), 28),
+  shorts: new THREE.CylinderGeometry(0.178, 0.195, 0.11, 24),
+  leg: new THREE.CylinderGeometry(0.058, 0.052, 0.17, 12),
+  foot: new THREE.SphereGeometry(0.075, 16, 10),
+  sleeve: new THREE.SphereGeometry(0.075, 16, 12),
+  arm: new THREE.CylinderGeometry(0.043, 0.047, 0.17, 10),
+  hand: new THREE.SphereGeometry(0.057, 14, 10),
+  ear: new THREE.SphereGeometry(0.13, 20, 14),
+  earLong: new THREE.SphereGeometry(0.085, 16, 12),
+  earCat: new THREE.ConeGeometry(0.16, 0.3, 16),
+  nose: new THREE.SphereGeometry(0.055, 14, 10),
+};
+// 옷 무늬: 줄무늬·물방울·체크를 캔버스로 그린다
+function patternTex(c, kind) {
+  return canvasTex('p' + c + kind, 256, 96, (x, w, h) => {
+    const base = '#' + c.toString(16).padStart(6, '0'); x.fillStyle = base; x.fillRect(0, 0, w, h);
+    x.fillStyle = 'rgba(255,255,255,0.75)';
+    if (kind === 'stripe') for (let y = 6; y < h; y += 22) x.fillRect(0, y, w, 8);
+    if (kind === 'dot') for (let y = 8, r = 0; y < h; y += 20, r++) for (let i = (r % 2) * 16; i < w; i += 32) { x.beginPath(); x.arc(i, y, 5.5, 0, Math.PI * 2); x.fill(); }
+    if (kind === 'check') { x.fillStyle = 'rgba(255,255,255,0.28)'; for (let i = 0; i < w; i += 32) x.fillRect(i, 0, 14, h); for (let y = 0; y < h; y += 24) x.fillRect(0, y, w, 11); }
+  });
+}
+function makeBody(g, o) {
+  const body = new THREE.Group(); g.add(body);
+  const skin = M(o.skin), legs = [-1, 1].map(sx => {
+    const l = new THREE.Group(); l.position.set(sx * 0.085, 0.25, 0); body.add(l);
+    l.add(mesh(CG.leg, skin, 0, -0.1, 0));
+    put(l, mesh(CG.foot, M(o.shoe || o.skin), 0, -0.2, 0.03)).scale.set(1, 0.6, 1.35);
+    return l;
+  });
+  body.add(mesh(CG.shorts, M(o.pants), 0, 0.27, 0));
+  const shirt = o.pattern ? bend(new THREE.MeshLambertMaterial({ map: patternTex(o.shirt, o.pattern) })) : M(o.shirt);
+  body.add(mesh(CG.shirt, shirt));
+  const arms = [1, -1].map(sx => {
+    const a = new THREE.Group(); a.position.set(sx * 0.165, 0.56, 0); a.rotation.z = sx * 0.22; body.add(a);
+    put(a, mesh(CG.sleeve, shirt, 0, -0.02, 0)).scale.set(1, 1.05, 1);
+    a.add(mesh(CG.arm, skin, 0, -0.12, 0));
+    put(a, mesh(CG.hand, skin, 0, -0.22, 0)).scale.set(1, 1.08, 0.9);
+    return a;
+  });
+  const head = new THREE.Group(); head.position.y = 1.0; body.add(head);
+  return { body, head, lL: legs[0], lR: legs[1], aL: arms[0], aR: arms[1] };
+}
+// 머리카락: 머리보다 조금 큰 구 하나에서 얼굴 자리만 안쪽으로 밀어 넣어, 물결 모양 앞머리선과
+// 귀까지 내려오는 옆머리, 목덜미까지 덮는 뒷머리가 이어진 한 덩어리로 만든다
+const playerHairGeo = (() => {
+  const g = new THREE.SphereGeometry(0.455, 64, 44), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(x, z), ay = Math.abs(a), ny = y / 0.455;
+    const bang = 0.42 + 0.08 * Math.sin(a * 3.2 + 0.8) - 0.1 * Math.max(0, ay - 0.6);
+    let keep = ny > bang || (ay > 1.1 && (ay < 1.65 ? ny > -0.3 : ny > -0.55));
+    if (!keep) { p.setXYZ(i, x * 0.8, y * 0.8, z * 0.8); continue; }
+    const puff = 1 + 0.03 * Math.max(0, ny) + 0.012 * Math.sin(a * 9 + ny * 6);
+    p.setXYZ(i, x * puff, y * puff, z * puff);
+  }
+  g.computeVertexNormals(); return g;
+})();
 function makeAnimal(o) {
   const g = new THREE.Group(); g.add(blob(0.9));
-  const body = new THREE.Group(); g.add(body);
-  const lL = mesh(G.leg, M(o.pants), -0.1, 0.13, 0), lR = mesh(G.leg, M(o.pants), 0.1, 0.13, 0); body.add(lL, lR);
-  body.add(mesh(G.torso, M(o.shirt), 0, 0.46, 0));
-  const aL = mesh(G.arm, M(o.fur), 0.27, 0.5, 0), aR = mesh(G.arm, M(o.fur), -0.27, 0.5, 0); aL.rotation.z = 0.45; aR.rotation.z = -0.45; body.add(aL, aR);
-  const head = new THREE.Group(); head.position.y = 1.0; body.add(head);
-  const hd = mesh(G.head, M(o.fur)); hd.scale.set(1, 0.92, 0.95); head.add(hd);
-  put(head, mesh(G.muzzle, M(o.muzzle), 0, -0.08, 0.27)).scale.set(1.1, 0.8, 0.85);
-  head.add(mesh(G.nose, M(0x2b1d14), 0, -0.03, 0.41));
+  const u = makeBody(g, { skin: o.fur, shirt: o.shirt, pants: o.pants, pattern: o.pattern }), head = u.head;
+  const fur = M(o.fur);
+  const hd = put(head, mesh(CG.head, fur)); hd.scale.set(1, 0.92, 0.95);
+  const mz = put(head, mesh(CG.muzzle, M(o.muzzle), 0, -0.13, 0.29)); mz.scale.set(1.18, 0.8, 0.82);
+  put(head, mesh(CG.nose, M(0x2b1d14), 0, -0.075, 0.44)).scale.set(1.25, 0.85, 0.85);
   for (const sx of [-1, 1]) {
-    head.add(mesh(G.eye, M(0x1d1410), sx * 0.13, 0.06, 0.3));
-    head.add(mesh(G.cheek, M(0xf2a0a0), sx * 0.22, -0.07, 0.24));
-    if (o.ear === 'round') head.add(mesh(G.earRound, M(o.fur), sx * 0.25, 0.28, 0));
-    if (o.ear === 'long') { const e = mesh(G.earLong, M(o.fur), sx * 0.12, 0.5, -0.03); e.scale.set(1, 2.8, 0.7); e.rotation.z = -sx * 0.12; head.add(e); const ei = mesh(G.earLong, M(o.earIn), sx * 0.12, 0.5, 0.02); ei.scale.set(0.55, 2.3, 0.4); ei.rotation.z = -sx * 0.12; head.add(ei); }
-    if (o.ear === 'cat') { const e = mesh(G.earCat, M(o.fur), sx * 0.2, 0.32, 0); e.rotation.z = -sx * 0.25; head.add(e); }
+    if (o.ear === 'round') { head.add(mesh(CG.ear, fur, sx * 0.27, 0.29, -0.02)); put(head, mesh(CG.ear, M(o.muzzle), sx * 0.27, 0.29, 0.06)).scale.set(0.6, 0.6, 0.35); }
+    if (o.ear === 'long') { const e = mesh(CG.earLong, fur, sx * 0.13, 0.55, -0.03); e.scale.set(1, 2.9, 0.7); e.rotation.z = -sx * 0.14; head.add(e); const ei = mesh(CG.earLong, M(o.earIn), sx * 0.13, 0.55, 0.025); ei.scale.set(0.55, 2.4, 0.4); ei.rotation.z = -sx * 0.14; head.add(ei); }
+    if (o.ear === 'cat') { const e = mesh(CG.earCat, fur, sx * 0.24, 0.35, -0.02); e.rotation.set(-0.1, 0, -sx * 0.38); head.add(e); const ei = mesh(CG.earCat, M(o.earIn || o.muzzle), sx * 0.235, 0.34, 0.035); ei.scale.set(0.62, 0.7, 0.4); ei.rotation.set(-0.1, 0, -sx * 0.38); head.add(ei); }
   }
-  if (o.tail) { const t = mesh(G.dot, M(o.fur), 0, 0.3, -0.27); t.scale.setScalar(o.tail); body.add(t); }
-  g.userData = { body, head, lL, lR, aL, aR };
+  if (o.tail) { const t = mesh(CG.hand, fur, 0, 0.3, -0.2); t.scale.setScalar(o.tail * 0.9); u.body.add(t); }
+  // 눈은 주둥이 위쪽, 입은 주둥이 아래쪽에 그린다
+  const f = Object.assign({ eyeY: 50, gap: 44, blush: '#ff8f96' }, o.face || {});
+  const eyes = faceShell(hd, 0.425, faceTex(f, 'open'), 2.0, 0.95, 1.25);
+  const mouth = faceShell(mz, 0.193, mouthTex(o.mouth || 'w', false), 1.7, 1.45, 0.9);
+  makeFace(u, f, eyes, mouth, o.mouth || 'w');
+  g.userData = u;
   return g;
 }
 // 외계인 3인조: 짜리몽땅 3등신, 한 가지 색의 무광 몸, 역물방울 머리, 크고 비스듬한 민트빛 눈. 입·코·귀 없음.
@@ -809,15 +949,17 @@ function alienIdle(v, dt, moving) {
 }
 function makePlayer() {
   const g = new THREE.Group(); g.add(blob(0.85));
-  const body = new THREE.Group(); g.add(body);
-  const lL = mesh(G.leg, M(0x3c4f7a), -0.1, 0.13, 0), lR = mesh(G.leg, M(0x3c4f7a), 0.1, 0.13, 0); body.add(lL, lR);
-  body.add(mesh(G.torso, M(0x5cb0e4), 0, 0.46, 0));
-  const aL = mesh(G.arm, M(0xffd8b4), 0.27, 0.5, 0), aR = mesh(G.arm, M(0xffd8b4), -0.27, 0.5, 0); aL.rotation.z = 0.4; aR.rotation.z = -0.4; body.add(aL, aR);
-  const head = new THREE.Group(); head.position.y = 1.0; body.add(head);
-  put(head, mesh(G.head, M(0xffd8b4))).scale.setScalar(0.94);
-  const hair = mesh(new THREE.SphereGeometry(0.36, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.52), M(0x5a3826), 0, 0.03, -0.03); hair.rotation.x = -0.28; head.add(hair);
-  for (const sx of [-1, 1]) { head.add(mesh(G.eye, M(0x1d1410), sx * 0.12, 0.0, 0.3)); head.add(mesh(G.cheek, M(0xf5a3a0), sx * 0.2, -0.09, 0.25)); }
-  const hold = new THREE.Group(); hold.position.set(-0.3, 0.5, 0.05); body.add(hold);
+  const SKIN = 0xffd9b8, HAIR = 0x5a3624;
+  const u = makeBody(g, { skin: SKIN, shirt: 0x5cb0e4, pants: 0x34476e, shoe: 0x8a4a35 }), { body, head } = u;
+  const hd = put(head, mesh(CG.head, M(SKIN))); hd.scale.set(1, 0.96, 0.96);
+  put(head, mesh(CG.nose, M(0xf6c3a0), 0, -0.04, 0.4)).scale.setScalar(0.5);
+  put(head, mesh(playerHairGeo, M(HAIR), 0, 0.012, -0.005)).scale.set(1, 0.97, 0.98);
+  const f = { iris: '#3a2316', irisLight: '#86542f', eyeW: 15, eyeH: 20, brow: '#4a2c1a', blush: '#ff8a8a', gap: 40, eyeY: 70 };
+  const eyes = faceShell(hd, 0.425, faceTex(f, 'open'), 2.0, 0.95, 1.25);
+  const mouth = faceShell(hd, 0.424, mouthTex('smile', false), 0.75, 1.72, 0.5);
+  makeFace(u, f, eyes, mouth, 'smile');
+  const { lL, lR, aL, aR } = u;
+  const hold = new THREE.Group(); hold.position.set(-0.26, 0.48, 0.05); body.add(hold);
   const tools = {};
   { const t = new THREE.Group(); const h = mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.1, 5), M(0xb58a55), 0, 0, 0.55); h.rotation.x = Math.PI / 2; t.add(h);
     t.add(mesh(new THREE.TorusGeometry(0.19, 0.02, 6, 14), M(0x9aa3a8), 0, 0, 1.22));
@@ -827,7 +969,7 @@ function makePlayer() {
   { const t = new THREE.Group(); const h = mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.95, 5), M(0xb58a55), 0, 0, 0.48); h.rotation.x = Math.PI / 2; t.add(h);
     put(t, mesh(G.box, M(0xb8c2c8), 0, 0, 1.05)).scale.set(0.24, 0.03, 0.3); tools.shovel = t; }
   for (const k in tools) { tools[k].visible = false; hold.add(tools[k]); }
-  g.userData = { body, head, lL, lR, aL, aR, hold, tools };
+  g.userData = Object.assign(u, { hold, tools });
   return g;
 }
 
@@ -847,13 +989,13 @@ function removeEnt(e) {
   scene.remove(e.mesh); const i = ents.indexOf(e); if (i >= 0) ents.splice(i, 1);
 }
 const VDEF = [
-  { id: 'bori', name: '보리', sp: '곰', cp: '곰곰', pitch: 150, fur: 0xa9774c, muzzle: 0xe8cfae, ear: 'round', shirt: 0x6aa36f, pants: 0x7a5536, roof: 0x4f7fbf, color: '#4f7fbf', pref: [C - 12, C + 6], tail: 1.2,
+  { id: 'bori', name: '보리', sp: '곰', cp: '곰곰', pitch: 150, fur: 0xa9774c, muzzle: 0xe8cfae, ear: 'round', shirt: 0x6aa36f, pants: 0x7a5536, roof: 0x4f7fbf, color: '#4f7fbf', pref: [C - 12, C + 6], tail: 1.2, mouth: 'w', pattern: 'check', face: { iris: '#1e140e', brow: '#6b4528', eyeW: 13, eyeH: 16 },
     chat: ['…낮잠 자기 딱 좋은 날씨다. 곰곰.', '강에서 붕어를 잡았는데, 그냥 놓아줬다. 곰곰.', '나무 그늘 아래가 제일 시원하다. 곰곰.', '어디선가 꿀 냄새가 나는데… 기분 탓인가. 곰곰.', '이 섬에 오길 잘했다. 너도 그렇지? 곰곰.', '돌을 삽으로 두드리면 가끔 좋은 게 나온다더라. 곰곰.'],
     greet: { m: '좋은 아침이다. 일찍 일어났구나. 곰곰.', d: '오, 왔구나. 오늘도 섬은 평화롭다. 곰곰.', e: '해가 지니까 배가 고프다. 곰곰.', n: '이 시간까지 안 자고 뭐 하나… 곰곰.' } },
-  { id: 'somi', name: '솜이', sp: '토끼', cp: '폴짝', pitch: 330, fur: 0xf6f1ea, muzzle: 0xffffff, ear: 'long', earIn: 0xf6b3c4, shirt: 0xf39bb5, pants: 0xe9e2da, roof: 0xe5738f, color: '#d9577a', pref: [C + 10, C + 8], tail: 1.6,
+  { id: 'somi', name: '솜이', sp: '토끼', cp: '폴짝', pitch: 330, fur: 0xf6f1ea, muzzle: 0xffffff, ear: 'long', earIn: 0xf6b3c4, shirt: 0xf39bb5, pants: 0xe9e2da, roof: 0xe5738f, color: '#d9577a', pref: [C + 10, C + 8], tail: 1.6, mouth: 'y', pattern: 'dot', face: { iris: '#3b2238', lash: true, eyeW: 14, eyeH: 18, blush: '#ff7fa5' },
     chat: ['오늘 해변에서 불가사리 봤어! 진짜 별 모양이더라! 폴짝!', '달리기 시합할래? 내가 이길걸! 폴짝!', '꽃을 심으면 섬이 훨씬 예뻐질 거야! 폴짝!', '상점 주인 달수 아저씨, 은근히 장사 수완이 좋더라. 폴짝!', '밤에 강가에 가면 반딧불이가 반짝반짝해! 폴짝!', '나무를 흔들다 보면 가끔 도토리 자루가 떨어진대! 폴짝!'],
     greet: { m: '굿모닝! 오늘도 신나는 하루 시작! 폴짝!', d: '안녕안녕! 같이 놀자! 폴짝!', e: '노을 봤어? 하늘이 오렌지 주스 같아! 폴짝!', n: '쉿… 밤에는 살금살금 다녀야 해. 폴짝.' } },
-  { id: 'moka', name: '모카', sp: '고양이', cp: '냥', pitch: 240, fur: 0xe9b06d, muzzle: 0xfbe6c8, ear: 'cat', shirt: 0x8e7cc3, pants: 0x5b4d86, roof: 0x8a6fb8, color: '#7a5fb0', pref: [C - 7, C - 16], tail: 1.1,
+  { id: 'moka', name: '모카', sp: '고양이', cp: '냥', pitch: 240, fur: 0xe9b06d, muzzle: 0xfbe6c8, ear: 'cat', shirt: 0x8e7cc3, pants: 0x5b4d86, roof: 0x8a6fb8, color: '#7a5fb0', pref: [C - 7, C - 16], tail: 1.1, earIn: 0xf3b6a8, mouth: 'w', pattern: 'stripe', face: { iris: '#2f6b4a', irisLight: '#78c48f', tilt: 0.25, lash: true, eyeW: 17, eyeH: 17 },
     chat: ['흥, 오늘 옷 괜찮네. 조금은 인정해 줄게냥.', '생선은 구워 먹는 게 최고다냥.', '내 정원이 이 섬에서 제일 예쁘다냥. 반박은 안 받는다냥.', '다리 건너오기 귀찮지 않았어? 그래도 와줘서… 고맙다냥.', '도감은 잘 채우고 있냥? 나도 조금 궁금하다냥.', '바다 쪽 큰 그림자는 조심해라냥. 뭔가 이빨이 많은 녀석이다냥.'],
     greet: { m: '아침부터 부지런하네냥. 나쁘지 않다냥.', d: '어머, 왔냥? 마침 심심하던 참이다냥.', e: '저녁 바람이 기분 좋다냥.', n: '밤 산책이냥? 나도 별 보러 나왔다냥.' } },
   // 외계인 3인조 (검정=유쾌, 흰색=정중, 노랑=침착)
@@ -874,7 +1016,7 @@ const buildings = {};
   const sh = findSpot(C + 2, C + 1, 3, 2); reserve(sh[0] - 1, sh[1] - 1, 5, 5);
   const shop = addEnt({ type: 'shop', mesh: makeStall() }, sh[0], sh[1], 3, 2); buildings.shop = shop;
   const kp = makeAnimal({ fur: 0x9a6b45, muzzle: 0xe8d2b5, ear: 'round', shirt: 0x3f8a6a, pants: 0x5a4030, tail: 1.4 });
-  kp.userData.head.children.forEach(c => { if (c.geometry === G.earRound) c.scale.setScalar(0.6); });
+  kp.userData.head.children.forEach(c => { if (c.geometry === CG.ear) c.scale.multiplyScalar(0.6); });
   kp.position.set(0, 0, -0.25); shop.mesh.add(kp); KEEPER.mesh = kp;
   const te = findSpot(C - 6, C + 3, 2, 2); reserve(te[0] - 1, te[1] - 1, 4, 5);
   addEnt({ type: 'tent', mesh: makeTent() }, te[0], te[1], 2, 2);
@@ -1093,6 +1235,10 @@ function updateVillagers(dt, h) {
     u.head.rotation.z = v.talking ? Math.sin(performance.now() / 180) * 0.06 : 0;
     v.mesh.position.set(v.x, groundY(v.x, v.z), v.z); v.mesh.rotation.y = v.rot;
     if (v.def.alien) alienIdle(v, dt, moving);
+    else {
+      const sw = moving ? Math.sin(v.walk) * 0.5 : 0; u.aL.rotation.x = sw; u.aR.rotation.x = -sw;
+      faceTick(u, dt, v.talking && speaking(v.def.name));
+    }
   }
 }
 
@@ -2157,6 +2303,7 @@ function frame(now) {
   updatePlayer(dt);
   updateFight(dt, rdt);
   updateVillagers(dt, h);
+  faceTick(P.mesh.userData, dt, false); faceTick(KEEPER.mesh.userData, dt, speaking(KEEPER.name));
   updateFish(dt, h);
   updateFishing(dt);
   updateBugs(dt, h);
