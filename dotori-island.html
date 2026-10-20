@@ -3070,7 +3070,7 @@ function renderWar(rows, note) {
   }
   for (const o of (S.ai.bots || []).filter(b => b.alive && (b.side !== MY_SIDE || b.war))) {
     const truce = S.ai.truce[o.id] > S.civ.play, tr = opTier(o);
-    civRow(truce ? '🕊️' : '⚔️', `${o.name} (${SIDES[o.side].n})`, `${truce ? `휴전 중 (${mmss(S.ai.truce[o.id] - S.civ.play)} 남음) · 치면 모든 봇이 나를 덜 믿어요` : '적'} · ${BOT_STYLE[o.style].n} · 나를 ${tr.e}${tr.n} · 병사 약 ${Math.round(o.troops / 5) * 5}명`, null, null, '');
+    civRow(truce ? '🕊️' : '⚔️', `${o.name} (${SIDES[o.side].n})`, `${truce ? `휴전 중 (${mmss(S.ai.truce[o.id] - S.civ.play)} 남음) · 치면 모든 봇이 나를 덜 믿어요` : '적'} · ${BOT_STYLE[o.style].n} · ${goalTag(o)} · 나를 ${tr.e}${tr.n} · 병사 약 ${Math.round(o.troops / 5) * 5}명`, null, null, '');
     const tg = [null, ...o.towns];
     for (const t of tg) {
       const x = (t ? t.x : o.cx) + 1, z = (t ? t.z : o.cz) + 1, km = Math.round(Math.hypot(x - P.x, z - P.z) * GEO.S);
@@ -3199,7 +3199,7 @@ function removeBotWorld(b) {
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
 if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
-  rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce }) };
+  rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
 /* --- 봇의 기억과 평판 ---
    문명 5의 외교 AI처럼 봇은 플레이어가 한 일(선물·선전포고·약속 위반·같은 편 공격·정복)을 기억하고, 그 기억으로 태도를 정한다.
@@ -3234,11 +3234,54 @@ function breakTruce(b) {
   opAdd(b, REP.truceBreak, '휴전 약속을 깼다'); opRumor(b, REP.truceBreakAll, '휴전 약속을 깨는 자다', true);
   news(`🗡️ 우리가 ${josa(b.name, '과', '와')}의 휴전을 깼어요! 모든 봇이 이 일을 알게 됐어요.`, true);
 }
+/* --- 봇의 대전략 ---
+   문명 5의 대전략 AI처럼 목표마다 점수를 매긴다: 성향 점수 + 지금 형편 + 운 + 지금 목표를 이어 가는 보너스.
+   같은 진영 봇들이 이미 많이 고른 목표는 점수를 깎고, 한 번 고르면 GOAL.hold초는 유지해서 갈팡질팡하지 않는다.
+   목표는 확장·공격 빈도, 병사 모으는 방식, 수입, 공격 대상에 곱해진다. */
+const GOALS = {
+  grow: { n: '내정', e: '🏗️', atk: 0.4, exp: 1.6, keep: 1, inc: 1 },
+  conquer: { n: '정복', e: '⚔️', atk: 1.6, exp: 0.6, keep: 0.3, inc: 1 },
+  trade: { n: '교역', e: '💰', atk: 0.3, exp: 1, keep: 1, inc: 1.3 },
+  revenge: { n: '복수', e: '🔥', atk: 1.3, exp: 0.7, keep: 0.5, inc: 1 },
+};
+const GOAL = { every: 120, hold: 300, stay: 25, rand: 20, crowd: 25 };
+const GOAL_FLAVOR = { peace: { grow: 50, trade: 50, conquer: 10, revenge: 5 }, bal: { grow: 35, trade: 30, conquer: 30, revenge: 15 },
+  war: { grow: 15, trade: 10, conquer: 60, revenge: 30 }, traitor: { grow: 25, trade: 15, conquer: 45, revenge: 35 } };
+const goalOf = b => GOALS[b.goal] || GOALS.grow;
+const goalTag = b => GOALS[b.goal] ? `${GOALS[b.goal].e}${GOALS[b.goal].n}` : '목표 고르는 중';
+// 쉽게 칠 만한 요새가 가까이 있나 (정복 점수)
+const easyPrey = b => FORTS.some(f => { const st = fortSt(f), o = st.own; if (o !== 'k' && !(o.startsWith('b:') && (BOT_BY()[o.slice(2)] || {}).side !== b.side)) return false; return Math.hypot(f.cx - b.cx, f.cz - b.cz) < 900 && st.g * fortM(f, st, true) * 1.15 <= b.troops * 0.8; });
+function goalScore(b, g) {
+  const op = opOf(b);
+  let s = (GOAL_FLAVOR[b.style] || GOAL_FLAVOR.bal)[g];
+  if (g === 'grow') s += (5 - b.lv) * 6 + (b.towns.length < 1 + Math.floor(b.lv / 1.5) ? 15 : 0);
+  else if (g === 'conquer') s += (b.lv < 2 ? -30 : 0) + 30 * b.troops / botCap(b) + (easyPrey(b) ? 20 : 0);
+  else if (g === 'trade') s += (b.side === MY_SIDE && !b.war ? Math.max(0, op) * 0.8 : 0) + (b.res < 40 ? 10 : 0);
+  else if (g === 'revenge') s += op < -8 && (b.side !== MY_SIDE || b.war || op <= -30) ? -op * 1.2 : -100;   // 원한이 있을 때만
+  return s;
+}
+function botGoal(b) {
+  if (b.goal && S.civ.play - (b.ge || 0) < GOAL.every) return;
+  b.ge = S.civ.play;
+  const mates = (S.ai.bots || []).filter(o => o !== b && o.alive && o.side === b.side);
+  let best = null, bs = -1e9;
+  for (const g of Object.keys(GOALS)) {
+    const crowd = mates.length ? mates.filter(o => o.goal === g).length / mates.length : 0;
+    const s = goalScore(b, g) + GR() * GOAL.rand + (g === b.goal ? GOAL.stay : 0) - crowd * GOAL.crowd;
+    if (s > bs) { bs = s; best = g; }
+  }
+  if (b.goal && S.civ.play - (b.ga || 0) < GOAL.hold) return;
+  if (best !== b.goal) {
+    const first = !b.goal; b.goal = best; b.ga = S.civ.play;
+    if (!first) news(`🧭 ${b.name}이(가) 이제 「${GOALS[best].n}」에 몰두해요.`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)));
+  }
+}
 /* --- 봇의 하루: 일정 시간마다 한 가지씩 한다 --- */
 function botAct(b) {
   const st = BOT_STYLE[b.style] || BOT_STYLE.bal, mul = BOT_DIFF[S.ai.diff] || 1, cap = `${botShort(b)} 마을`;
   const forts = FORTS.filter(f => fortSt(f).own === 'b:' + b.id).length;
-  b.res += (2 + 1.1 * b.lv + 1 * b.towns.length + 1.5 * forts) * mul;
+  botGoal(b); const G = goalOf(b);
+  b.res += (2 + 1.1 * b.lv + 1 * b.towns.length + 1.5 * forts) * mul * G.inc;
   if (b.op) b.op = Math.sign(b.op) * Math.max(0, Math.abs(b.op) - REP.decay);
   // 1) 마을 키우기
   if (b.lv < 5 && b.res >= lvCost(b.lv)) {
@@ -3247,7 +3290,7 @@ function botAct(b) {
     terrDirty = true; news(`🏗️ ${josa(cap, '이', '가')} Lv.${b.lv}로 커졌어요. (${b.name}, ${SIDES[b.side].n})`); return;
   }
   // 2) 마을 넓히기
-  if (b.towns.length < 1 + Math.floor(b.lv / 1.5) && b.res >= 70 && GR() < 0.6 * st.exp) {
+  if (b.towns.length < 1 + Math.floor(b.lv / 1.5) && b.res >= 70 && GR() < Math.min(0.95, 0.6 * st.exp * G.exp)) {
     const r = mulberry32(hashStr(b.id + S.civ.play)), base = [b, ...b.towns][Math.floor(r() * (b.towns.length + 1))];
     const sp = botSite(b.side, r, { x: base.cx ?? base.x, z: base.cz ?? base.z });
     if (sp) {
@@ -3261,7 +3304,7 @@ function botAct(b) {
     }
   }
   // 3) 병사 모으기: 다음 레벨 비용은 남겨 두고 남는 것으로만
-  const keep = b.lv < 5 ? lvCost(b.lv) * 0.7 : 0, spare = b.res - keep;
+  const keep = b.lv < 5 ? lvCost(b.lv) * 0.7 * G.keep : 0, spare = b.res - keep;
   if (spare >= 25 && b.troops < botCap(b)) { const k = Math.min(Math.floor(spare / 25), botCap(b) - b.troops, 6); b.troops += k; b.res -= 25 * k; }
   // 4) 같은 편이라도 평판이 바닥이면 등을 돌린다. 배신자는 평판이 좋아도 가끔 뒤통수를 치고, 나쁘면 훨씬 자주 친다
   const op = opOf(b), betrayP = !b.war && b.side === MY_SIDE && b.lv >= 2 ? (st.betray ? 0.06 * (op < 0 ? 1 - op / 15 : Math.max(0.25, 1 - op / 40)) : op <= -30 ? 0.04 : 0) : 0;
@@ -3269,8 +3312,12 @@ function botAct(b) {
   else if (betrayP && st.betray && GR() < betrayP) {
     b.war = true; news(`🗡️ ${b.name}이(가) 뒤통수를 쳤어요! 같은 ${SIDES[b.side].n}인데 우리를 적으로 돌렸어요.`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)), true);
   }
+  // 교역에 몰두한 같은 편 봇은 사이가 좋으면 가끔 교역품을 보내 준다
+  if (b.goal === 'trade' && b.side === MY_SIDE && !b.war && opOf(b) >= 10 && GR() < 0.04) {
+    const c = 200 + 150 * b.lv; S.coins += c; updateHUD(); news(`🎁 ${b.name}이(가) 교역품을 보냈어요. 도토리 +${fmt(c)}`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)), true);
+  }
   // 5) 공격
-  if (b.lv >= 2 && b.troops >= 20 && GR() < st.atk * 0.5 && !S.war.marches.some(m => m.kind === 'bot' && m.bot === b.id)) {
+  if (b.lv >= 2 && b.troops >= 20 && GR() < Math.min(0.95, st.atk * 0.5 * G.atk) && !S.war.marches.some(m => m.kind === 'bot' && m.bot === b.id)) {
     // 이길 만한 목표만 고르고, 필요한 만큼(넉넉히)만 보낸다
     const can = Math.round(b.troops * 0.8), tgt = botTarget(b, can); if (!tgt) return;
     const n = Math.min(can, Math.max(10, Math.ceil(tgt.def * 1.35))); b.troops -= n;
@@ -3288,8 +3335,8 @@ function botTarget(b, can) {
     o.towns.forEach((t, i) => c.push({ kind: 'bot', bot: o.id, ti: i, name: t.name, x: t.x + 1, z: t.z + 3, d: d(t.x, t.z), def: (o.troops + BAL.battle.militia) * 1.1 }));
   }
   // 플레이어는 군사를 배우거나 Lv.3이 되기 전엔 건드리지 않고, 한 봇이 8분에 한 번까지만 친다
-  const meOK = (warActive() || S.civ.lv >= 3) && S.civ.play - (b.lastMe ?? -1e9) > (opOf(b) <= -30 ? 300 : 480) && !S.war.marches.some(m => m.kind === 'bot' && m.tgt && m.tgt.kind === 'me');
-  if ((b.side !== MY_SIDE || b.war) && meOK) for (const p of myPlaces()) c.push({ kind: 'me', pk: p.kind, pid: p.id, name: p.name, x: p.x, z: p.z, d: d(p.x, p.z) * (p.kind === 'home' ? 1.4 : 1) * (1 - clamp(-opOf(b) / 120, 0, 0.5) + (opOf(b) >= 25 ? 0.3 : 0)), def: S.war.troops * (p.kind === 'home' ? 1.3 : 1) + 2 });
+  const meOK = (warActive() || S.civ.lv >= 3) && S.civ.play - (b.lastMe ?? -1e9) > (opOf(b) <= -30 || b.goal === 'revenge' ? 300 : 480) && !S.war.marches.some(m => m.kind === 'bot' && m.tgt && m.tgt.kind === 'me');
+  if ((b.side !== MY_SIDE || b.war) && meOK) for (const p of myPlaces()) c.push({ kind: 'me', pk: p.kind, pid: p.id, name: p.name, x: p.x, z: p.z, d: d(p.x, p.z) * (p.kind === 'home' ? 1.4 : 1) * (1 - clamp(-opOf(b) / 120, 0, 0.5) + (opOf(b) >= 25 ? 0.3 : 0)) * (b.goal === 'revenge' ? 0.4 : 1), def: S.war.troops * (p.kind === 'home' ? 1.3 : 1) + 2 });
   const ok = c.filter(t => t.d < 900 && t.def * 1.15 <= (can ?? b.troops)).sort((a, z) => a.d - z.d);
   return ok[Math.floor(GR() * Math.min(3, ok.length))] || null;
 }
@@ -3367,7 +3414,7 @@ function botTalk(v) {
   const cp = v.def.cp, hostile = botHostile(b), side = SIDES[b.side], st = BOT_STYLE[b.style];
   const ch = [];
   const close = () => { v.talking = false; v.wait = rand(1, 3); if (pendingFight === v) { pendingFight = null; startFight(v); } };
-  ch.push({ l: '형편이 어때?', f: () => [`나는 ${side.e} ${side.n}의 ${b.name}. ${botShort(b)} 마을 Lv.${b.lv}, 마을 ${b.towns.length + 1}곳, 병사 ${b.troops}명이다. ${cp}`, `${st.n} 성향이지. ${b.style === 'traitor' ? '…세상에 영원한 편은 없거든.' : b.style === 'war' ? '힘이 곧 땅이다.' : b.style === 'peace' ? '싸우기보단 키우는 게 좋아.' : '때를 보는 거지.'} ${cp}`, `너 말이냐? ${opTier(b).e} ${opTier(b).n}. ${memLine(b)} ${cp}`] });
+  ch.push({ l: '형편이 어때?', f: () => [`나는 ${side.e} ${side.n}의 ${b.name}. ${botShort(b)} 마을 Lv.${b.lv}, 마을 ${b.towns.length + 1}곳, 병사 ${b.troops}명이다. ${cp}`, `${st.n} 성향이지. ${b.style === 'traitor' ? '…세상에 영원한 편은 없거든.' : b.style === 'war' ? '힘이 곧 땅이다.' : b.style === 'peace' ? '싸우기보단 키우는 게 좋아.' : '때를 보는 거지.'} 요즘은 ${goalOf(b).n}에 몰두하고 있지. ${cp}`, `너 말이냐? ${opTier(b).e} ${opTier(b).n}. ${memLine(b)} ${cp}`] });
   if (hostile) {
     const tc = truceCost(b);
     ch.push({ l: tc ? `휴전하자 (도토리 ${fmt(tc)}개)` : '휴전하자', f: () => {
@@ -3447,7 +3494,7 @@ function renderSides(rows, note) {
   rows.append(hd);
   for (const b of S.ai.bots || []) {
     const hostile = botHostile(b), side = SIDES[b.side];
-    const desc = b.alive ? `${side.e} ${side.n} · ${BOT_STYLE[b.style].n} · Lv.${b.lv} · 마을 ${b.towns.length + 1}곳 · 병사 약 ${Math.round(b.troops / 5) * 5}명${S.ai.truce[b.id] > S.civ.play ? ' · 휴전 중' : ''} · 나를 ${opTier(b).e}${opTier(b).n}` : '망했어요';
+    const desc = b.alive ? `${side.e} ${side.n} · ${BOT_STYLE[b.style].n} · ${goalTag(b)} · Lv.${b.lv} · 마을 ${b.towns.length + 1}곳 · 병사 약 ${Math.round(b.troops / 5) * 5}명${S.ai.truce[b.id] > S.civ.play ? ' · 휴전 중' : ''} · 나를 ${opTier(b).e}${opTier(b).n}` : '망했어요';
     const r = civRow(b.alive ? (hostile ? '⚔️' : '🤝') : '☠️', `${b.name} (${botShort(b)} 마을)`, desc, null, b.alive ? ctag(hostile ? '적' : '같은 편') : null, b.alive ? (hostile ? '' : 'done') : 'lock');
     r.querySelector('.ic').style.color = '#' + new THREE.Color(b.col).getHexString();
   }
