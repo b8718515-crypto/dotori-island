@@ -310,6 +310,11 @@ const R = Math.random;
 const rand = (a, b) => a + R() * (b - a);
 const randi = (a, b) => Math.floor(rand(a, b + 1));
 const pick = (arr, r = R) => arr[Math.floor(r() * arr.length)];
+// 게임 결과(전투·봇 판단·침공)에 쓰는 난수 GR: 시드가 있고, 상태를 세이브(S.rng)에 저장한다.
+// 같은 세이브에서 같은 순서로 부르면 결과가 똑같이 나온다 → 버그 재현, 나중에 멀티플레이 서버와 결과 맞추기.
+// 화면 연출(이펙트·주민 걸음·맞짱 AI)은 지금처럼 R(Math.random)을 쓴다. 연출이 GR을 쓰면 결과 순서가 흐트러진다.
+function GR() { const g = S.rng, a = g.s = (g.s + 0x6D2B79F5) | 0; g.n++; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+const grand = (a, b) => a + GR() * (b - a);
 const tk = (x, z) => x + ',' + z;
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -417,6 +422,7 @@ function freshState() {
 }
 function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1) return Object.assign(freshState(), s); } catch (e) { } return null; }
 let S = load() || freshState();
+if (!S.rng) S.rng = { s: (Date.now() ^ Math.floor(Math.random() * 4294967296)) | 0, n: 0 };
 // 진영: 남부 연합은 도토리 마을(충남 공주), 북부 연합은 솔방울 마을(평안남도). 예전 세이브는 남부.
 if (!S.faction && S.seenHelp) S.faction = 'south';
 const MY_SIDE = S.faction || 'south', HOME = MY_SIDE === 'north' ? '솔방울 마을' : '도토리 마을', MY_HEX = MY_SIDE === 'north' ? 0xc0453a : 0x3f7fd0;
@@ -2845,7 +2851,7 @@ function sendHome(n, from) { if (n > 0) newMarch({ kind: 'ret', n, from, to: HOM
 function battleFort(m) {
   const f = FORT_BY[m.fort], st = fortSt(f);
   if (st.own === 'me') { warLog(`↩ ${josa(f.n, '은', '는')} 이미 우리 요새라 병사들이 돌아와요.`); sendHome(m.n, m.to); return; }
-  const my = m.n * (1 + (S.civ.built.school ? 0.15 : 0)) * rand(0.85, 1.15), en = st.g * (f.cap ? 1.4 : 1.15);
+  const my = m.n * (1 + (S.civ.built.school ? 0.15 : 0)) * grand(0.85, 1.15), en = st.g * (f.cap ? 1.4 : 1.15);
   if (my >= en && st.own.startsWith('b:')) {
     const loss = Math.min(m.n - 1, Math.round(m.n * clamp(0.6 * en / my, 0, 0.9))), ob = BOT_BY()[st.own.slice(2)];
     st.own = 'me'; st.g = 0; refreshFort(f); terrDirty = true; warLog(`🏯 ${ob ? ob.name + '의 ' : ''}${josa(f.n, '을', '를')} 빼앗았어요!`); toast(`🏯 ${josa(f.n, '을', '를')} 빼앗았어요!`); SFX.fanfare();
@@ -2883,7 +2889,7 @@ function defend(m) {
   if (kk && S.war.fallen[kk.id]) { warLog(`🏳️ 항복한 ${kk.n} 군대가 그냥 돌아갔어요.`); return; }
   if (bot && (!bot.alive || S.ai.truce[bot.id] > S.civ.play)) { if (bot.alive) bot.troops += m.n; warLog(`🕊️ 휴전 중이라 ${bot.name} 군대가 돌아갔어요.`); return; }
   const near = Math.hypot(P.x - m.to[0], P.z - m.to[1]) < 80, n0 = S.war.troops;
-  const def = n0 * (m.tkind === 'home' ? 1.3 : 1) * (near ? 1.25 : 1) * rand(0.9, 1.1);
+  const def = n0 * (m.tkind === 'home' ? 1.3 : 1) * (near ? 1.25 : 1) * grand(0.9, 1.1);
   if (def >= m.n) {
     const loss = Math.min(n0, Math.round(n0 * clamp(0.5 * m.n / Math.max(def, 1), 0, 0.8))), spoil = m.n * 60;
     S.war.troops -= loss; S.coins += spoil; updateHUD();
@@ -2978,7 +2984,7 @@ function warTick() {
   if (warActive()) {
     const ks = KINGDOMS.filter(k => !S.war.fallen[k.id] && k.forts.some(f => fortSt(f).own === 'k'));
     if (S.war.nextRaid == null) { S.war.nextRaid = now + 300; ch = true; }
-    else if (ks.length && now >= S.war.nextRaid && !S.war.marches.some(m => m.kind === 'raid')) { sendRaid(pick(ks)); S.war.nextRaid = now + 420 + Math.floor(R() * 300); ch = true; }
+    else if (ks.length && now >= S.war.nextRaid && !S.war.marches.some(m => m.kind === 'raid')) { sendRaid(pick(ks, GR)); S.war.nextRaid = now + 420 + Math.floor(GR() * 300); ch = true; }
   }
   if (S.war.marches.length) terrDirty = true;
   updateWarAlert();
@@ -3077,7 +3083,7 @@ function botSite(side, r, near) {
   return null;
 }
 function genBots() {
-  const r = mulberry32(hashStr('bots' + Date.now())), names = [...BOT_NAMES], cols = [...BOT_COLS], bots = [];
+  const r = mulberry32((GR() * 4294967296) >>> 0), names = [...BOT_NAMES], cols = [...BOT_COLS], bots = [];
   S.ai.bots = bots;
   const styles = S.ai.style === 'mix' ? ['bal', 'war', 'peace', 'traitor', 'bal', 'war'] : S.ai.style === 'traitor' ? ['traitor', 'traitor', 'bal'] : [S.ai.style];
   let n = 0;
@@ -3151,6 +3157,8 @@ function removeBotWorld(b) {
 }
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
+// 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, GR };
 for (const b of S.ai.bots || []) placeBot(b);
 /* --- 봇의 하루: 일정 시간마다 한 가지씩 한다 --- */
 function botAct(b) {
@@ -3164,7 +3172,7 @@ function botAct(b) {
     terrDirty = true; news(`🏗️ ${josa(cap, '이', '가')} Lv.${b.lv}로 커졌어요. (${b.name}, ${SIDES[b.side].n})`); return;
   }
   // 2) 마을 넓히기
-  if (b.towns.length < 1 + Math.floor(b.lv / 1.5) && b.res >= 70 && R() < 0.6 * st.exp) {
+  if (b.towns.length < 1 + Math.floor(b.lv / 1.5) && b.res >= 70 && GR() < 0.6 * st.exp) {
     const r = mulberry32(hashStr(b.id + S.civ.play)), base = [b, ...b.towns][Math.floor(r() * (b.towns.length + 1))];
     const sp = botSite(b.side, r, { x: base.cx ?? base.x, z: base.cz ?? base.z });
     if (sp) {
@@ -3181,11 +3189,11 @@ function botAct(b) {
   const keep = b.lv < 5 ? lvCost(b.lv) * 0.7 : 0, spare = b.res - keep;
   if (spare >= 25 && b.troops < botCap(b)) { const k = Math.min(Math.floor(spare / 25), botCap(b) - b.troops, 6); b.troops += k; b.res -= 25 * k; }
   // 4) 배신자는 같은 편 플레이어에게 뒤통수를 친다
-  if (st.betray && !b.war && b.side === MY_SIDE && b.lv >= 2 && R() < 0.06) {
+  if (st.betray && !b.war && b.side === MY_SIDE && b.lv >= 2 && GR() < 0.06) {
     b.war = true; news(`🗡️ ${b.name}이(가) 뒤통수를 쳤어요! 같은 ${SIDES[b.side].n}인데 우리를 적으로 돌렸어요.`.replace('이(가)', josa(b.name, '이', '가').slice(b.name.length)), true);
   }
   // 5) 공격
-  if (b.lv >= 2 && b.troops >= 20 && R() < st.atk * 0.5 && !S.war.marches.some(m => m.kind === 'bot' && m.bot === b.id)) {
+  if (b.lv >= 2 && b.troops >= 20 && GR() < st.atk * 0.5 && !S.war.marches.some(m => m.kind === 'bot' && m.bot === b.id)) {
     // 이길 만한 목표만 고르고, 필요한 만큼(넉넉히)만 보낸다
     const can = Math.round(b.troops * 0.8), tgt = botTarget(b, can); if (!tgt) return;
     const n = Math.min(can, Math.max(10, Math.ceil(tgt.def * 1.35))); b.troops -= n;
@@ -3198,7 +3206,7 @@ function botAct(b) {
 function botTarget(b, can) {
   const BB = BOT_BY(), c = [], bx = b.cx, bz = b.cz, d = (x, z) => Math.hypot(x - bx, z - bz);
   for (const f of FORTS) { const st = fortSt(f), o = st.own; if (o === 'k' || (o.startsWith('b:') && BB[o.slice(2)] && BB[o.slice(2)].side !== b.side)) c.push({ kind: 'fort', id: f.id, name: f.n, x: f.cx, z: f.z + 5, d: d(f.cx, f.cz) * (o === 'k' ? 1.8 : 1), def: st.g * (o === 'k' ? (f.cap ? 1.9 : 1.5) : (f.cap ? 1.4 : 1.15)) }); }
-  for (const o of S.ai.bots) if (o !== b && o.alive && (o.side !== b.side || (b.style === 'traitor' && R() < 0.2))) {
+  for (const o of S.ai.bots) if (o !== b && o.alive && (o.side !== b.side || (b.style === 'traitor' && GR() < 0.2))) {
     c.push({ kind: 'bot', bot: o.id, cap: true, name: `${botShort(o)} 마을`, x: o.cx + 1, z: o.cz + 3, d: d(o.cx, o.cz) * 1.3, def: o.troops * 1.4 + 4 });
     o.towns.forEach((t, i) => c.push({ kind: 'bot', bot: o.id, ti: i, name: t.name, x: t.x + 1, z: t.z + 3, d: d(t.x, t.z), def: o.troops * 1.1 + 4 }));
   }
@@ -3206,7 +3214,7 @@ function botTarget(b, can) {
   const meOK = (warActive() || S.civ.lv >= 3) && S.civ.play - (b.lastMe ?? -1e9) > 480 && !S.war.marches.some(m => m.kind === 'bot' && m.tgt && m.tgt.kind === 'me');
   if ((b.side !== MY_SIDE || b.war) && meOK) for (const p of myPlaces()) c.push({ kind: 'me', pk: p.kind, pid: p.id, name: p.name, x: p.x, z: p.z, d: d(p.x, p.z) * (p.kind === 'home' ? 1.4 : 1), def: S.war.troops * (p.kind === 'home' ? 1.3 : 1) + 2 });
   const ok = c.filter(t => t.d < 900 && t.def * 1.15 <= (can ?? b.troops)).sort((a, z) => a.d - z.d);
-  return ok[Math.floor(R() * Math.min(3, ok.length))] || null;
+  return ok[Math.floor(GR() * Math.min(3, ok.length))] || null;
 }
 // 봇 군대가 닿으면
 function botArrive(m) {
@@ -3218,7 +3226,7 @@ function botArrive(m) {
     // 가는 동안 같은 편이 먼저 차지했으면 그냥 돌아온다
     if (st.own === 'b:' + b.id || (ob && ob.side === b.side && b.style !== 'traitor')) { back(m.n); return; }
     if (st.own === 'me') { m.bname = b.name; m.tkind = 'fort'; m.tid = f.id; defend(m); return; }
-    const en = st.g * (st.own === 'k' ? (f.cap ? 1.9 : 1.5) : (f.cap ? 1.4 : 1.15)), my = m.n * rand(0.85, 1.15);
+    const en = st.g * (st.own === 'k' ? (f.cap ? 1.9 : 1.5) : (f.cap ? 1.4 : 1.15)), my = m.n * grand(0.85, 1.15);
     if (my >= en) {
       const left = Math.max(1, Math.round(m.n - en * 0.6)); st.own = 'b:' + b.id; st.g = Math.round(left / 2); st.siege = 0; back(left - st.g); refreshFort(f); terrDirty = true;
       let fell = false; const k = f.k;
@@ -3229,7 +3237,7 @@ function botArrive(m) {
   }
   // 다른 봇 마을
   const o = BB[t.bot]; if (!o || !o.alive) { back(m.n); return; }
-  const def = o.troops * (t.cap ? 1.4 : 1.1) * rand(0.85, 1.15) + 4;
+  const def = o.troops * (t.cap ? 1.4 : 1.1) * grand(0.85, 1.15) + 4;
   if (m.n >= def) {
     o.troops = Math.max(0, Math.round(o.troops - m.n * 0.5)); back(Math.round(m.n - def * 0.5));
     if (t.cap) { botFall(o, b); }
@@ -3271,7 +3279,7 @@ function resetBots() {
 function botTick() {
   if (!S.ai.on || !S.ai.bots) return;
   const sp = BOT_SPEED[S.ai.speed] || 1;
-  for (const b of S.ai.bots) if (b.alive && S.civ.play >= b.next) { b.next = S.civ.play + Math.round(BOT_TICK * sp * rand(0.7, 1.3)); botAct(b); }
+  for (const b of S.ai.bots) if (b.alive && S.civ.play >= b.next) { b.next = S.civ.play + Math.round(BOT_TICK * sp * grand(0.7, 1.3)); botAct(b); }
 }
 /* --- 봇 지도자와 이야기 --- */
 function botTalk(v) {
@@ -3299,7 +3307,7 @@ function botTalk(v) {
 function battleBotTown(m) {
   const BB = BOT_BY(), o = BB[m.bot];
   if (!o || !o.alive) { warLog(`↩ ${m.tname}은(는) 이미 없어졌어요.`); sendHome(m.n, m.to); return; }
-  const def = o.troops * (m.cap ? 1.4 : 1.1) * rand(0.85, 1.15) + 4, my = m.n * (1 + (S.civ.built.school ? 0.15 : 0));
+  const def = o.troops * (m.cap ? 1.4 : 1.1) * grand(0.85, 1.15) + 4, my = m.n * (1 + (S.civ.built.school ? 0.15 : 0));
   if (my >= def) {
     const loss = Math.min(m.n - 1, Math.round(m.n * clamp(0.6 * def / my, 0, 0.9)));
     o.troops = Math.max(0, Math.round(o.troops - my * 0.5));
