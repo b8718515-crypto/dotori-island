@@ -728,6 +728,37 @@ function makeAnimal(o) {
   g.userData = { body, head, lL, lR, aL, aR };
   return g;
 }
+// 외계인 3인조: 짜리몽땅 3등신, 한 가지 색의 무광 몸, 역물방울 머리, 크고 비스듬한 민트빛 눈. 입·코·귀 없음.
+const alienHeadGeo = (() => {
+  const g = new THREE.SphereGeometry(0.4, 20, 16), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < 0) { const f = 1 + y / 0.4 * 0.5; p.setX(i, p.getX(i) * f); p.setZ(i, p.getZ(i) * f); } }
+  g.computeVertexNormals(); return g;
+})();
+const alienEyeGeo = new THREE.SphereGeometry(0.1, 16, 10);
+function makeAlien(o) {
+  const g = new THREE.Group(); g.add(blob(0.8));
+  const body = new THREE.Group(); g.add(body);
+  const skin = M(o.fur);
+  const lL = mesh(G.leg, skin, -0.09, 0.13, 0), lR = mesh(G.leg, skin, 0.09, 0.13, 0); body.add(lL, lR);
+  for (const l of [lL, lR]) put(l, mesh(G.dot, skin, 0, -0.12, 0.03)).scale.set(1.7, 0.7, 2.1);
+  body.add(mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.4, 12), skin, 0, 0.42, 0));
+  body.add(mesh(new THREE.SphereGeometry(0.19, 12, 8), skin, 0, 0.24, 0));
+  const aL = mesh(G.arm, skin, 0.22, 0.47, 0), aR = mesh(G.arm, skin, -0.22, 0.47, 0); aL.rotation.z = 0.3; aR.rotation.z = -0.3; body.add(aL, aR);
+  for (const a of [aL, aR]) put(a, mesh(G.dot, skin, 0, -0.15, 0)).scale.setScalar(1.5);
+  const head = new THREE.Group(); head.position.y = 0.98; body.add(head);
+  put(head, mesh(alienHeadGeo, skin)).scale.set(1.06, 1.1, 0.95);
+  const eyeM = MB(0xd8fbe8), pupilM = M(0x0c0c10);
+  for (const sx of [-1, 1]) {
+    // 위에서 내려다보는 카메라에서도 눈이 크게 보이도록 살짝 위로 젖힌다
+    const e = new THREE.Group(); e.position.set(sx * 0.165, 0.1, 0.325); e.rotation.set(-0.55, sx * 0.45, sx * (0.3 - (o.lid || 0) * 0.55)); head.add(e);
+    put(e, mesh(alienEyeGeo, eyeM)).scale.set(1.45, 1.0, 0.5);
+    // 눈 크기는 셋 다 같고, 눈꺼풀이 덮는 정도로만 성격을 나타낸다
+    if (o.lid) { const lid = mesh(new THREE.SphereGeometry(0.1, 16, 8, 0, Math.PI * 2, 0, Math.PI * o.lid), skin); lid.scale.set(1.5, 1.06, 0.56); e.add(lid); }
+    put(e, mesh(G.eye, pupilM, 0, o.lid > 0.3 ? 0.005 : 0.035, 0.045)).scale.set(0.8, 0.8, 0.4);
+  }
+  g.userData = { body, head, lL, lR, aL, aR };
+  return g;
+}
 function makePlayer() {
   const g = new THREE.Group(); g.add(blob(0.85));
   const body = new THREE.Group(); g.add(body);
@@ -777,6 +808,16 @@ const VDEF = [
   { id: 'moka', name: '모카', sp: '고양이', cp: '냥', pitch: 240, fur: 0xe9b06d, muzzle: 0xfbe6c8, ear: 'cat', shirt: 0x8e7cc3, pants: 0x5b4d86, roof: 0x8a6fb8, color: '#7a5fb0', pref: [C - 7, C - 16], tail: 1.1,
     chat: ['흥, 오늘 옷 괜찮네. 조금은 인정해 줄게냥.', '생선은 구워 먹는 게 최고다냥.', '내 정원이 이 섬에서 제일 예쁘다냥. 반박은 안 받는다냥.', '다리 건너오기 귀찮지 않았어? 그래도 와줘서… 고맙다냥.', '도감은 잘 채우고 있냥? 나도 조금 궁금하다냥.', '바다 쪽 큰 그림자는 조심해라냥. 뭔가 이빨이 많은 녀석이다냥.'],
     greet: { m: '아침부터 부지런하네냥. 나쁘지 않다냥.', d: '어머, 왔냥? 마침 심심하던 참이다냥.', e: '저녁 바람이 기분 좋다냥.', n: '밤 산책이냥? 나도 별 보러 나왔다냥.' } },
+  // 외계인 3인조 (검정=유쾌, 흰색=정중, 노랑=침착)
+  { id: 'kkeom', name: '꺼멍이', sp: '외계인', cp: '삐용!', pitch: 360, alien: true, fur: 0x1e1e24, lid: 0, roof: 0x3b3b46, color: '#3b3b46', pref: [C + 12, C - 3],
+    chat: ['방금 나비한테 인사했는데 그냥 날아갔어! 하하, 쿨하네! 삐용!', '지구는 진짜 재밌어! 나무를 흔들면 뭐가 떨어지잖아! 삐용!', '하양이가 또 뛰지 말래! 근데 뛰는 게 제일 재밌는걸! 삐용!', '노랑이는 무슨 일이 터져도 "음." 한마디면 끝이야. 신기하지? 삐용!', '바다에서 엄청 큰 그림자를 봤어! 같이 보러 갈래? 삐용!', '내 눈 빛나는 거 봤어? 밤에 손전등이 필요 없다니까! 삐용!'],
+    greet: { m: '좋은 아침! 오늘도 신나게 놀아 보자! 삐용!', d: '왔다왔다! 기다리고 있었어! 삐용!', e: '노을이 내 눈보다 더 반짝여! 대단해! 삐용!', n: '밤인데도 하나도 안 졸려! 삐용!' } },
+  { id: 'hayang', name: '하양이', sp: '외계인', cp: '삐빅.', pitch: 260, alien: true, fur: 0xeeeef0, lid: 0.22, roof: 0xb9bcc8, color: '#7d8494', pref: [C + 3, C - 18],
+    chat: ['섬의 규칙을 정리해 보았습니다. 첫째, 꽃은 밟지 않기입니다. 삐빅.', '꺼멍이가 또 뛰어다니더군요. 넘어질까 걱정입니다. 삐빅.', '도토리는 계획적으로 쓰시는 게 좋습니다. 삐빅.', '지구의 차 문화를 배우는 중입니다. 따뜻한 것이 좋군요. 삐빅.', '노랑이 님은 언제나 침착하셔서 존경스럽습니다. 삐빅.', '밤에 강가에 가실 때는 발밑을 조심하십시오. 삐빅.'],
+    greet: { m: '좋은 아침입니다. 오늘도 잘 부탁드립니다. 삐빅.', d: '어서 오십시오. 반갑습니다. 삐빅.', e: '좋은 저녁입니다. 오늘 하루 수고 많으셨습니다. 삐빅.', n: '늦은 시간입니다. 너무 무리하지 마십시오. 삐빅.' } },
+  { id: 'norang', name: '노랑이', sp: '외계인', cp: '음.', pitch: 130, alien: true, fur: 0xd6a13e, lid: 0.42, roof: 0xd29a2e, color: '#b07a12', pref: [C - 3, C + 14],
+    chat: ['바람이 불면 나뭇잎이 흔들린다. 당연한 일이다. 음.', '꺼멍이가 일을 벌이면 내가 정리한다. 그게 우리 방식이다. 음.', '서두를 필요 없다. 물고기는 기다리는 쪽에게 온다. 음.', '하양이는 걱정이 많다. 하지만 대부분은 괜찮아진다. 음.', '돌을 두드려서 안 나오면, 내일 또 두드리면 된다. 음.', '바다 쪽 큰 그림자 말인가. 침착하게 당기면 된다. 음.'],
+    greet: { m: '아침이다. 천천히 시작하자. 음.', d: '왔나. 오늘도 섬은 평온하다. 음.', e: '해가 진다. 오늘도 별일 없었다. 음.', n: '밤이다. 조용해서 좋다. 음.' } },
 ];
 const KEEPER = { name: '달수', sp: '수달', color: '#3f8a6a', pitch: 200 };
 const houses = [];
@@ -898,7 +939,7 @@ function setTool(t) {
 
 /* ================= 주민 ================= */
 const villagers = VDEF.filter(v => v.home).map(v => {
-  const m = makeAnimal(v); scene.add(m);
+  const m = v.alien ? makeAlien(v) : makeAnimal(v); scene.add(m);
   const o = { def: v, id: v.id, mesh: m, x: v.home.x, z: v.home.z, rot: 0, target: null, wait: rand(0.5, 3), walk: 0, talking: false, vis: true };
   for (let k = 0; k < 20; k++) { const x = v.home.x + rand(-3, 3), z = v.home.z + rand(0.5, 3); if (canStand(x, z, 0.25)) { o.x = x; o.z = z; break; } }
   return o;
@@ -917,6 +958,9 @@ const OPENERS = {
   bori: ['응? 무슨 일이냐. 곰곰.', '또 왔구나. 곰곰.'],
   somi: ['응응? 왜왜? 폴짝!', '또 왔네! 반가워! 폴짝!'],
   moka: ['뭐야, 할 말 있냥?', '흥, 또 왔냥?'],
+  kkeom: ['왜왜? 놀자는 거지? 삐용!', '또 왔어! 좋아좋아! 삐용!'],
+  hayang: ['네, 무슨 일이십니까? 삐빅.', '다시 뵙네요. 반갑습니다. 삐빅.'],
+  norang: ['…무슨 일이지. 음.', '또 왔군. 음.'],
 };
 let pendingFight = null;
 function talkVillager(v) {
@@ -1620,11 +1664,17 @@ const FDEF = {
   bori: { hp: 130, dmg: 14, speed: 2.3, windup: 0.5, reach: 1.25, block: 0.45, dodge: 0, throwP: 0, cd: [0.8, 1.4], hitRun: false, knock: 1.8, armor: true },
   somi: { hp: 85, dmg: 7, speed: 4.0, windup: 0.22, reach: 1.05, block: 0.15, dodge: 0.45, throwP: 0, cd: [0.35, 0.8], hitRun: true, knock: 0.8 },
   moka: { hp: 100, dmg: 10, speed: 3.1, windup: 0.3, reach: 1.1, block: 0.3, dodge: 0.25, throwP: 0.7, cd: [0.6, 1.1], hitRun: false, knock: 1.1 },
+  kkeom: { hp: 95, dmg: 9, speed: 3.7, windup: 0.25, reach: 1.1, block: 0.1, dodge: 0.4, throwP: 0, cd: [0.4, 0.9], hitRun: true, knock: 1.0 },
+  hayang: { hp: 105, dmg: 9, speed: 2.9, windup: 0.3, reach: 1.1, block: 0.55, dodge: 0.1, throwP: 0, cd: [0.6, 1.1], hitRun: false, knock: 1.1 },
+  norang: { hp: 120, dmg: 12, speed: 2.5, windup: 0.42, reach: 1.2, block: 0.35, dodge: 0, throwP: 0, cd: [0.7, 1.3], hitRun: false, knock: 1.6, armor: true },
 };
 const FLINES = {
   bori: { ask: '…야차룰이라. 규칙 없이, 먼저 쓰러지는 쪽이 지는 거다. 곰곰.', accept: '좋다. 봐주지 않는다. 곰곰.', chicken: '…현명한 선택이다. 곰곰.', win: '…졌다. 너, 생각보다 세구나. 곰곰.', lose: '아직 멀었다. 밥 많이 먹고 다시 와라. 곰곰.', draw: '…무승부인가. 다음엔 결판을 내자. 곰곰.', taunt: ['곰곰!', '흐읍!', '묵직하게 간다.'] },
   somi: { ask: '야차룰?! 완전 재밌겠다! 봐주기 없기다? 폴짝!', accept: '간다아아! 폴짝!', chicken: '에이~ 겁쟁이! 폴짝!', win: '으앙, 졌다! 다음엔 안 질 거야! 폴짝!', lose: '헤헤, 내가 이겼다! 토끼는 빠르다고! 폴짝!', draw: '비겼다! 그럼 한 판 더? 폴짝!', taunt: ['폴짝!', '여기야 여기!', '느려 느려!'] },
   moka: { ask: '흥, 나한테 덤비겠다고? 후회해도 모른다냥.', accept: '발톱은 안 쓸게. 대신 생선은 던진다냥.', chicken: '흥, 그럴 줄 알았다냥.', win: '…인정. 오늘은 네가 이겼다냥.', lose: '거봐, 후회한다고 했지냥?', draw: '무승부라니… 기분 나쁘다냥.', taunt: ['냥!', '생선 맛 좀 봐라냥!', '흥!'] },
+  kkeom: { ask: '야차룰?! 우와, 그거 완전 재밌겠다! 삐용!', accept: '간다간다! 하하하! 삐용!', chicken: '에이~ 재밌었을 텐데! 삐용!', win: '하하! 졌다! 너 진짜 세다! 삐용!', lose: '이겼다! 지구에서 첫 승리! 삐용!', draw: '비겼어! 한 판 더 하자! 삐용!', taunt: ['삐용!', '하하하!', '여기야 여기!'] },
+  hayang: { ask: '야차룰 말씀이십니까? 규칙이 없다니 걱정되지만… 받아들이겠습니다. 삐빅.', accept: '잘 부탁드립니다. 다치지 않게 조심하십시오. 삐빅.', chicken: '현명한 판단이십니다. 삐빅.', win: '제가 졌습니다. 훌륭한 실력이셨습니다. 삐빅.', lose: '실례했습니다. 괜찮으십니까? 삐빅.', draw: '무승부군요. 좋은 승부였습니다. 삐빅.', taunt: ['삐빅.', '실례합니다.', '막겠습니다.'] },
+  norang: { ask: '야차룰인가. …좋다. 음.', accept: '서두르지 않는다. 음.', chicken: '그것도 판단이다. 음.', win: '…졌군. 괜찮다. 다음이 있다. 음.', lose: '흔들리면 진다. 기억해 둬라. 음.', draw: '무승부. 나쁘지 않다. 음.', taunt: ['음.', '…침착하게.', '흐읍.'] },
 };
 // 던질 수 있는 물건과 위력
 const THROWABLE = { iron: 20, coconut: 18, stone: 16, clay: 12, apple: 10, orange: 10, peach: 10, starfish: 8, shell: 8, weed: 4 };
