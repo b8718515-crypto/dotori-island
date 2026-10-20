@@ -2851,10 +2851,93 @@ function myPlaces() {
     ...S.civ.towns.map(t => ({ name: t.name, x: t.ax, z: t.az, kind: 'town', id: t.name })),
     ...myForts().map(f => ({ name: f.n, x: f.cx, z: f.z + 5, kind: 'fort', id: f.id }))];
 }
-const marchPos = m => { const t = clamp((S.civ.play - m.t0) / m.dur, 0, 1); return [lerp(m.from[0], m.to[0], t), lerp(m.from[1], m.to[1], t)]; };
+/* --- 행군 길: 16×16칸 구역 격자에서 A* 로 찾는다 ---
+   문명 5의 경로 비용처럼 땅마다 걸리는 시간이 다르다: 평지 1, 높을수록 느리고(산지 최대 2.6배), 강을 끼면 +0.5,
+   바다는 배로 4배, 국경 너머는 못 간다. 흙길이 지나는 구역은 0.6배로 빠르다. 칸 단위로 찾으면 지도가 넓어 너무 무겁다. */
+const MG = CH, MGX = NCX, MGZ = NCZ;
+const mBase = new Float32Array(MGX * MGZ);   // 구역의 땅 비용 (0 = 아직 안 셈, -1 = 못 감)
+function mCellBase(ci) {
+  if (mBase[ci]) return mBase[ci];
+  const x0 = (ci % MGX) * MG, z0 = Math.floor(ci / MGX) * MG; let sea = 0, foreign = 0, land = 0, sum = 0, river = false;
+  for (const oz of [2, 8, 14]) for (const ox of [2, 8, 14]) {
+    const x = x0 + ox, z = z0 + oz, p = prov[z * NX + x];
+    if (p === 0) { sea++; continue; }
+    if (p === PV.FOREIGN) { foreign++; continue; }
+    if (p === PV.BORDER || riverHit(x, z)) river = true;
+    land++; sum += 1 + clamp((elevAt(x, z) - 200) / 600, 0, 1.6);
+  }
+  return mBase[ci] = foreign >= 5 ? -1 : sea >= 5 || !land ? 4 : sum / land + (river ? 0.5 : 0);
+}
+function mRoad(ci) {
+  const k = MG / CS, x0 = (ci % MGX) * k, z0 = Math.floor(ci / MGX) * k;
+  for (let z = z0; z < z0 + k; z++) for (let x = x0; x < x0 + k; x++) if (roadC[z * CX + x]) return true;
+  return false;
+}
+const mCost = ci => { const c = mCellBase(ci); return c < 0 ? -1 : c < 4 && mRoad(ci) ? c * 0.6 : c; };
+// 돌려주는 값: { path: [[x,z]…] 출발→도착 꺾이는 점, pc: 점마다 누적 비용, cost: 전체 비용(칸×배율) }
+function marchRoute(from, to) {
+  const cell = p => [clamp(Math.floor(p[0] / MG), 0, MGX - 1), clamp(Math.floor(p[1] / MG), 0, MGZ - 1)];
+  const [fx, fz] = cell(from), [tx, tz] = cell(to), straight = Math.hypot(to[0] - from[0], to[1] - from[1]);
+  if (fx === tx && fz === tz) return { path: null, cost: straight * Math.max(0.6, mCost(fz * MGX + fx)) };
+  const pad = 20, x0 = Math.max(0, Math.min(fx, tx) - pad), z0 = Math.max(0, Math.min(fz, tz) - pad);
+  const W = Math.min(MGX, Math.max(fx, tx) + pad + 1) - x0, H = Math.min(MGZ, Math.max(fz, tz) + pad + 1) - z0;
+  const L = (x, z) => (z - z0) * W + (x - x0), s0 = L(fx, fz), g0 = L(tx, tz);
+  const g = new Float32Array(W * H).fill(Infinity), prev = new Int32Array(W * H).fill(-1), done = new Uint8Array(W * H);
+  const hn = [], hk = [];
+  const swap = (a, b) => { let t = hn[a]; hn[a] = hn[b]; hn[b] = t; t = hk[a]; hk[a] = hk[b]; hk[b] = t; };
+  const push = (k, n) => { hn.push(n); hk.push(k); let i = hn.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (hk[p] <= hk[i]) break; swap(p, i); i = p; } };
+  const pop = () => {
+    const n = hn[0], lk = hk.pop(), ln = hn.pop();
+    if (hn.length) { hn[0] = ln; hk[0] = lk; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let mm = i; if (l < hn.length && hk[l] < hk[mm]) mm = l; if (r < hn.length && hk[r] < hk[mm]) mm = r; if (mm === i) break; swap(mm, i); i = mm; } }
+    return n;
+  };
+  const hh = (x, z) => { const dx = Math.abs(x - tx), dz = Math.abs(z - tz); return (Math.max(dx, dz) + 0.4142 * Math.min(dx, dz)) * 0.6 * MG; };
+  g[s0] = 0; push(hh(fx, fz), s0);
+  while (hn.length) {
+    const cur = pop(); if (done[cur]) continue; done[cur] = 1;
+    if (cur === g0) break;
+    const cx = x0 + cur % W, cz = z0 + Math.floor(cur / W);
+    for (const [dx, dz] of N8) {
+      const x = cx + dx, z = cz + dz; if (x < x0 || z < z0 || x >= x0 + W || z >= z0 + H) continue;
+      const ni = L(x, z); if (done[ni]) continue;
+      let c = mCost(z * MGX + x); if (c < 0) { if (ni !== g0) continue; c = 1; }
+      const ng = g[cur] + c * (dx && dz ? 1.4142 : 1) * MG;
+      if (ng < g[ni]) { g[ni] = ng; prev[ni] = cur; push(ng + hh(x, z), ni); }
+    }
+  }
+  if (!done[g0]) return { path: null, cost: straight * 1.3 };
+  const cells = []; for (let n = g0; n !== -1; n = prev[n]) cells.push([x0 + n % W, z0 + Math.floor(n / W)]); cells.reverse();
+  // 구역 중심을 잇되, 같은 방향·같은 땅이 이어지는 점은 하나로 합친다
+  const pts = [from.slice()], pc = [0]; let dir = '', unit = -1;
+  for (let i = 1; i < cells.length; i++) {
+    const a = cells[i - 1], b = cells[i], q = i === cells.length - 1 ? to.slice() : [b[0] * MG + MG / 2, b[1] * MG + MG / 2], p = pts[pts.length - 1];
+    let ca = mCost(a[1] * MGX + a[0]), cb = mCost(b[1] * MGX + b[0]); if (ca < 0) ca = 1; if (cb < 0) cb = 1;
+    const u = Math.round((ca + cb) * 5) / 10, d = `${b[0] - a[0]},${b[1] - a[1]}`, len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (d === dir && u === unit && pts.length > 1 && i < cells.length - 1) { const k = pts.length - 1, pp = pts[k - 1]; pts[k] = q; pc[k] = pc[k - 1] + Math.hypot(q[0] - pp[0], q[1] - pp[1]) * u; continue; }
+    pts.push(q); pc.push(pc[pc.length - 1] + len * u); dir = d; unit = u;
+  }
+  return { path: pts.map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]), pc: pc.map(c => Math.round(c)), cost: pc[pc.length - 1] };
+}
+// 지금 행군이 길 위 어디쯤인지: 위치와 다음 꺾이는 점의 번호
+function marchAt(m) {
+  const t = clamp((S.civ.play - m.t0) / m.dur, 0, 1);
+  if (!m.path) return { p: [lerp(m.from[0], m.to[0], t), lerp(m.from[1], m.to[1], t)], i: 1 };
+  const pc = m.pc, c = t * pc[pc.length - 1]; let i = 1; while (i < pc.length - 1 && pc[i] < c) i++;
+  const a = m.path[i - 1], b = m.path[i], u = pc[i] > pc[i - 1] ? clamp((c - pc[i - 1]) / (pc[i] - pc[i - 1]), 0, 1) : 1;
+  return { p: [lerp(a[0], b[0], u), lerp(a[1], b[1], u)], i };
+}
+const marchPos = m => marchAt(m).p;
+// 전쟁 창에 보여 줄 행군 시간 (길이 바뀔 수 있으니 2분만 기억한다)
+const etaCache = new Map();
+function marchEta(from, to) {
+  const k = `${Math.floor(from[0] / MG)},${Math.floor(from[1] / MG)}>${Math.floor(to[0] / MG)},${Math.floor(to[1] / MG)}`, c = etaCache.get(k);
+  if (c && S.civ.play - c.at < 120) return c.sec;
+  const sec = Math.max(8, Math.round(marchRoute(from, to).cost / MARCH_SPD)); etaCache.set(k, { at: S.civ.play, sec }); return sec;
+}
+const nearestPlace = (x, z) => myPlaces().sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))[0];
 function newMarch(o) {
-  const d = Math.hypot(o.to[0] - o.from[0], o.to[1] - o.from[1]);
-  const m = Object.assign({ id: S.war.mid++, t0: S.civ.play, dur: Math.max(o.minDur || 8, Math.round(d / MARCH_SPD)) }, o); delete m.minDur;
+  const r = marchRoute(o.from, o.to);
+  const m = Object.assign({ id: S.war.mid++, t0: S.civ.play, dur: Math.max(o.minDur || 8, Math.round(r.cost / MARCH_SPD)) }, o, r.path ? { path: r.path, pc: r.pc } : {}); delete m.minDur;
   S.war.marches.push(m); terrDirty = true; dirty(); return m;
 }
 // 요새 모델을 지금 주인 색으로 다시 만든다
@@ -2878,7 +2961,7 @@ function recruit() {
 function sendAttack(f, n) {
   n = Math.min(n, S.war.troops); if (n < 1 || fortSt(f).own === 'me') return;
   // 그 요새에서 가장 가까운 내 거점에서 출발한다
-  const src = myPlaces().sort((a, b) => Math.hypot(a.x - f.cx, a.z - f.cz) - Math.hypot(b.x - f.cx, b.z - f.cz))[0];
+  const src = nearestPlace(f.cx, f.cz);
   S.war.troops -= n;
   const m = newMarch({ kind: 'atk', n, fort: f.id, tname: f.n, from: [src.x, src.z], to: [f.cx, f.z + 5] });
   warLog(`⚔ 병사 ${n}명이 ${src.name}에서 ${josa(f.n, '으로', '로')} 진군 (${mmss(m.dur)})`);
@@ -3055,7 +3138,7 @@ function renderWar(rows, note) {
     const fallen = S.war.fallen[k.id];
     civRow(k.e, k.n, fallen ? `항복했어요. 이제 ${HOME}의 땅이에요.` : k.trait, null, fallen ? ctag('항복') : null, fallen ? 'done' : '');
     for (const f of k.forts) {
-      const st = fortSt(f), km = Math.round(Math.hypot(f.cx - P.x, f.cz - P.z) * GEO.S), sec = Math.round(Math.hypot(f.cx - HOME_ANCHOR[0], f.cz - HOME_ANCHOR[1]) / MARCH_SPD);
+      const st = fortSt(f), km = Math.round(Math.hypot(f.cx - P.x, f.cz - P.z) * GEO.S), src = nearestPlace(f.cx, f.cz), sec = marchEta([src.x, src.z], [f.cx, f.z + 5]);
       const atk = S.war.marches.some(m => m.kind === 'atk' && m.fort === f.id);
       let desc, btn = null, cls = '';
       const ob = st.own.startsWith('b:') ? BOT_BY()[st.own.slice(2)] : null;
@@ -3467,7 +3550,7 @@ function battleBotTown(m) {
 function sendAttackBot(o, t, n) {
   n = Math.min(n, S.war.troops); if (n < 1) return;
   const tx = (t ? t.x : o.cx) + 1, tz = (t ? t.z : o.cz) + 3, name = t ? t.name : `${botShort(o)} 마을`;
-  const src = myPlaces().sort((a, b) => Math.hypot(a.x - tx, a.z - tz) - Math.hypot(b.x - tx, b.z - tz))[0];
+  const src = nearestPlace(tx, tz);
   S.war.troops -= n;
   const m = newMarch({ kind: 'atk', n, bot: o.id, cap: !t, tname: name, from: [src.x, src.z], to: [tx, tz] });
   breakTruce(o);
@@ -4425,9 +4508,9 @@ function drawMarks(ctx, k, ox, oz, big) {
     if (big && k > 0.6) label(X(f.cx), Z(f.cz) + 17, f.n, 11, col);
   }
   for (const m of S.war.marches) {
-    const [mx, mz] = marchPos(m), raid = m.kind === 'raid';
+    const { p: [mx, mz], i: mi } = marchAt(m), raid = m.kind === 'raid';
     ctx.setLineDash([4, 4]); ctx.strokeStyle = raid ? 'rgba(224,69,60,.85)' : 'rgba(63,127,208,.85)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(X(mx), Z(mz)); ctx.lineTo(X(m.to[0]), Z(m.to[1])); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(X(mx), Z(mz)); for (const q of m.path ? m.path.slice(mi) : [m.to]) ctx.lineTo(X(q[0]), Z(q[1])); ctx.stroke(); ctx.setLineDash([]);
     if (vis(mx, mz)) label(X(mx), Z(mz), raid ? '🔥' : m.kind === 'atk' ? '⚔️' : '↩️', big ? 15 : 12, '#000');
   }
   for (const b of S.ai.bots || []) if (b.alive) {
