@@ -2415,7 +2415,7 @@ function natureChunk(ci) {
 function unloadNature(ci) {
   const list = natOn.get(ci); if (!list) return;
   for (const e of list) if (ents.has(e)) { removeEnt(e); allTrees.delete(e); shaking.delete(e); bumping.delete(e); }
-  natOn.delete(ci); undaily(ci);
+  natOn.delete(ci); undaily(ci); ambientUnload(ci);
 }
 // 플레이어가 놓은 것들
 function spawnPlaced(rec) {
@@ -2628,7 +2628,7 @@ function civBanner(icon, title, quip) {
   $('#bnNew').textContent = '마을 발전!'; $('#bnNew').hidden = false; $('#banner').hidden = false; bannerT = 3.4; P.hop = 0.5; SFX.fanfare();
 }
 // 새로 지은 건물 자리에 서 있던 주민은 집 앞으로 비켜 준다
-function unstickVillagers() { for (const v of villagers) if (!canStand(v.x, v.z, 0.25)) { v.x = v.def.home.x; v.z = v.def.home.z; v.target = null; } }
+function unstickVillagers() { for (const v of villagers) if (!(v.def.lazy && v.placed !== true) && !canStand(v.x, v.z, 0.25)) { v.x = v.def.home.x; v.z = v.def.home.z; v.target = null; } }
 function doBuild(b) {
   const i = BUILDS.indexOf(b); if (S.civ.lv !== i || S.civ.built[b.id]) return;
   if (b.tech && !S.civ.tech[b.tech]) { toast(`${TECH_BY[b.tech].n} 기술이 먼저 필요해요.`); SFX.miss(); return; }
@@ -3381,7 +3381,7 @@ if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
 if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal }), route: (a, b) => marchRoute(a, b), BAL, PERF,
-  talk: () => ({ villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
+  talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
 /* --- 봇의 기억과 평판 ---
    문명 5의 외교 AI처럼 봇은 플레이어가 한 일(선물·선전포고·약속 위반·같은 편 공격·정복)을 기억하고, 그 기억으로 태도를 정한다.
@@ -3741,7 +3741,7 @@ const villagers = VDEF.filter(v => v.home).map(v => {
 for (const f of FORTS) { const b = f.boss; f.v = { def: b, id: b.id, mesh: null, x: b.home.x, z: b.home.z, rot: 0, target: null, wait: 1, walk: 0, talking: false, vis: true }; villagers.push(f.v); }
 for (const b of S.ai.bots || []) addBotLeader(b);
 const VS = id => S.vill[id] || (S.vill[id] = { fr: 0, quest: null });
-const vSpeaker = v => ({ name: v.def.name, sub: v.def.region ? `${v.def.sp} · ${PERSONA[v.def.region].n}` : v.def.sp, color: v.def.color, pitch: v.def.pitch, fr: VS(v.id).fr });
+const vSpeaker = v => ({ name: v.def.name, sub: v.def.role ? `${v.def.sp} · ${v.def.role}` : v.def.region ? `${v.def.sp} · ${PERSONA[v.def.region].n}` : v.def.sp, color: v.def.color, pitch: v.def.pitch, fr: VS(v.id).fr });
 function greetFor(v, h) { const g = v.def.greet; return h < 11 ? g.m : h < 17 ? g.d : h < 20 ? g.e : g.n; }
 function makeQuest(v, h) {
   const pool = ['apple', 'orange', 'peach', 'shell', 'stone', 'weed', 'crucian', 'horsemack', 'coconut'];
@@ -3822,20 +3822,23 @@ function talkShop() {
     { l: '구경만 할게요', f: () => ['언제든 들러 주세요. 좋은 하루 되세요!'] }] }]);
 }
 function updateVillagers(dt, h) {
-  const sleeping = h >= 23 || h < 6;
   for (const v of villagers) {
     if (v.fighting) continue;
     const far = Math.hypot(v.x - camPos.x, v.z - camPos.z);
     if (far > 46) { if (v.mesh && far > 60) { scene.remove(v.mesh); v.mesh = null; } continue; }
+    if (v.def.lazy && !v.placed) placeLazy(v);
+    if (v.placed === 'fail') { v.vis = false; continue; }
     if (!v.mesh) { v.mesh = makeVillMesh(v.def); scene.add(v.mesh); }
-    v.vis = !sleeping || !!v.def.boss || !!v.def.botLeader; v.mesh.visible = v.vis && v.inView !== false;
+    // 사람마다 자는 시간이 다르다 (밤에 다니는 사람도 있다)
+    v.vis = !asleep(v.def, h); v.mesh.visible = v.vis && v.inView !== false;
     if (!v.vis) { v.x = v.def.home.x; v.z = v.def.home.z; continue; }
     const u = v.mesh.userData; let moving = false;
     if (v.talking) { v.rot = lerpAngle(v.rot, Math.atan2(P.x - v.x, P.z - v.z), 1 - Math.exp(-dt * 10)); }
     else if (v.wait > 0) v.wait -= dt;
     else {
       if (!v.target) {
-        for (let k = 0; k < 12; k++) { const x = v.def.home.x + rand(-7, 7), z = v.def.home.z + rand(-4, 8); if (canStand(x, z, 0.25)) { v.target = { x, z }; break; } }
+        const rr = v.def.roam || 7;
+        for (let k = 0; k < 12; k++) { const x = v.def.home.x + rand(-rr, rr), z = v.def.home.z + rand(-rr * 0.6, rr * 1.15); if (canStand(x, z, 0.25)) { v.target = { x, z }; break; } }
         if (!v.target) v.wait = 1;
       }
       if (v.target) {
@@ -4783,6 +4786,117 @@ const FLINES = {
   norang: { ask: '야차룰인가. …좋다. 음.', accept: '서두르지 않는다. 음.', chicken: '그것도 판단이다. 음.', win: '…졌군. 괜찮다. 다음이 있다. 음.', lose: '흔들리면 진다. 기억해 둬라. 음.', draw: '무승부. 나쁘지 않다. 음.', taunt: ['음.', '…침착하게.', '흐읍.'] },
 };
 Object.assign(FDEF, FDEF_X); Object.assign(FLINES, FLINES_X);
+/* ================= 사람 많은 세상: 고장 주민 더하기 · 길가 행인 · 밤에 다니는 사람 ================= */
+// 늘어난 고장 주민은 집 없이(아파트·하숙) 도시 안을 돌아다니고, 플레이어가 가까이 가면 그때 설 자리를 잡는다.
+// 길가 행인은 구역(16×16칸)마다 정해진 운으로 생기고, 멀어지면 사라졌다가 다시 오면 같은 사람이 같은 자리에 있다.
+// 밤에도 다 자지 않는다: 일찍 자는 사람, 늦게 자는 올빼미, 밤에만 다니는 사람(별 보기·순찰·한잔한 사람)이 섞여 있다.
+const SCHED = { day: [23, 6], early: [21, 6], owl: [2, 10], night: [8, 16], noct: [6, 19] };   // [잠드는 시각, 깨는 시각)
+const asleep = (def, h) => !def.boss && !def.botLeader && inHours(h, SCHED[def.sched || 'day']);
+const NAME_A = ['달', '별', '솔', '콩', '봄', '윤', '하', '다', '라', '미', '소', '도', '해', '누', '찬', '결', '온', '슬', '보', '초', '마', '꽃', '금', '은', '새', '단', '나', '아', '가', '루'];
+const NAME_B = ['이', '비', '솔', '미', '람', '루', '빈', '나', '아', '우', '진', '름', '돌', '순', '복', '실', '동', '봉', '덕', '쇠'];
+const makeName = r => NAME_A[Math.floor(r() * NAME_A.length)] + NAME_B[Math.floor(r() * NAME_B.length)];
+// 밤에 다니는 사람들의 말 (고장 사투리)
+const NIGHT_LINES = {
+  sudo: ['밤에 편의점 가는 게 하루 중 제일 행복해.', '야근 끝나고 이제 들어가는 길이야. 피곤하다…', '밤 한강 바람 쐬러 나왔어.'],
+  gangwon: ['밤 산은 별이 쏟아지드래요. 잠이 안 와서 나왔어요.', '밤에 걷는 게 좋드래요. 조용하잖아요.'],
+  chung: ['밤바람이 선선허네유. 쪼끔만 걷다 들어갈라구유.', '잠이 안 와서유… 별이나 세구 있었슈.'],
+  jeolla: ['밤은 밤대로 운치가 있당께.', '잠이 안 와서 바람 쐬러 나왔당께.'],
+  gyeong: ['밤에 바람 쐬는 게 최고 아이가.', '잠이 와야 자지. 바람이나 쐬러 나왔다.'],
+  jeju: ['밤바당 소리 들으멍 걷는 중이우다.', '고기잡이 배 나갈 시간이라 바쁘우다.'],
+  seobuk: ['밤에 걷는 거이 머리가 맑아지디.', '야간 근무 들어가는 길이야요.'],
+  dongbuk: ['밤바다에 명태잡이 배가 나가지비.', '밤길은 조심해야 하오.'],
+};
+// 길가 행인의 하는 일과 그 일에 맞는 고장 말
+const ROLES = {
+  walker: { n: '산책하는 주민' }, forager: { n: '나물 캐는 사람' },
+  traveler: { n: '나그네', roam: 14, lines: { sudo: '저 고개 넘어서 왔어. 다리가 뻐근하네.', gangwon: '고개 넘어오느라 다리가 다 후들거리드래요.', chung: '저 고개 넘어왔슈. 다리가 뻐근허네유.', jeolla: '저 재 넘어오니라 다리가 겁나게 땡긴당께.', gyeong: '저 고개 넘어왔다 아이가. 다리 쎄빠지겠데이.', jeju: '저 오름 넘어왔수다. 다리가 아팜수다.', seobuk: '저 령 넘어왔디. 다리가 뻐근하구만.', dongbuk: '저 령 넘어왔슴둥. 다리가 아프지비.' } },
+  farmer: { n: '농부', lines: { sudo: '논에 물 대러 나왔어. 올해 농사 잘돼야 할 텐데.', gangwon: '감자밭 돌보러 나왔드래요. 올해 감자 실하드래요.', chung: '논에 물 대러 나왔슈. 올해두 풍년이믄 좋겄네유.', jeolla: '논에 물 대러 나왔당께. 올해 나락이 겁나게 잘 여물었어.', gyeong: '논에 물 대러 나왔데이. 올해 농사 함 보자.', jeju: '귤밭 돌보러 나왔수다. 올해 귤이 달아마씸.', seobuk: '논에 물 대러 나왔디. 올해 벼가 잘 여물었어.', dongbuk: '감자밭에 나왔지비. 올해 감자 굵소.' } },
+  fisher: { n: '어부', lines: { sudo: '오늘은 물때가 좋아. 뭐 좀 잡히려나.', gangwon: '오징어 배 들어오는 거 보러 나왔드래요.', chung: '물 빠지믄 조개 캐러 갈라구유.', jeolla: '물 빠지믄 꼬막 캐러 갈 것이여. 갯벌이 보물창고랑께.', gyeong: '오늘 고기 좀 잡히겠데이. 물때가 좋다.', jeju: '물질 갔다 오는 길이우다. 숨 참는 거 어렵수다.', seobuk: '물때 맞춰 그물 놓으러 왔디.', dongbuk: '명태 잡으러 나가는 길이지비.' } },
+  hiker: { n: '등산객', lines: { sudo: '정상까지 얼마나 남았지? 김밥은 정상에서 먹어야 제맛인데.', gangwon: '산 타는 거면 강원도가 최고래요. 정상 공기가 다르드래요.', chung: '천천히 올라가유. 산은 도망 안 가유.', jeolla: '산 우에서 묵는 밥이 꿀맛이랑께.', gyeong: '정상 찍고 내려가는 길이데이. 니도 함 가 봐라.', jeju: '한라산 올르젠 허믄 새벽부터 나와야 허우다.', seobuk: '정상 공기가 맑디. 올라가 보라우.', dongbuk: '산은 높고 골은 깊지비. 조심해 오르오.' } },
+  stargazer: { n: '별 보는 사람', night: true, lines: { sudo: '저기 저 별 보여? 북두칠성이야.', gangwon: '산골은 불빛이 없어서 별이 쏟아지드래요.', chung: '별 세다 보믄 시간 가는 줄 몰러유.', jeolla: '오늘은 별이 겁나게 많이 떴당께.', gyeong: '저 별 좀 봐라. 직이제?', jeju: '바당 위로 별이 고와마씸.', seobuk: '별이 총총하구만. 보라우.', dongbuk: '여기 하늘은 별이 많지비.' } },
+  patrol: { n: '야간 순찰', night: true, lines: { sudo: '밤길 조심해. 요즘 왕국 군대가 돌아다닌다더라.', gangwon: '밤엔 산짐승도 나오드래요. 조심히 다녀요.', chung: '밤길 조심허셔유. 순찰 도는 중이유.', jeolla: '밤길 조심허소잉. 내가 한 바퀴 돌고 있응께.', gyeong: '밤에 혼자 댕기지 마래이. 내가 순찰 돈다.', jeju: '밤바당 근처는 위험허우다. 조심헙서.', seobuk: '밤길 조심하라우. 순찰 중이야요.', dongbuk: '밤엔 조심하오. 순찰 도는 중이지비.' } },
+  drunk: { n: '한잔한 사람', night: true, lines: { sudo: '딸꾹… 한잔만 하려고 했는데… 집이 어느 쪽이더라.', gangwon: '막걸리 한잔하고 들어가는 길이래요. 딸꾹.', chung: '딸꾹… 쪼끔만 마신다는 게 그만… 괜찮아유.', jeolla: '한잔 걸치고 가는 길이여. 딸꾹. 걱정 말드라고.', gyeong: '한잔하고 가는 길이데이. 딸꾹. 내 안 취했다.', jeju: '딸꾹… 한라산 소주 한잔했수다.', seobuk: '딸꾹… 한 잔만 하갔다는 거이…', dongbuk: '딸꾹… 술은 독해야 제맛이지비.' } },
+  owl: { n: '밤 산책', night: true },
+};
+// 사람 하나 만들기: 고장 사투리·성격·맞짱 능력을 붙여 주민 목록에 넣는다
+function personDef(r, o) {
+  const sk = pick(REGION_SP[o.region], r), S0 = SPECIES[sk], fi = Math.floor(r() * S0.furs.length), roof = pick(ROOFS, r), D = DIALECT[o.region];
+  return Object.assign({ name: makeName(r), sp: S0.sp, cp: pick(D.cp, r), pitch: 150 + Math.floor(r() * 200), fur: S0.furs[fi], muzzle: S0.muzzles[fi % S0.muzzles.length], ear: S0.ear, earIn: S0.earIn, tail: S0.tail, mouth: S0.mouth,
+    shirt: pick(SHIRTS, r), pants: pick([0x5a4030, 0x34476e, 0x7a5536, 0x4a4a52], r), pattern: pick([null, 'stripe', 'dot', 'check'], r),
+    face: { iris: '#24160e', eyeW: 12 + Math.floor(r() * 5), eyeH: 14 + Math.floor(r() * 5), lash: r() < 0.4 }, roof, color: '#' + new THREE.Color(roof).multiplyScalar(0.85).getHexString(), greet: D.greet }, o);
+}
+function addPerson(def, extra) {
+  const D = DIALECT[def.region], fd = Object.assign({}, D.fd);
+  for (const [k, dv] of Object.entries(PERSONA[def.region].m.fight || {})) fd[k] = Math.round((fd[k] + dv) * 100) / 100;
+  FDEF[def.id] = fd; FLINES[def.id] = D.f; OPENERS[def.id] = D.open;
+  const v = Object.assign({ def, id: def.id, mesh: null, x: def.home.x, z: def.home.z, rot: 0, target: null, wait: rand(0.5, 3), walk: 0, talking: false, vis: false }, extra);
+  villagers.push(v); return v;
+}
+const nightPool = (region, sched) => sched === 'owl' || sched === 'night' || sched === 'noct' ? NIGHT_LINES[region] : [];
+// 고장 주민 더하기: 광역시 14명(서울·평양 24명), 중소 도시 7명, 작은 마을 4명
+{
+  const r = mulberry32(5150); let n = 0;
+  for (const c of CITIES) {
+    const D = DIALECT[c.region], sub = c.name, rad = CITY_R(c), cnt = c.size === 3 ? (c.name === '서울' || c.name === '평양' ? 24 : 14) : c.size === 2 ? 7 : 4;
+    for (let k = 0; k < cnt; k++) {
+      const sched = pick(['day', 'day', 'day', 'day', 'day', 'day', 'early', 'early', 'owl', 'owl', 'owl', 'night'], r), a = r() * Math.PI * 2, d = r() * rad * 0.8;
+      addPerson(personDef(r, { id: 't' + (n++), town: c.name, region: c.region, sched, lazy: true, roam: 10, home: { x: c.x + Math.cos(a) * d, z: c.z + Math.sin(a) * d },
+        chat: [...(CITY_LINES[c.name] || []), ...D.chat.map(s => s.replace('{c}', sub)), ...PERSONA[c.region].chat.map(s => s.replace('{c}', sub)), ...nightPool(c.region, sched)] }));
+    }
+  }
+}
+// 원래 있던 고장 주민도 다섯 중 하나는 밤에 다니는 올빼미
+for (const v of villagers) if (v.def.town && !v.def.sched && hashStr(v.id) % 5 === 0) { v.def.sched = 'owl'; v.def.chat = [...v.def.chat, ...NIGHT_LINES[v.def.region]]; }
+// 길가 행인: 도시 근처·흙길이 있는 구역엔 많이, 빈 들판·산엔 드물게. 낮 사람과 밤 사람이 따로 있다.
+const ambOn = new Map();   // 구역 → 그 구역의 행인
+function ambientChunk(ci) {
+  if (ambOn.has(ci)) return;
+  const list = []; ambOn.set(ci, list);
+  const r = mulberry32(hashStr('amb' + ci)), x0 = (ci % NCX) * CH, z0 = Math.floor(ci / NCX) * CH;
+  let roadN = 0, paddy = 0, sand = 0, mount = 0, land = 0, region = null;
+  for (let z = z0; z < z0 + CH; z += 2) for (let x = x0; x < x0 + CH; x += 2) {
+    const i = z * NX + x, t = tiles[i];
+    if (road[i]) roadN++;
+    if (t === T.PADDY) paddy++; else if (t === T.SAND) sand++; else if (t === T.MOUNT || t === T.SNOW) mount++;
+    if (isWalkT(t)) { land++; if (!region && REGION_OF[prov[i]]) region = REGION_OF[prov[i]]; }
+  }
+  if (land < 8 || !region) return;
+  const city = CITIES.find(c => Math.hypot(c.x - (x0 + 8), c.z - (z0 + 8)) < CITY_R(c) + 40), busy = !!city || roadN > 0;
+  const dayRole = () => roadN ? 'traveler' : paddy > 6 ? 'farmer' : sand > 4 ? 'fisher' : mount > 6 ? 'hiker' : city ? 'walker' : pick(['forager', 'traveler', 'walker'], r);
+  const want = [];
+  const nightRole = () => city ? pick(['owl', 'drunk', 'patrol', 'owl'], r) : pick(['stargazer', 'stargazer', 'owl', 'patrol'], r);
+  if (r() < (busy ? 0.95 : 0.4)) want.push(dayRole());
+  if (r() < (busy ? 0.7 : 0.12)) want.push(dayRole());
+  if (city && r() < 0.6) want.push(dayRole());
+  if (r() < (busy ? 0.65 : 0.18)) want.push(nightRole());
+  if (city && r() < 0.45) want.push(nightRole());
+  want.forEach((role, k) => {
+    let spot = null;
+    for (let t = 0; t < 30 && !spot; t++) {
+      const x = x0 + Math.floor(r() * CH), z = z0 + Math.floor(r() * CH), i = z * NX + x;
+      if (isWalkT(tiles[i]) && tiles[i] !== T.BRIDGE && !occ.has(i) && !resv[i] && canStand(x + 0.5, z + 0.5, 0.25)) spot = { x: x + 0.5, z: z + 0.5 };
+    }
+    if (!spot) return;
+    const R0 = ROLES[role], D = DIALECT[region], sched = R0.night ? 'noct' : r() < 0.2 ? 'early' : 'day';
+    const chat = [...(R0.lines ? [R0.lines[region]] : []), ...D.chat.map(s => s.replace('{c}', city ? city.name : '여기')), ...PERSONA[region].chat.slice(0, 2).map(s => s.replace('{c}', city ? city.name : '여기')), ...(R0.lines ? [R0.lines[region]] : nightPool(region, sched))];
+    const v = addPerson(personDef(r, { id: `a${ci}_${k}`, region, role: R0.n, sched, roam: R0.roam || 8, home: spot, chat }), { placed: true, amb: ci });
+    v.vis = true; list.push(v);
+  });
+}
+function ambientUnload(ci) {
+  const list = ambOn.get(ci); if (!list) return;
+  for (const v of list) { if (v.mesh) scene.remove(v.mesh); const i = villagers.indexOf(v); if (i >= 0) villagers.splice(i, 1); }
+  ambOn.delete(ci);
+}
+// 집 없는 주민은 플레이어가 가까이 왔을 때 집(아파트) 근처 설 수 있는 자리를 잡는다
+function placeLazy(v) {
+  const h = v.def.home;
+  for (let rr = 2; rr <= 18 && !v.placed; rr += 4) for (let k = 0; k < 12; k++) {
+    const x = h.x + rand(-rr, rr), z = h.z + rand(-rr, rr);
+    if (canStand(x, z, 0.25)) { v.def.home = { x, z }; v.x = x; v.z = z; v.placed = true; break; }
+  }
+  if (!v.placed) v.placed = 'fail';
+}
 // 던질 수 있는 물건과 위력
 const THROWABLE = { iron: 20, coconut: 18, stone: 16, clay: 12, apple: 10, orange: 10, peach: 10, starfish: 8, shell: 8, weed: 4 };
 const THROWCOL = { stone: 0x9e978f, iron: 0x8a8f99, clay: 0xc08a5a, shell: 0xf7d2c6, starfish: 0xf08a4b, weed: 0x7fae45, fish: 0x7fb6d6 };
@@ -5188,6 +5302,7 @@ function updateCull(force) {
   // 자연물: 화면보다 조금 넓게 미리 만들고, 멀어진 구역은 치운다
   for (let dz = -5; dz <= 3; dz++) for (let dx = -5; dx <= 5; dx++) { const x = ccx + dx, z = ccz + dz; if (x >= 0 && z >= 0 && x < NCX && z < NCZ) natureChunk(z * NCX + x); }
   for (const ci of [...natOn.keys()]) { const x = ci % NCX, z = Math.floor(ci / NCX); if (Math.max(Math.abs(x - ccx), Math.abs(z - ccz)) > 9) unloadNature(ci); }
+  for (const ci of natOn.keys()) ambientChunk(ci);
   for (let dz = -4; dz <= 2; dz++) for (let dx = -4; dx <= 4; dx++) { const x = ccx + dx, z = ccz + dz; if (x >= 0 && z >= 0 && x < NCX && z < NCZ) want.add(z * NCX + x); }
   for (const ci of [...loadedCh]) if (!want.has(ci)) { loadedCh.delete(ci); const g = chunkMeshes.get(ci); if (g) scene.remove(g); for (const e of chunkEnts[ci]) hideEnt(e, true); }
   // 지면 메시는 너무 많이 쌓이면 먼 것부터 버린다
