@@ -239,7 +239,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pMap" hidden><div class="panel mapp" role="dialog" aria-label="대한민국 지도">
   <header><div>대한민국 지도 <span class="sub" id="mapSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><canvas id="mapC" width="960" height="960"></canvas><p class="fine">가 본 곳만 지도에 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
+  <div class="body"><canvas id="mapC" width="960" height="960"></canvas><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">가 본 곳만 지도에 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
 </div></div>
 
 <div class="wrap" id="pCiv" hidden><div class="panel civp" role="dialog" aria-label="마을 발전">
@@ -388,7 +388,8 @@ const hoursText = r => (r[0] === 0 && r[1] === 24) ? '하루 종일' : `${r[0]}�
 
 /* ================= 저장 ================= */
 const KEY = 'dotori-island-v1';
-const N = 480, C = 240;
+// K: 해상도 배율. 예전 지도(480칸, 1칸 = 1.45km)를 K배로 촘촘하게 → 1440칸, 1칸 ≈ 0.48km
+const K = 3, N = 480 * K, C = N / 2;
 function freshState() {
   return { v: 1, coins: 1000, inv: Array(20).fill(null), tool: 'hand', px: C + 0.5, pz: C + 6.5, rot: 0,
     dex: {}, trees: {}, removed: {}, placed: [], ground: [], daily: { key: '' }, vill: {},
@@ -498,7 +499,7 @@ function musicUpdate() {
 // 대한민국 시·도 경계를 480×480칸으로 칠한 지도 (southkorea-maps의 2013년 통계청 시도 경계를 1칸 = 1.45km로 래스터화, 독도는 직접 추가)
 // 한 줄은 "값 문자(A=바다, B~R=시·도) + 길이(36진수)" 묶음의 반복이고, 줄은 | 로 나눈다
 const KR_RLE = "Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|A6vK2A6f|A6uK4A6e|A6uK5A6d|A6uK6A6c|A6uK6A6c|A6uK6A6c|A6uK7A6b|A6uK7A6b|A6uK7A6b|A6uK8A6a|A6uK8A6a|A6tKaA69|A6tKbA68|A6sKbA69|A6rKdA68|A6qKeA68|A6pKgA67|A6oKiA66|A6nKkA65|A6lKmA65|A5vK2AmKoA65|A4uK1A4K2A6K4A9K4A3K7A3K6AaKrA64|A4tK3A1KfA6KtA5KtA63|A4tKmA1K1tA63|A4sK2iA62|A4qJ2K2iA62|A4oJ4K2iA62|A4mJ6K2jA61|A4lJ7K2jA61|A4jJcK2gA61|A4cJ1A7JbK2hA60|A4aJ8A1JcK2hA60|A49JnK2gA60|A48JoK5J2K2aA5z|A47JpK4J3K2aA5z|A46JsK1J3K2bA5z|A45JxK2bA5z|A45JxK2cA5y|A47JxK4J2K1J1K23A5x|A47J15K24A5w|A4cJ10K24A5w|A4eJyK25A5v|A4eJyK25A5v|A4eJzK25A5u|A4aJ2A1J10K26A5t|A4aJ13K27A5s|A4aJ14K27A5r|A48J1aK23A5r|AkE4A3hJ1eK23A5q|AgE8A3hJ1eK23A5q|AhE7A3cJ1A4J1hK21A5p|AhE5A3eJ1nK21A5o|AiE4A3eJ1nK22A5n|A40J1nK23A5m|A41J1mK23A5m|A40J1mK24A5m|A41J1kK26A5l|A41J1jK28A5k|A40J1jK2aA5j|AlE2A3dJ1iK2bA5j|AlE2A2wE3AeJ1hK2dA5i|AlE2A2mE3A6E5AdJ1iK2dA5h|A38E7A2E8AbJ1hK2fA5g|A38E7A1EaA9J1jK2fA5f|A38E3A1E2A3E9A1J2A5J1kK2gA5e|A38E1A8EaJ3A3J1lK2hA5d|A3dE2A1EbJ1qK2jA5c|A3cE3A1EbJ1pK2lA5b|A3cE3A1EbJ1tK2hA5b|A3cE4A1EaJ1sK2jA5a|A3dEeJuB2J2B1JtK2kA59|A2bE2AtE1A7E4A1E8JtB7JsK2lA58|A2bE2AtE2A7E3A1E9JsB7JsK2lA58|A39E1A5E2A3E7JpB2J2B6JtK2lA58|A39E1A8EaJnB4J1B8JqK3J3K2gA58|A3iEaA1J5E3JeBdJxK2fA58|A3iEaA1J5E4JdBdJyK2fA57|A3jE9A2J2E7JcBdJ10K2eA56|A3oE1A1E1A3EcJ2B2J4BdJ15K2bA55|A3vEcBkJ3B2J13K29A54|A3vEcBpJ14K28A54|A3wEaJ1BpJ15K27A54|A3fE2A5E2A8EaJ4BkJ15K29A2zP4A21|A3mE2A1E3A4EaJ4BkJ14K2bA2wP7A20|A3pE5A2E9J5BjJ14K2cA2wP7A20|A3kEbA1E9J4BmJ12K2dA2vP7A20|A3jEbA2E9J4B2J2BhJ13K2eA2uP7A20|A3hEaA5EaJ7BgJ15K2dA2vP4A22|A3hE9A6EbJ7B6J1B6J17K2fA4z|A3jE6A7EbJ7B5J4B3J18K2fA4z|A3kE3A9EaJiB1J1aK2eA4z|A3wE9J1tK2fA4z|A3kE1AbE9J1sK2hA4y|A3kE2AaE8J1tK2iA4x|A3kE2AaE7J1uK2kA4v|A3xE5A1J1tK2lA4v|A3xE3A2J1uK2lA4v|A42J1uK2mA4u|A42J1uK2mA4u|A44J1sK2nA4t|A44J1sK2oA4s|A4aJ1mK2pA4r|A3mE3A4J2AdJ1oK2pA4r|A31E1AbE1A8E4A3J4A4J1A6J1oK2qA4q|A30E3AjE2A5J4A3J7A1J1nKdL4KbL1K1yA4cP2Ac|A30E5AgE3A5J5A2J1vKcL5KaL3K1yA4p|A32E2AoJ7A2J1uKbL7K9L5K3L1K1rA4q|A3sJ2A6J1uL1KbL7K5LdK1rA4q|A40J1uL1KcL6K3LfK1rA4q|A40J1tL2KcLmK1tA4q|A30E1AzJ7A1J1lL3KaLmK1vA4p|A40J5A3J1kL5K5L2K1LmK5L1K1qA4p|A41J3A4J1kL10K2L6K1mP2A4o|A41J2A5J1gL1bK1lP4A4o|A46J1iL1dK4L1K1dP6A4n|A2zE1A16J1iL1jK1bP7A4n|A2zE1A16J1hL1lKoP2K8P2K8P9A4n|A46J1fL1rKbP3K6P6K3P5K5PbA4m|A3pM1AgJ1eL1vP1K6P5K4PgK4PcA4l|A3lM1A3M2AeJ19L1J1L2J2L1vP3K4P6K3PhK3PcA4l|A3oM4AdJ18L1yPaK1P15A4l|A3nM7AeJ15L1xP1gA4m|A3iM4A1M9AcJ14L1yP1hA4l|A3gM7A1MaA3M1A7J11L1zP1iA4l|A3fM9A1MgA5JzL1yP1jA4m|A3gMrA4JyL1xP1lA4l|A3cM2A1MsA4JgM4JeL1wP1mA4l|A3dM1A4MqA4JeM8J8L1yP1nA4l|A3jMpA4J1A1J6M1J3MaJ7L1yP1oA4l|A3jMqA6J3MiJ4L1yP1pA4l|A39M1A2M2A6MpA6MnJ1L1zP1pA4l|A37M3A2M3A4MqA6MoL1zP1pA4l|A37M1A3M3A4MsA2MsL1xP1qA4l|A36M3A1M4A4MsA1MtL1mP1LbP1pA4l|A37M6A4M1oL1lP2LbP1oA4l|A34M1A1M7A2M1rL1iP5L9P1qA4k|A34M9A2M1rL1dP1L4P6L8P1rA4j|A34M8A3M1tL1aPeL5P1sA4j|A34M25L15PjL1P1wA4i|A33M26L15P2gA4i|A33M27L14P2gA4i|A31M29L13P2hA4i|A32M2A2M20L3M1L13P2hA4i|A33M1A3M1zL18P2gA4i|A32M2A4M1mI3M7L14P1L6P2fA4i|A34M3A1M2A1M1iI6M5L13P7L1P2fA4i|A34M5A2M1iI7M3L14P2oA4h|A33M4A4M1kI8L11P2qA4i|A33M1A7M1kI9L12P2mA4k|A3cM4A1M5A1M17I9L14P2lA4k|A3dM3A1M5A1M17I8L15P2kA4l|A3dM3A1M5A1M18I7LzP3L3P2kA4l|A3cM4A3M3A2M16I9LyP5L1P2kA4l|A3cM3A1M2A2M1A3M16IaLvP2sA4l|A3cM2A1M4A4M19I8LuP2sA4m|A3eM5A3M1bI8LuP2sA4l|A3eM5A4M1aI8LxP2pA4l|A3fM4A4M19IcLvP2pA4k|A3fM4A4M19IdLuP2pA4k|A3fM4A5M18IeLuP2pA4j|A3fM4A6M17IeLvP2oA4j|A3fM5A4M18IeLvP2oA4j|A3fM5A4M18IbG2LvP2oA4k|A3fM6A3M19IaG3LtP2pA4k|A3fM6A3M19IaG3LuP2oA4k|A3fM6A4M18IaG9LnP2pA4k|A3gM5A4M19I8G9LoP2pA4k|A3hM5A3M1aI6GaLoP2pA4k|A3kM1A4M1bI1M1GhLkP2pA4k|A3fM1A9M1dGhLkP2oA4l|A3fM1A5M1A2M1eGfLmP2nA4m|A3jM3A5M1bGfLnP2mA4m|A3mM1A5M1aGfLnP2lA4n|A3gM1AcM19GeLoP2lA4n|A3gM1AaM1aGfLmP2nA4n|A3qM1bGfLlP2oA4n|A3rM1aGfLlP2nA4o|A3rM1aGfLlP2nA4o|A3sM19GeLnP2L2P2iA4o|A3sM1aG5M2G6LsP3L2P2cA4o|A3sM1aG5M2G6LtP1L5P2aA4o|A3sM1aG5M2G6L2M2LuP2cA4n|A3sM1bG4M3G4M7LsP2cA4n|A3sM1cG3M3G4M8LsP2bA4n|A3sM1dG1M5G2M9LoP2L2P2aA4o|A3rM1vLnP2fA4o|A3rM1vLoP2fA4n|A3rM1vLoP2gA4m|A3rMqN2M13LoP2gA4m|A3tM1A1MjNaMxLpP2gA4m|A3vMiNbMgN2MgLnP2iA4l|A3wMhNbMcN1M1N5MgLmP2jA4k|A3xMgNbM9N2M1N7MgLlP2kA4k|A3yMfNcM4NeMhLkP2jA4l|A3yMeNgM1NeMhLkP2iA8P2A4c|A3yMeNvMgN2L2N1LgP2hA9P3A4b|A3zMbNyMfN5LdP2jA9P4A4b|A40M7N11MaN1M5N6L6N2L2P2lA7P5A4b|A40M5N14M2N1M6N4M1NaL1N5P2nA5P6A4b|A42M2N18M6NlP1aD7P17A3P7A4b|A40N1dM5NmP18D8P1gA4c|A3zN1gM1NoP18D9P1eA4d|A3rN2eP13DdP1eA4d|A3rN2eP13DdP1eA4d|A3rN1A5N28P13DdP1dA4e|A3xN27PxD3P4DdP1cA4f|A3xN27PxD3P3DfP1bA4f|A3xN26Q1PwD4P2DgP1cA4e|A3xN3A3N1A4N1uQ2P1Q1PuDmP1bA4f|A48N1tQ6PsDnP1bA4f|A43N1xQ7PsDnP1cA4e|A42N1vQdPsDjP1cA4f|A42N1tQgP4Q1PoDgP1dA4f|A44N1qQoPmDfP1eA4f|A46N1oQoPmDfP1eA4f|A3yN5A4N1mQqPhDiP1eA4g|A3xN8A2N1lQsPgDhP1fA4g|A3xN1uQuPeDjP1eA4g|A3xN1tQwPdDjP1eA4g|A3xN1tQxPcDjP1dA4h|A3xN1tQxPeD9P3D5P1dA4h|A3wN1uQxPfD7P4D3PuH1P1H2PhA4h|A3vN1uQyPaD1P4D6P5D1PtH8PfA4i|A3sN1xQyPaDbPyHbPdA4i|A3rN1yQyPaDaQ1PxHcPdA4i|A3qN1yQxPdD8Q2PxHcP5H4P4A4i|A3pN1zQzP6Q1P5D7Q2PxHdP2H9A4j|A3oN1zQ1aP3D6Q2PvHqA4j|A3oN20Q19P2D3Q6PmQ4P4HrA4j|A3dN1AaN1zQ1bP1D1QaPjQ6P1Q2HrA4j|A3cN2AaN1zQ1nPiQbHrA4i|A3aN2AdN3A4N1A2N1oQ1oP3Q4P7QdHsA4i|A40N1mQ1zP3QdHsA4j|A3xN2A1N1lQ2eHuA4j|A3wN1qQ2eHtA4j|A3tN1uQ2dHtA4j|A3pN1zQ2fHqA4j|A3oN20Q2hHoA4j|A3oN21Q2iHlA4k|A3nN22Q2jHjA4l|A3nNmO2N1dQ2kHgA4o|A3mNjO8N8O2N11Q2lHeA4p|A3mNjO9N6O3N13Q2kHdA4p|A3mNjO9N5O5N12Q2oHaA4o|A3kO5NgOaN4O5N12Q2oHaA4o|A3kO5NfOcN3O4N11Q2qH9A4p|A3kO5NfOjN11Q2qH9A4p|A3jO6NfOjN1O1NyQ2qC5H4A4q|A3jO7NdOmNyQ2qC5H5A4p|A2wO1AmO8NbOnNmO5N7Q2mC9H5A4p|A3iO9N8OqNlO7N6Q2mCaH2A4r|A3iO9N4O2N2OpN7O1N2O2NaO9N4Q2lCbA4t|A3iO9N4OuN5O7N1O1N2O3N1ObN2Q2mC9A4v|A3iO23Q2lCbA4v|A3fO26Q2jCdA4v|A3fO27Q2gCfA4v|A3fO28Q2eCfA4w|A3eOqF2O7F3O17Q2eCgA4v|A3dOrF2O5F6O16Q2eCfA4w|A3dOqF5O1F8O16Q2bCiA4w|A3dOoFhO15Q26CmA4x|A3dOoFiO14Q26CmA4x|A3gOkFlO13Q1mA2QiCkA4y|A3hOjFmO13Q1mA1QhCkA4z|A3iOhFmO15Q1lA1QcCnA51|A34O1A6O1A3O1A3OgFmO16Q1lA3Q2A1Q7CkA53|A31O2A7O6A4OfFmO17Q1kA6Q8CjA53|A30O3A7O6A4OfFmO17Q1kA6Q9CdA1C4A53|A2yO4A3O3A1O7A6OjFfO18Q1dA1Q6A7Q8CdA2C3A53|A2xO5A3OaA8OjFdO1aQ1bA5Q4AbQ1A1CfA57|A2xO5A3OaA1O1A5OkF7O3F2O1dQ19A6Q4AcC1A7C5A1C2A56|A2yO4A3O9A2O4A2OlF4O1kQ17A1Q2A5Q4AcC1A7C4A3C1A56|A33O3A3O2A5O4A2O2aQ13A3Q2AkC4A6C3A5b|A34O3A2O3A6O1A1O2dQ12A1Q4AlC3A5k|A33O1A2O1A2O2A8O2eQfA1QsAcQ2A6C2A5l|A31O4AcO2hQeA2QsA8Q1A1Q3A5t|A31O5A4O1A5O2hQ9A1Q5A1QsA9Q1A1Q2A5u|A33O3A4O1A6O2gQ8A2Q1A1Q1A4QoAbQ5A5u|A33O3A1O2A4O2A1O2gQ9A9QoAdQ3A5u|A33O3A1O1A5O5A1O2cA2Q8A8QpAbQ6A5t|A33O2A1O2A6O4A1O2aA2O1A1Q3AdQpA9Q9A5s|A2yO1A7O2A1O1A5O2A2O29A1O3A6Q4A8Q9A5Q1A3Q6AaQ8A5s|A2yO2A8O2A5O2A2O29A1O4A5Q4AaQ7A4Q2A4Q5A5Q1A4Q8A5s|A2vO6AbO4A4O22A1O4A4O2A5Q4A5Q2A5Q5A5Q1A1Q7A5Q5A2Q7A5s|A2vO6AcO3A3O24A1O1A4O1A2O1A3Q6A4Q3A9Q1A7Q7A1Q2A1QeA5t|A2uO7AcO2A4O23A6O3A5Q5A5Q4AhQ6A1QhA1Q1A5r|A2uO6A1O2A9O3A4O1xA1O5A7O1A6Q5A3Q7AkQ4A1QhA5r|A2xO1A1O1A1O3A5O8A3O1vA2O5A1O2A3O2A1O2A2Q6A4Q6A7Q2AbQ4A2QfA5s|A2zO5A6O1A5O2A1O1vA4O5A4O6A2Q7A3Q3A1Q2A6Q3AaQ4A3Q5A1Q8A5t|A2zO3AdO2A1O1tA7OfA2Q7A4Q3A9Q1A1Q2A6Q6A4Q2A3Q8A5t|A30O2A2O1AbO1A1O1sA8OfA3Q8A1Q6A9Q3A7Q4A9Q9A5s|A2tO1A7O1A1O2A9O1A2O1tA9OdA5QeAaQ1A8Q4A2Q1A6Q5A3Q1A5s|A2sO2A7O4AcO4A1O1nAbOcA5QdAlQ3A2Q1A4Q7A5w|A2rO3A5O1A2O3A9O1A6O1oAbObA6QdAmQ2A2Q2A3Q7A5w|A2oO7A4O6A9O1A3O1hA1OaAbObA5Q4A3Q6AmQ1A3Q2A4Q5A5x|A2oO3A8O6A7O2A4O1hA1O4A1O4AcO4A1O5A6Q4A3Q6AwQ5A5x|A2oO3A8O7A6O3A2O2A2O1dA4O1A2O3AdO4A2O4A7Q3A3Q6AyQ5A5v|A2oO3A1O1A6O8A5O4AaO17A8O3AcO5A3O1A2O1A7Q1A4Q5AzQ2A5y|A2qO5A4O7A6O4A2O3A6O16A4O1A3O4AbO4A8O2AaQ2A11Q3A5y|A1hO1AdO1AtO6A6O4A1O1A4O5A1O6A5O14A4O2A3O7A7O4A9O2AoQ1A6p|A1gO1AdO3AsO6A7O2A1O2A4OcA5O10A7O3A3O8A6O4A9O1A7f|A1fO1AbO1A1O3AuO4A5O1AaO6A1O6A1O1A3OzA8O3A2O9A6O5A7O2A7f|A1tO2AxO1A6O1A2O4A5OgA1OxAaOfA5O5A6O4A7e|A1sO3A11O2A1O1A1O5A5O6A1O16AbOgA5O1A1O2A6O4ArQ2A6l|A1tO1A12O2A4O4A5O7A1O14A9O1A1OhAfO4ArQ3A6k|A2kO2A9O2A1O1A4O2A7O6A2O11AaOlAdO5AtQ1A6k|A2kO2A9O3A1O2AbO7A2O10AaOlA2O1AbO4A7e|A2vO3A1O2AbO9A1OkA1OdAbOlAfO4A7d|A2wO5A9O2A2OsA1OdA9OgA3O1A1O1AaO1A7m|A2wO2A1O2A9O4A2OqA2OcA8OiAfO2A7l|A2yO3A9O4A5OnA2OcA8OjA81|A2yO2AbO5A6OkA2OcA8OjA2O1AfO3A7g|A38O9A6OjA2OaAaO4A1OeA1O2AfO3A7g|A37ObA6OiA2ObA8O2A8O9A3O1AgO3A7f|A36OcA6OiA2OaAkO7A4O2AgO3A7e|A2yO1A6OdA5OiA3ObAdO1A1O1A3O6A5O2A7x|A2xO2A5OeA5OiA3OaAaO1A1O5A4O3A86|A2xO1A5OeA7OhA3OaA9O8A4O2A8O2A1O1A7v|A32OfA6OhA5O4A3O1A6O2A3O7A5O2A7O5AgO1A7d|A31OgA7OeA8O1AcO2A3O6AgO4AgO1A7d|A30OgAaOaA7O4AcO2AqO2AhO1A7d|A31OeAbO8A8O6AcO1A8n|A31ObAdO8A3O2A4O6A1O2A2O1AiO1A8b|A32O9AeO8A1O5A3O5A2O4AjO1A8b|A33O6AfO9A1O6A2O1A5O5A4O2A8p|A33O4AhO1A2O6A2O5A2O1A8O1A5O5A8m|A3rO5A3O5A5O4A9O5A8l|A2xO1AtO5A3O6A2O7A5O2A2O2A8n|A3qO3A7O5A5O4A4O3A8r|A2wO2A1O1ArO2A8O5A5O1A6O2A8s|A2wO4A13O3A96|A2yO2Aac|Adc|Adc|A3wO1A13O1A8b|A3uO1A14O2A8b|A3uO3A12O2A8b|A3tO4AfO3A8x|A3tO4A1O2A5O1A6O3A8x|A3rO2A1O2A2O3AaO5A8w|A3qO5A4O1AcO4A8w|A3qO5A3O3A9b|A3qO4A4O3A9b|A3rO1A6O2A9c|Adc|Adc|A1aO2Ac0|A1aO2Ac0|A1cO1Abz|A52O1A89|A52O1A89|Adc|Adc|Adc|A4fO2A8v|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|A46R2A94|A3yRcA92|A3wRfA91|A3rRoA8x|A3oRrA2R2A8t|A3mRtA2R2A8t|A3iRxA8x|A3gR11A8v|A3eR13A8v|A3cR14A8w|A3bR15A8w|A3bR14A8x|A3aR15A8x|A39R16A8x|A38R15A8z|A37R16A8z|A36R17A8z|A35R17A90|A35R16A91|A35R16A91|A35R12A95|A35R11A96|A35RyA99|A36RsA9e|A37RqA9f|A39R5A2R3A2R1A1R4A9l|A3aR3A9z|A3aR3A9z|A3bR1Aa0|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc|Adc";
-const KR_PROV = [{"s": "서울", "n": "서울특별시", "x": 164, "z": 94}, {"s": "부산", "n": "부산광역시", "x": 292, "z": 274}, {"s": "대구", "n": "대구광역시", "x": 262, "z": 226}, {"s": "인천", "n": "인천광역시", "x": 126, "z": 91}, {"s": "광주", "n": "광주광역시", "x": 154, "z": 277}, {"s": "대전", "n": "대전광역시", "x": 189, "z": 186}, {"s": "울산", "n": "울산광역시", "x": 303, "z": 247}, {"s": "세종", "n": "세종특별자치시", "x": 180, "z": 170}, {"s": "경기", "n": "경기도", "x": 175, "z": 94}, {"s": "강원", "n": "강원도", "x": 245, "z": 80}, {"s": "충북", "n": "충청북도", "x": 216, "z": 156}, {"s": "충남", "n": "충청남도", "x": 155, "z": 172}, {"s": "전북", "n": "전라북도", "x": 173, "z": 234}, {"s": "전남", "n": "전라남도", "x": 158, "z": 298}, {"s": "경북", "n": "경상북도", "x": 273, "z": 186}, {"s": "경남", "n": "경상남도", "x": 243, "z": 264}, {"s": "제주", "n": "제주특별자치도", "x": 137, "z": 413}];
+const KR_PROV = ([{"s": "서울", "n": "서울특별시", "x": 164, "z": 94}, {"s": "부산", "n": "부산광역시", "x": 292, "z": 274}, {"s": "대구", "n": "대구광역시", "x": 262, "z": 226}, {"s": "인천", "n": "인천광역시", "x": 126, "z": 91}, {"s": "광주", "n": "광주광역시", "x": 154, "z": 277}, {"s": "대전", "n": "대전광역시", "x": 189, "z": 186}, {"s": "울산", "n": "울산광역시", "x": 303, "z": 247}, {"s": "세종", "n": "세종특별자치시", "x": 180, "z": 170}, {"s": "경기", "n": "경기도", "x": 175, "z": 94}, {"s": "강원", "n": "강원도", "x": 245, "z": 80}, {"s": "충북", "n": "충청북도", "x": 216, "z": 156}, {"s": "충남", "n": "충청남도", "x": 155, "z": 172}, {"s": "전북", "n": "전라북도", "x": 173, "z": 234}, {"s": "전남", "n": "전라남도", "x": 158, "z": 298}, {"s": "경북", "n": "경상북도", "x": 273, "z": 186}, {"s": "경남", "n": "경상남도", "x": 243, "z": 264}, {"s": "제주", "n": "제주특별자치도", "x": 137, "z": 413}]).map(p => Object.assign(p, { x: p.x * K, z: p.z * K }));
 /* ================= 대한민국 지형 생성 ================= */
 // 실제 시·도 경계 지도 위에 실제 산맥·봉우리·강의 위치를 얹어 지형을 만든다.
 // 동쪽이 높고 서쪽이 낮은 동고서저, 서해안 갯벌, 동해안 모래 해변, 호남평야의 논, 높은 산의 눈밭, 휴전선 너머.
@@ -514,8 +515,8 @@ const occAt = (x, z) => inB(x, z) ? occ[idx(x, z)] : null;
 const isWalkT = t => t === T.GRASS || t === T.SAND || t === T.BRIDGE || t === T.PADDY || t === T.SNOW || t === T.MUD || t === T.CITY;
 const isLandT = t => t === T.GRASS || t === T.SAND || t === T.PADDY || t === T.SNOW || t === T.MOUNT || t === T.MUD || t === T.CITY || t === T.NORTH;
 const isBuildT = t => t === T.GRASS || t === T.SNOW || t === T.CITY;
-// 위도·경도 → 칸 좌표 (1칸 = 1.45km, 북위 36도 기준 등장방형 투영)
-const GEO = { S: 1.45, LON0: 124.35, LAT0: 38.78, KX: 111.32 * Math.cos(36 * Math.PI / 180), KZ: 110.95 };
+// 위도·경도 → 칸 좌표 (1칸 ≈ 0.48km, 북위 36도 기준 등장방형 투영)
+const GEO = { S: 1.45 / K, LON0: 124.35, LAT0: 38.78, KX: 111.32 * Math.cos(36 * Math.PI / 180), KZ: 110.95 };
 const llx = lon => (lon - GEO.LON0) * GEO.KX / GEO.S, llz = lat => (GEO.LAT0 - lat) * GEO.KZ / GEO.S;
 const tlon = x => GEO.LON0 + x * GEO.S / GEO.KX, tlat = z => GEO.LAT0 - z * GEO.S / GEO.KZ;
 // 시·도 번호: 1서울 2부산 3대구 4인천 5광주 6대전 7울산 8세종 9경기 10강원 11충북 12충남 13전북 14전남 15경북 16경남 17제주
@@ -529,10 +530,19 @@ function makeNoise(seed) {
 }
 // 시·도 지도 풀기
 {
-  const rows = KR_RLE.split('|');
-  for (let z = 0; z < N; z++) {
+  const N0 = 480, p0 = new Uint8Array(N0 * N0), rows = KR_RLE.split('|');
+  for (let z = 0; z < N0; z++) {
     const s = rows[z]; let x = 0, i = 0;
-    while (i < s.length) { const v = s.charCodeAt(i) - 65; i++; let j = i; while (j < s.length && s.charCodeAt(j) >= 48 && (s.charCodeAt(j) <= 57 || s.charCodeAt(j) >= 97)) j++; const len = parseInt(s.slice(i, j), 36); i = j; prov.fill(v, idx(x, z), idx(x, z) + len); x += len; }
+    while (i < s.length) { const v = s.charCodeAt(i) - 65; i++; let j = i; while (j < s.length && s.charCodeAt(j) >= 48 && (s.charCodeAt(j) <= 57 || s.charCodeAt(j) >= 97)) j++; const len = parseInt(s.slice(i, j), 36); i = j; p0.fill(v, z * N0 + x, z * N0 + x + len); x += len; }
+  }
+  // K배로 키울 때 표본 위치를 잔잔한 노이즈로 흔들어 해안선·경계의 계단 무늬를 자연스러운 물결로 바꾼다
+  const jx = makeNoise(77), jz = makeNoise(78);
+  const P0 = (u, w) => p0[clamp(Math.floor(w), 0, N0 - 1) * N0 + clamp(Math.floor(u), 0, N0 - 1)];
+  for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
+    const u0 = (x + 0.5) / K, w0 = (z + 0.5) / K, v = P0(u0, w0);
+    // 둘레가 모두 같은 값이면 흔들 필요가 없다
+    if (P0(u0 - 1, w0) === v && P0(u0 + 1, w0) === v && P0(u0, w0 - 1) === v && P0(u0, w0 + 1) === v) { prov[idx(x, z)] = v; continue; }
+    prov[idx(x, z)] = P0(u0 + (jx(x / 7, z / 7, 2) - 0.5) * 1.4, w0 + (jz(x / 7, z / 7, 2) - 0.5) * 1.4);
   }
 }
 // 휴전선 너머: 서쪽은 해안선을 따라 바다를 사이에 두고, 동쪽은 경기·강원 북쪽 경계에 바로 붙는다 (갈 수 없는 땅)
@@ -542,9 +552,9 @@ function makeNoise(seed) {
   const nearSouth = (x, z, r) => { for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) if (pget(x + dx, z + dz)) return true; return false; };
   for (let x = 0; x < N; x++) {
     const lon = tlon(x + 0.5);
-    if (lon < 126.9) { for (let z = 0; z < N; z++) if (!prov[idx(x, z)] && tlat(z + 0.5) > westLat(lon) && !nearSouth(x, z, 2)) tiles[idx(x, z)] = T.NORTH; }
+    if (lon < 126.9) { for (let z = 0; z < N; z++) if (!prov[idx(x, z)] && tlat(z + 0.5) > westLat(lon) && !nearSouth(x, z, 2 * K)) tiles[idx(x, z)] = T.NORTH; }
     else if (lon < 128.42) {
-      let z0 = -1; for (let z = 0; z < 120; z++) { const p = prov[idx(x, z)]; if (p === PV.GG || p === PV.GW) { z0 = z; break; } }
+      let z0 = -1; for (let z = 0; z < 120 * K; z++) { const p = prov[idx(x, z)]; if (p === PV.GG || p === PV.GW) { z0 = z; break; } }
       if (z0 > 0) for (let z = 0; z < z0; z++) { const lat = tlat(z + 0.5), coast = lerp(128.37, 128.24, clamp((lat - 38.61) / 0.17, 0, 1)); if (lon < coast) tiles[idx(x, z)] = T.NORTH; }
     }
   }
@@ -563,28 +573,30 @@ function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, L =
   const hN = makeNoise(101), rN = makeNoise(303), pN = makeNoise(404), fN = makeNoise(505), kN = makeNoise(606);
   const rng = RANGES.map(r => ({ w: r.w / GEO.S, p: r.p.map(([la, lo, h]) => [llx(lo), llz(la), h]) }));
   const pk = PEAKS.map(([la, lo, h, rad]) => [llx(lo), llz(la), h, rad / GEO.S]);
+  // 산맥 높이는 능선 구간마다 그 둘레 칸에만 칠해 둔다 (넓은 지도에서도 빠르게)
+  const ridgeF = new Float32Array(N * N);
+  const paint = (x0, z0, x1, z1, f) => { for (let z = Math.max(0, Math.floor(z0)); z <= Math.min(N - 1, Math.ceil(z1)); z++) for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(N - 1, Math.ceil(x1)); x++) { const v = f(x, z); if (v > ridgeF[z * N + x]) ridgeF[z * N + x] = v; } };
+  for (const r of rng) for (let k = 0; k < r.p.length - 1; k++) {
+    const a = r.p[k], b = r.p[k + 1], m = r.w * 2.6;
+    paint(Math.min(a[0], b[0]) - m, Math.min(a[1], b[1]) - m, Math.max(a[0], b[0]) + m, Math.max(a[1], b[1]) + m, (x, z) => { const [d, t] = segDist(x, z, a[0], a[1], b[0], b[1]); return d > m ? 0 : lerp(a[2], b[2], t) * Math.exp(-((d / r.w) ** 2)); });
+  }
+  for (const [px, pz, h, rad] of pk) paint(px - rad * 2.6, pz - rad * 2.6, px + rad * 2.6, pz + rad * 2.6, (x, z) => { const d = Math.hypot(x - px, z - pz); return d < rad * 2.6 ? h * Math.exp(-((d / rad) ** 2)) : 0; });
   for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
     const i = idx(x, z), p = prov[i]; if (!p && tiles[i] !== T.NORTH) continue;
     const lon = tlon(x + 0.5);
-    let e = 0.1 + 0.13 * clamp((lon - 126.6) / 2.4, 0, 1) + (hN(x / 18, z / 18, 4) - 0.5) * 0.16;
-    let ridge = 0;
-    for (const r of rng) for (let k = 0; k < r.p.length - 1; k++) {
-      const a = r.p[k], b = r.p[k + 1], [d, t] = segDist(x, z, a[0], a[1], b[0], b[1]);
-      if (d > r.w * 2.6) continue;
-      ridge = Math.max(ridge, lerp(a[2], b[2], t) * Math.exp(-((d / r.w) ** 2)));
-    }
-    for (const [px, pz, h, rad] of pk) { const d = Math.hypot(x - px, z - pz); if (d < rad * 2.6) ridge = Math.max(ridge, h * Math.exp(-((d / rad) ** 2))); }
-    e += ridge * (0.65 + 0.7 * rN(x / 6, z / 6, 3));
+    let e = 0.1 + 0.13 * clamp((lon - 126.6) / 2.4, 0, 1) + (hN(x / (18 * K), z / (18 * K), 4) - 0.5) * 0.16;
+    const ridge = ridgeF[i];
+    if (ridge > 0.001) e += ridge * (0.65 + 0.7 * rN(x / (6 * K), z / (6 * K), 3));
     elev[i] = e;
     if (tiles[i] === T.NORTH) { forest[i] = 1; continue; }
     let t;
     // 봉우리는 능선 위에 듬성듬성, 그 둘레의 높은 곳은 눈밭
     if (e > 0.97 && kN(x / 2.5, z / 2.5, 2) > 0.52) t = T.MOUNT;
     else if (e > 0.92) t = T.SNOW;
-    else { t = T.GRASS; if (e > 0.42 || fN(x / 9, z / 9, 3) > 0.66) forest[i] = 1; }
+    else { t = T.GRASS; if (e > 0.42 || fN(x / 18, z / 18, 3) > 0.66) forest[i] = 1; }
     // 들판: 서쪽의 낮고 넓은 땅(호남·김포·논산·나주 평야 등)은 논
-    if (t === T.GRASS && e < 0.27 && lon < 127.7 && p !== PV.JEJU && pN(x / 14, z / 14, 3) > 0.43) { t = T.PADDY; forest[i] = 0; }
-    if (t === T.GRASS && e < 0.3 && p === PV.GN && lon > 128.7 && pN(x / 10, z / 10, 3) > 0.5) { t = T.PADDY; forest[i] = 0; }   // 김해평야
+    if (t === T.GRASS && e < 0.27 && lon < 127.7 && p !== PV.JEJU && pN(x / (14 * K), z / (14 * K), 3) > 0.43) { t = T.PADDY; forest[i] = 0; }
+    if (t === T.GRASS && e < 0.3 && p === PV.GN && lon > 128.7 && pN(x / (10 * K), z / (10 * K), 3) > 0.5) { t = T.PADDY; forest[i] = 0; }   // 김해평야
     tiles[i] = t;
   }
 }
@@ -596,7 +608,7 @@ function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, L =
   const PORTS = [[34.785, 126.382], [37.452, 126.598], [35.97, 126.65], [37.955, 124.72]].map(([la, lo]) => [llx(lo), llz(la)]);
   for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
     const i = idx(x, z), t = tiles[i], lon = tlon(x + 0.5), lat = tlat(z + 0.5);
-    if (t === T.SEA && lon < 126.95 && lat > 34.45 && lat < 37.82 && nearT(x, z, land, 1) && !nearT(x, z, tt => tt === T.NORTH, 3) && !PORTS.some(([px, pz]) => Math.hypot(px - x, pz - z) < 6)) mud.push(i);
+    if (t === T.SEA && lon < 126.95 && lat > 34.45 && lat < 37.82 && nearT(x, z, land, 2) && !nearT(x, z, tt => tt === T.NORTH, 3 * K) && !PORTS.some(([px, pz]) => Math.hypot(px - x, pz - z) < 6 * K)) mud.push(i);
     else if ((t === T.GRASS || t === T.PADDY) && nearT(x, z, tt => tt === T.SEA, 1)) { tiles[i] = T.SAND; forest[i] = 0; }
   }
   for (const i of mud) tiles[i] = T.MUD;
@@ -617,7 +629,7 @@ for (const r of RIVERS) {
   for (let k = 0; k < pts.length - 1; k++) {
     const a = pts[k], b = pts[k + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     for (let s = 0; s <= L; s += 0.25) {
-      const cx = a[0] + (b[0] - a[0]) * s / L, cz = a[1] + (b[1] - a[1]) * s / L, w = lerp(a[2], b[2], s / L), rad = w * 0.5 + 0.05;
+      const cx = a[0] + (b[0] - a[0]) * s / L, cz = a[1] + (b[1] - a[1]) * s / L, w = lerp(a[2], b[2], s / L) * 1.6, rad = w * 0.5 + 0.05;
       for (let z = Math.floor(cz - rad - 1); z <= cz + rad + 1; z++) for (let x = Math.floor(cx - rad - 1); x <= cx + rad + 1; x++) {
         if (!inB(x, z) || Math.hypot(x + 0.5 - cx, z + 0.5 - cz) > rad + 0.36) continue;
         const i = idx(x, z), t = tiles[i];
@@ -626,7 +638,7 @@ for (const r of RIVERS) {
         if (!seen.has(i)) { seen.add(i); path.push([x, z]); }
       }
       // 강가의 산봉우리는 골짜기로 깎는다
-      for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const x = Math.floor(cx) + dx, z = Math.floor(cz) + dz; if (inB(x, z) && tiles[idx(x, z)] === T.MOUNT) tiles[idx(x, z)] = T.GRASS; }
+      for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) { const x = Math.floor(cx) + dx, z = Math.floor(cz) + dz; if (inB(x, z) && tiles[idx(x, z)] === T.MOUNT) tiles[idx(x, z)] = T.GRASS; }
     }
   }
   riverPaths.push({ n: r.n, path });
@@ -652,9 +664,9 @@ function clearSite(cx, cz, r, paved) {
 clearSite(HX, HZ + 3, 15, 0);
 for (const c of CITIES) {
   // 바다나 강 위에 찍힌 좌표는 가까운 땅으로 옮긴다
-  if (!isBuildT(tget(c.x, c.z))) { let best = null, bd = 99; for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) { const t = tget(c.x + dx, c.z + dz), d = Math.hypot(dx, dz); if ((t === T.GRASS || t === T.PADDY || t === T.SNOW) && d < bd) { bd = d; best = [c.x + dx, c.z + dz]; } } if (best) [c.x, c.z] = best; }
+  if (!isBuildT(tget(c.x, c.z))) { let best = null, bd = 999; for (let dz = -16; dz <= 16; dz++) for (let dx = -16; dx <= 16; dx++) { const t = tget(c.x + dx, c.z + dz), d = Math.hypot(dx, dz); if ((t === T.GRASS || t === T.PADDY || t === T.SNOW) && d < bd) { bd = d; best = [c.x + dx, c.z + dz]; } } if (best) [c.x, c.z] = best; }
   c.prov = pget(c.x, c.z); c.region = REGION_OF[c.prov] || 'sudo';
-  clearSite(c.x, c.z, c.size === 3 ? (c.name === '서울' ? 12 : 9) : c.size === 2 ? 6 : 4, c.size === 3 ? (c.name === '서울' ? 11 : 8) : c.size === 2 ? 4 : 0);
+  clearSite(c.x, c.z, c.size === 3 ? (c.name === '서울' ? 24 : 18) : c.size === 2 ? 12 : 7, c.size === 3 ? (c.name === '서울' ? 22 : 16) : c.size === 2 ? 8 : 0);
 }
 // 다리: 강을 따라 일정 간격마다, 도시 안에서는 더 촘촘하게. 강물을 가로질러 양쪽 땅을 잇는다.
 function tryBridge(x, z) {
@@ -675,8 +687,8 @@ const bridgeAt = [];
 for (const { path } of riverPaths) {
   path.forEach(([x, z]) => {
     if (tget(x, z) !== T.RIVER) return;
-    const inCity = CITIES.some(c => c.size >= 2 && Math.hypot(c.x - x, c.z - z) < (c.size === 3 ? 12 : 7)) || Math.hypot(HX - x, HZ - z) < 16;
-    const gap = inCity ? 9 : 20;
+    const inCity = CITIES.some(c => c.size >= 2 && Math.hypot(c.x - x, c.z - z) < (c.size === 3 ? 24 : 14)) || Math.hypot(HX - x, HZ - z) < 24;
+    const gap = inCity ? 12 : 36;
     if (bridgeAt.some(([bx, bz]) => Math.hypot(bx - x, bz - z) < gap)) return;
     if (tryBridge(x, z)) bridgeAt.push([x, z]);
   });
@@ -695,14 +707,24 @@ function findSpot(px, pz, w, h, m = 1, maxR = 14) {
 }
 // 시작 마을 광장
 for (let z = HZ + 1; z < HZ + 10; z++) for (let x = HX - 4; x < HX + 5; x++) if (Math.hypot(x + 0.5 - HX, z + 0.5 - (HZ + 5.5)) < 3.6) resv[idx(x, z)] = 1;
-// 예전 섬 세이브는 위치 정보만 새 지도에 맞게 정리한다 (도토리·가방·도감·친밀도는 그대로)
-if (S.world !== 3) {
-  Object.assign(S, { world: 3, px: HX + 0.5, pz: HZ + 6.5, rot: 0, trees: {}, removed: {}, placed: [], ground: [], seen: '', found: {} });
+// 문명식 발전: 마을 레벨·건물·기술·새 마을·길·도시 우호도와 동맹·나무배 (예전 세이브엔 빈 값으로 채운다)
+S.civ = Object.assign({ lv: 0, built: {}, bpos: {}, tech: {}, towns: [], roads: [], rel: {}, ally: {}, gift: {}, sent: {}, store: {}, boat: false, sail: false, play: 0 }, S.civ || {});
+// 세이브 이사 (도토리·가방·도감·친밀도·문명 진행은 그대로)
+if (S.world === 3) {
+  // 저해상도 대한민국 → 고해상도: 놓아둔 물건은 마을 창고로, 건물·마을 자리는 새 지도에서 다시 잡고 길도 다시 닦는다
+  const back = { flower: r => r.f, lamp: () => 'lamp', bench: () => 'bench', tree: r => 'sapling_' + r.fruit, sapling: r => 'sapling_' + r.fruit };
+  for (const r of S.placed || []) { const id = back[r.k] && back[r.k](r); if (id && ITEMS[id]) S.civ.store[id] = (S.civ.store[id] || 0) + 1; }
+  for (const t of S.civ.towns) { t.x = t.x * K + 1; t.z = t.z * K + 1; delete t.sx; delete t.sz; delete t.link; }
+  Object.assign(S.civ, { bpos: {}, roads: [], sail: false, relayout: true, mapNote: true });
+  S.seen3 = S.seen;
+  Object.assign(S, { world: 4, px: HX + 0.5, pz: HZ + 6.5, rot: 0, trees: {}, removed: {}, placed: [], ground: [], seen: '' });
+  S.daily = { key: '' };
+} else if (S.world !== 4) {
+  // 섬 시절 세이브: 위치 정보만 새 지도에 맞게 정리한다
+  Object.assign(S, { world: 4, px: HX + 0.5, pz: HZ + 6.5, rot: 0, trees: {}, removed: {}, placed: [], ground: [], seen: '', found: {} });
   S.daily = { key: '' };
 }
 S.found = S.found || {};
-// 문명식 발전: 마을 레벨·건물·기술·새 마을·길·도시 우호도와 동맹·나무배 (예전 세이브엔 빈 값으로 채운다)
-S.civ = Object.assign({ lv: 0, built: {}, bpos: {}, tech: {}, towns: [], roads: [], rel: {}, ally: {}, gift: {}, sent: {}, store: {}, boat: false, sail: false, play: 0 }, S.civ || {});
 
 /* ================= Three.js 기본 ================= */
 const canvas = $('#c');
@@ -952,7 +974,9 @@ const shoreD = new Float32Array(N * N);
   const pass = (z0, z1, dz, x0, x1, dx) => {
     for (let z = z0; z !== z1; z += dz) for (let x = x0; x !== x1; x += dx) {
       const i = idx(x, z); let d = shoreD[i]; if (!d) continue;
-      for (const [ax, az, w] of [[-dx, 0, 1], [0, -dz, 1], [-dx, -dz, 1.414], [dx, -dz, 1.414]]) { const nx = x + ax, nz = z + az; if (inB(nx, nz)) d = Math.min(d, shoreD[idx(nx, nz)] + w); }
+      const pz = z - dz, px = x - dx, qx = x + dx, zin = pz >= 0 && pz < N;
+      if (px >= 0 && px < N) { d = Math.min(d, shoreD[i - dx] + 1); if (zin) d = Math.min(d, shoreD[pz * N + px] + 1.414); }
+      if (zin) { d = Math.min(d, shoreD[pz * N + x] + 1); if (qx >= 0 && qx < N) d = Math.min(d, shoreD[pz * N + qx] + 1.414); }
       shoreD[i] = d;
     }
   };
@@ -2036,7 +2060,7 @@ for (const v of VDEF) {
   const r = mulberry32(777);
   for (const c of CITIES) {
     const sg = findSpot(c.x, c.z, 1, 1, 0, 5); if (sg) { reserve(sg[0], sg[1], 1, 1); addEnt({ type: 'sign', name: c.name, make: () => makeSign(c.name) }, sg[0], sg[1]); }
-    const apts = c.size === 3 ? (c.name === '서울' ? 22 : 12) : c.size === 2 ? 5 : 0, rad = c.size === 3 ? (c.name === '서울' ? 11 : 8) : 4;
+    const apts = c.size === 3 ? (c.name === '서울' ? 66 : 36) : c.size === 2 ? 15 : 0, rad = c.size === 3 ? (c.name === '서울' ? 21 : 15) : 8;
     let placed = 0;
     for (let k = 0; k < apts * 6 && placed < apts; k++) {
       const a = r() * Math.PI * 2, d = 2.5 + r() * rad, x = Math.round(c.x + Math.cos(a) * d), z = Math.round(c.z + Math.sin(a) * d);
@@ -2045,7 +2069,7 @@ for (const v of VDEF) {
       const floors = c.size === 3 ? 6 + Math.floor(r() * 9) : 4 + Math.floor(r() * 4), col = pick([0xfff8ec, 0xf3efe6, 0xf6eee0, 0xeaf0f4], r), num = 100 + placed;
       addEnt({ type: 'apt', make: () => makeApt(floors, col, num) }, x, z, 2, 2);
     }
-    for (let k = 0; k < (c.size === 3 ? 6 : 2); k++) { const a = r() * 6.28, d = 1.5 + r() * 4, x = Math.round(c.x + Math.cos(a) * d), z = Math.round(c.z + Math.sin(a) * d); if (isBuildT(tget(x, z)) && !resv[idx(x, z)] && !occAt(x, z)) addEnt({ type: 'lamp', make: makeLamp, fixed: true }, x, z); }
+    for (let k = 0; k < (c.size === 3 ? 18 : 6); k++) { const a = r() * 6.28, d = 1.5 + r() * (c.size === 3 ? 14 : 7), x = Math.round(c.x + Math.cos(a) * d), z = Math.round(c.z + Math.sin(a) * d); if (isBuildT(tget(x, z)) && !resv[idx(x, z)] && !occAt(x, z)) addEnt({ type: 'lamp', make: makeLamp, fixed: true }, x, z); }
   }
 }
 // 여객선 부두: 목포↔제주, 포항↔울릉↔독도, 인천↔백령도
@@ -2070,7 +2094,7 @@ for (const p of PIERS) {
   addEnt({ type: 'pier', pier: p, make: () => makePier(best.sx, best.sz) }, best.x, best.z);
 }
 // 휴전선 철책: 남쪽 땅이 북쪽 땅과 맞닿은 곳
-for (let z = 0; z < 140; z++) for (let x = 0; x < N; x++) {
+for (let z = 0; z < 140 * K; z++) for (let x = 0; x < N; x++) {
   const t = tiles[idx(x, z)]; if (!isWalkT(t) || occAt(x, z)) continue;
   const n = tget(x, z - 1) === T.NORTH, w = tget(x - 1, z) === T.NORTH || tget(x + 1, z) === T.NORTH;
   if (n || w) addEnt({ type: 'fence', make: () => makeFence(!n && w) }, x, z);
@@ -2087,7 +2111,7 @@ function addTree(x, z, fruit, palm) {
   const near = (x, z, t, d) => { for (let dz = -d; dz <= d; dz++) for (let dx = -d; dx <= d; dx++) { const o = occAt(x + dx, z + dz); if (o && t.includes(o.type)) return true; } return false; };
   // 고장별 과일: 경북·충북 사과, 제주 귤(오렌지), 남부 복숭아·오렌지
   const fruitFor = p => p === PV.GB || p === PV.CB || p === PV.DAEGU ? pick(['apple', 'apple', 'apple', 'peach'], r) : p === PV.JEJU ? 'orange' : p === PV.JN || p === PV.GN ? pick(['peach', 'orange', 'apple'], r) : pick(['apple', 'peach', 'orange', 'cedar'], r);
-  const southNear = (x, z) => { for (let dz = -14; dz <= 14; dz += 2) if (pget(x, z + dz)) return true; return false; };
+  const southNear = (x, z) => { for (let dz = -14 * K; dz <= 14 * K; dz += 2) if (pget(x, z + dz)) return true; return false; };
   for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) {
     const i = idx(x, z), t = tiles[i]; if (resv[i] || occ[i]) continue;
     if (t === T.MOUNT) { const hs = clamp(0.6 + (elev[i] - 0.97) * 3, 0.6, 1.35), snowy = elev[i] > 1.22; addEnt({ type: 'mount', make: () => makeMountain(hs, i, snowy) }, x, z); continue; }
@@ -2104,9 +2128,9 @@ function addTree(x, z, fruit, palm) {
   }
   // 바위 (제주는 검은 현무암)
   let n = 0, tries = 0;
-  while (n < 420 && tries++ < 20000) { const x = Math.floor(r() * N), z = Math.floor(r() * N); if ((tget(x, z) === T.GRASS || tget(x, z) === T.SNOW || (tget(x, z) === T.SAND && pget(x, z) === PV.JEJU)) && !resv[idx(x, z)] && !occAt(x, z) && !near(x, z, ['rock', 'house'], 2)) { const dark = pget(x, z) === PV.JEJU; addEnt({ type: 'rock', key: tk(x, z), make: () => makeRock(dark), x, z }, x, z); n++; } }
+  while (n < 420 * K * K && tries++ < 20000 * K * K) { const x = Math.floor(r() * N), z = Math.floor(r() * N); if ((tget(x, z) === T.GRASS || tget(x, z) === T.SNOW || (tget(x, z) === T.SAND && pget(x, z) === PV.JEJU)) && !resv[idx(x, z)] && !occAt(x, z) && !near(x, z, ['rock', 'house'], 2)) { const dark = pget(x, z) === PV.JEJU; addEnt({ type: 'rock', key: tk(x, z), make: () => makeRock(dark), x, z }, x, z); n++; } }
   const types = Object.keys(FLOWERS);
-  for (let c = 0; c < 420; c++) {
+  for (let c = 0; c < 420 * K * K; c++) {
     let cx, cz, t2 = 0; do { cx = Math.floor(r() * N); cz = Math.floor(r() * N); t2++; } while ((tget(cx, cz) !== T.GRASS || resv[idx(cx, cz)] || forest[idx(cx, cz)]) && t2 < 200);
     const ty = types[c % 3];
     for (let k = 0; k < 6; k++) {
@@ -2115,7 +2139,7 @@ function addTree(x, z, fruit, palm) {
       addEnt({ type: 'flower', flower: ty, id, make: () => makeFlower(ty), x, z }, x, z);
     }
   }
-  for (let k = 0; k < 2600; k++) {
+  for (let k = 0; k < 2600 * K * K; k++) {
     const x = Math.floor(r() * N), z = Math.floor(r() * N), id = 'w' + tk(x, z);
     if (!(tget(x, z) === T.GRASS || tget(x, z) === T.PADDY) || resv[idx(x, z)] || occAt(x, z) || S.removed[id]) continue;
     addEnt({ type: 'weed', id, make: makeWeed, x, z }, x, z);
@@ -2167,7 +2191,7 @@ const BUILDS = [
   { id: 'school', n: '학교', i: '🏫', w: 3, h: 2, near: [4, -8], cost: { wood: 25, clay: 15, iron: 10, amethyst: 1, coins: 25000 }, d: '배움의 시대! 도시들과 우호도가 더 빨리 올라요.' },
 ];
 const ERA = ['움막 시대', '마을 시대', '장터 시대', '공방 시대', '항해 시대', '배움 시대'];
-const TERR = [10, 16, 22, 28, 34, 42], TOWN_R = 12;
+const TERR = [20, 32, 44, 56, 68, 84], TOWN_R = 24;
 const TECHS = [
   { id: 'farm', n: '농업', i: '🌾', lv: 1, cost: { weed: 10, coins: 3000 }, d: '잡초로 퇴비를 만들어요. 과일과 목재가 두 배 빨리 다시 나고, 묘목도 두 배 빨리 자라요.' },
   { id: 'build', n: '건축', i: '🧱', lv: 2, need: 'farm', cost: { stone: 10, clay: 10, coins: 5000 }, d: '영토 밖에 새 마을을 세울 수 있어요. 건물 짓는 비용이 20% 줄어요.' },
@@ -2223,7 +2247,7 @@ function civSpot(px, pz, w, h, maxR) {
 // 항구 자리: 도토리 마을에서 가장 가까운 물가 (물 쪽으로 두 칸 이상 트인 곳을 먼저 찾는다)
 function dockSpot() {
   const [hx, hz] = HOME_ANCHOR, water = t => t === T.RIVER || t === T.SEA;
-  for (const deep of [2, 1]) for (let r = 1; r <= 32; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+  for (const deep of [2, 1]) for (let r = 1; r <= 90; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
     if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
     const x = hx + dx, z = hz + dz; if (!inB(x, z)) continue;
     const i = idx(x, z), t = tiles[i];
@@ -2254,7 +2278,7 @@ function stepCost(i) {
   if (o && BLOCK[o.type]) { if (freeOcc(o)) extra = 2.5; else return -1; }
   return (road[i] ? 0.35 : STEPC[t]) + extra;
 }
-function roadPath(ax, az, bx, bz, maxPop = 300000) {
+function roadPath(ax, az, bx, bz, maxPop = 2500000) {
   const s0 = idx(ax, az), g0 = idx(bx, bz);
   const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), done = new Uint8Array(N * N);
   const hn = [], hk = [];
@@ -2302,7 +2326,7 @@ function laySeg(path) {
 function connectTown(t) {
   const cands = [{ name: '도토리 마을', ax: HOME_ANCHOR[0], az: HOME_ANCHOR[1] }, ...S.civ.towns.filter(o => o !== t)].sort((a, b) => Math.hypot(a.ax - t.ax, a.az - t.az) - Math.hypot(b.ax - t.ax, b.az - t.az));
   for (const c of cands.slice(0, 3)) {
-    if (Math.hypot(c.ax - t.ax, c.az - t.az) > 280) break;
+    if (Math.hypot(c.ax - t.ax, c.az - t.az) > 900) break;
     const p = roadPath(t.ax, t.az, c.ax, c.az);
     if (p) { laySeg(p); t.link = c.name; return { to: c.name, len: p.length }; }
   }
@@ -2313,8 +2337,14 @@ function connectTown(t) {
   for (const s of S.civ.roads) for (const tok of s.split('.')) { const i = parseInt(tok, 36); if (i >= 0 && i < N * N) { road[i] = 1; clearTile(i % N, Math.floor(i / N)); } }
   if (!S.civ.bpos.board) S.civ.bpos.board = civSpot(HX - 4, HZ + 8, 1, 1, 8) || [HX - 4, HZ + 8];
   placeCivEnt('board', S.civ.bpos.board);
-  for (const b of BUILDS) if (S.civ.built[b.id] && S.civ.bpos[b.id]) placeCivEnt(b.id, S.civ.bpos[b.id]);
-  for (const t of S.civ.towns) placeTown(t);
+  if (S.civ.relayout) {
+    // 지도가 바뀐 세이브: 지은 건물과 세운 마을의 자리를 새 지도에서 다시 고른다 (길은 시작할 때 다시 닦는다)
+    for (const b of BUILDS) if (S.civ.built[b.id]) { const d = b.water && dockSpot(), pos = b.water ? d && [d.x, d.z, d.sx, d.sz] : civSpot(HX + b.near[0], HZ + b.near[1], b.w, b.h, 18); if (pos) { S.civ.bpos[b.id] = pos; placeCivEnt(b.id, pos); } }
+    for (const t of S.civ.towns) { if (!spotOK(t.x, t.z, 2, 2)) { const sp = civSpot(t.x, t.z, 2, 2, 30); if (sp) [t.x, t.z] = sp; } t.ax = t.x + 1; t.az = t.z + 2; placeTown(t); }
+  } else {
+    for (const b of BUILDS) if (S.civ.built[b.id] && S.civ.bpos[b.id]) placeCivEnt(b.id, S.civ.bpos[b.id]);
+    for (const t of S.civ.towns) placeTown(t);
+  }
 }
 function civBanner(icon, title, quip) {
   $('#bnIcon').textContent = icon; $('#bnTitle').textContent = title; $('#bnQuip').textContent = quip;
@@ -2361,7 +2391,7 @@ function settleCheck() {
   const px = Math.floor(P.x), pz = Math.floor(P.z);
   if (!pget(px, pz)) return { why: '이곳엔 마을을 세울 수 없어요.' };
   if (inTerr(P.x, P.z)) return { why: '여기는 이미 내 영토예요. 지도(M)의 주황 테두리 밖으로 나가 보세요.' };
-  const c = CITIES.find(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 16 : c.size === 2 ? 11 : 8));
+  const c = CITIES.find(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 32 : c.size === 2 ? 22 : 14));
   if (c) return { why: `${josa(c.name, '과', '와')} 너무 가까워요. 조금 더 떨어진 빈 땅을 찾아보세요.` };
   const sp = civSpot(px - 1, pz - 3, 2, 2, 4);
   if (!sp) return { why: '주변에 2×2칸 빈 풀밭이 필요해요. (모래·논·물가는 안 돼요)' };
@@ -2404,6 +2434,7 @@ function exchangeSteps(v) {
 // 1초마다: 플레이 시간을 세고, 동맹 도시는 TRIBUTE_SEC마다 특산물을 마을 창고로 보낸다
 function civTick() {
   if (!started) return;
+  if (S.civ.mapNote) { delete S.civ.mapNote; dirty(); toast('🗺️ 대한민국 지도가 3배 촘촘해졌어요! 건물과 마을은 새 지도에 옮겨 지었고, 놓아둔 물건은 마을 창고(V › 교류)에 있어요.'); }
   S.civ.play++; if (S.civ.play % 20 === 0) dirty();
   const got = [];
   for (const c of Object.keys(S.civ.ally)) {
@@ -2568,7 +2599,7 @@ function setupDaily() {
   for (const [k, g] of [...groundMap]) if (g.daily) removeGround(k);
   const r = mulberry32(hashStr('day' + key));
   let n = 0, tries = 0;
-  while (n < 140 && tries++ < 30000) {
+  while (n < 140 * K * K && tries++ < 30000 * K * K) {
     const x = Math.floor(r() * N), z = Math.floor(r() * N), k = tk(x, z);
     if (tget(x, z) !== T.GRASS || resv[idx(x, z)] || occAt(x, z) || groundMap.has(k)) continue;
     n++; if (S.daily.dug.includes(k)) continue;
@@ -2576,7 +2607,7 @@ function setupDaily() {
   }
   // 해변엔 조개껍데기·불가사리, 갯벌엔 조개
   n = 0; tries = 0;
-  while (n < 260 && tries++ < 40000) {
+  while (n < 260 * K * K && tries++ < 40000 * K * K) {
     const x = Math.floor(r() * N), z = Math.floor(r() * N), k = tk(x, z), t = tget(x, z);
     if (!(t === T.SAND || t === T.MUD) || occAt(x, z) || groundMap.has(k)) continue;
     n++; if (S.daily.taken.includes(k)) continue;
@@ -3307,7 +3338,10 @@ $('#btnStart').addEventListener('click', () => {
 /* ================= 지도 ================= */
 // 미니맵과 대한민국 전체 지도. 가 본 곳만 밝혀진다 (안개).
 const seen = new Uint8Array(N * N);
-(() => { try { const b = atob(S.seen || ''); for (let i = 0; i < b.length && i * 8 < N * N; i++) { const v = b.charCodeAt(i); for (let k = 0; k < 8; k++) if (v & (1 << k)) seen[i * 8 + k] = 1; } } catch (e) { } })();
+(() => { try {
+  // 예전(480칸) 지도에서 밝혀 둔 곳은 K×K칸씩 그대로 밝힌다
+  if (S.seen3) { const b = atob(S.seen3), N0 = 480; delete S.seen3; for (let i = 0; i < b.length && i * 8 < N0 * N0; i++) { const v = b.charCodeAt(i); for (let k = 0; k < 8; k++) if (v & (1 << k)) { const j = i * 8 + k, x0 = j % N0, z0 = (j - x0) / N0; for (let dz = 0; dz < K; dz++) for (let dx = 0; dx < K; dx++) seen[idx(x0 * K + dx, z0 * K + dz)] = 1; } } return; }
+  const b = atob(S.seen || ''); for (let i = 0; i < b.length && i * 8 < N * N; i++) { const v = b.charCodeAt(i); for (let k = 0; k < 8; k++) if (v & (1 << k)) seen[i * 8 + k] = 1; } } catch (e) { } })();
 function packSeen() { const out = []; for (let i = 0; i < N * N; i += 8) { let v = 0; for (let k = 0; k < 8; k++) if (seen[i + k]) v |= 1 << k; out.push(String.fromCharCode(v)); } return btoa(out.join('')); }
 const mapBase = new Uint8ClampedArray(N * N * 4);
 {
@@ -3374,7 +3408,7 @@ function drawMarks(ctx, k, ox, oz, big) {
   ctx.save(); ctx.translate(X(P.x), Z(P.z)); ctx.rotate(Math.PI - P.rot);
   ctx.fillStyle = '#e0453c'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(7, 7); ctx.lineTo(0, 3); ctx.lineTo(-7, 7); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
 }
-const miniCv = $('#miniC'), miniCtx = miniCv.getContext('2d'), MINI = 60;
+const miniCv = $('#miniC'), miniCtx = miniCv.getContext('2d'), MINI = 90;
 function flushFog() { if (fogDirty) { fogCtx.putImageData(fogImg, 0, 0); fogDirty = false; } }
 function drawMini() {
   flushFog();
@@ -3388,23 +3422,31 @@ function drawMini() {
 }
 function drawWorldMap() {
   flushFog();
-  const cv = $('#mapC'), ctx = cv.getContext('2d'), W = cv.width, k = W / N;
+  // 전국 보기 또는 내 주변 확대 보기 (지도를 누르거나 아래 버튼으로 바꾼다)
+  const cv = $('#mapC'), ctx = cv.getContext('2d'), W = cv.width, span = mapZoom ? MAPZ : N, k = W / span;
+  const ox = mapZoom ? clamp(P.x - span / 2, 0, N - span) : 0, oz = mapZoom ? clamp(P.z - span / 2, 0, N - span) : 0;
   ctx.imageSmoothingEnabled = false; ctx.fillStyle = `rgb(${FOGC})`; ctx.fillRect(0, 0, W, W);
-  ctx.drawImage(fogCv, 0, 0, N, N, 0, 0, W, W);
-  if (terrDirty) drawTerr(); ctx.drawImage(terrCv, 0, 0, N, N, 0, 0, W, W);
+  if (terrDirty) drawTerr();
+  for (const c of [fogCv, terrCv]) ctx.drawImage(c, ox, oz, span, span, 0, 0, W, W);
   ctx.strokeStyle = 'rgba(80,60,30,.08)'; ctx.lineWidth = 1;
-  for (let g = 0; g <= N; g += 40) { ctx.beginPath(); ctx.moveTo(g * k, 0); ctx.lineTo(g * k, W); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, g * k); ctx.lineTo(W, g * k); ctx.stroke(); }
-  drawMarks(ctx, k, 0, 0, true);
+  for (let g = Math.ceil(ox / 120) * 120; g <= ox + span; g += 120) { ctx.beginPath(); ctx.moveTo((g - ox) * k, 0); ctx.lineTo((g - ox) * k, W); ctx.stroke(); }
+  for (let g = Math.ceil(oz / 120) * 120; g <= oz + span; g += 120) { ctx.beginPath(); ctx.moveTo(0, (g - oz) * k); ctx.lineTo(W, (g - oz) * k); ctx.stroke(); }
+  drawMarks(ctx, k, ox, oz, true);
+  document.querySelectorAll('#segZoom button').forEach(b => b.classList.toggle('on', (b.dataset.z === '1') === mapZoom));
   const pct = Math.round(seen.reduce((a, v, i) => a + (v && prov[i] ? 1 : 0), 0) / LAND_TILES * 1000) / 10;
   $('#mapSub').textContent = `${placeName()} · 탐험 ${pct}%`;
 }
 const LAND_TILES = prov.reduce((a, v) => a + (v ? 1 : 0), 0);
+let mapZoom = false;
+const MAPZ = 300;
 function openMap() { openPanel('#pMap'); drawWorldMap(); }
+document.querySelectorAll('#segZoom button').forEach(b => b.addEventListener('click', () => { mapZoom = b.dataset.z === '1'; SFX.ui(); drawWorldMap(); }));
+$('#mapC').addEventListener('click', () => { mapZoom = !mapZoom; SFX.ui(); drawWorldMap(); });
 // 지금 있는 곳의 이름: 가까운 도시 → 시·도
 function placeName() {
-  const near = CITIES.filter(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 13 : 8)).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
+  const near = CITIES.filter(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 26 : 16)).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
   if (Math.hypot(HX - P.x, HZ + 3 - P.z) < 12) return '도토리 마을';
-  for (const t of S.civ.towns) if (Math.hypot(t.x + 1 - P.x, t.z + 1 - P.z) < 9) return t.name;
+  for (const t of S.civ.towns) if (Math.hypot(t.x + 1 - P.x, t.z + 1 - P.z) < 16) return t.name;
   if (P.sail && tget(Math.floor(P.x), Math.floor(P.z)) === T.SEA && !near) return '바다 위 (나무배)';
   if (near) return near.name;
   const p = pget(Math.floor(P.x), Math.floor(P.z)); return p ? KR_PROV[p - 1].n : '바다';
@@ -3416,16 +3458,16 @@ function placeBanner(icon, title, quip) {
   $('#bnNew').textContent = '새로운 곳 발견!'; $('#bnNew').hidden = false; $('#banner').hidden = false; bannerT = 2.4; SFX.fanfare();
 }
 function explore() {
-  reveal(P.x, P.z, 13);
+  reveal(P.x, P.z, 16);
   const p = pget(Math.floor(P.x), Math.floor(P.z));
   if (p && p !== lastProv) { if (lastProv !== null) toast(`${KR_PROV[p - 1].n}에 들어왔어요.`); lastProv = p; }
-  for (const c of CITIES) if (!S.found[c.name] && Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 10 : 7)) {
+  for (const c of CITIES) if (!S.found[c.name] && Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 20 : 13)) {
     S.found[c.name] = true; dirty();
     placeBanner(c.size === 3 ? '🏙️' : c.size === 2 ? '🏘️' : '🏡', `${c.name} 도착!`, (CITY_LINES[c.name] || [KR_PROV[c.prov - 1]?.n || ''])[0]);
     return;
   }
-  for (const l of LANDMARKS) if (!S.found['lm:' + l.name] && Math.hypot(l.x - P.x, l.z - P.z) < 6) { S.found['lm:' + l.name] = true; dirty(); toast(`명소 발견: ${l.name}`); SFX.coin(); }
-  for (const q of PIERS) if (q.x != null && !S.found['pier:' + q.id] && Math.hypot(q.x - P.x, q.z - P.z) < 7) { S.found['pier:' + q.id] = true; dirty(); toast(`여객선 부두 발견: ${q.name}`); }
+  for (const l of LANDMARKS) if (!S.found['lm:' + l.name] && Math.hypot(l.x - P.x, l.z - P.z) < 10) { S.found['lm:' + l.name] = true; dirty(); toast(`명소 발견: ${l.name}`); SFX.coin(); }
+  for (const q of PIERS) if (q.x != null && !S.found['pier:' + q.id] && Math.hypot(q.x - P.x, q.z - P.z) < 10) { S.found['pier:' + q.id] = true; dirty(); toast(`여객선 부두 발견: ${q.name}`); }
 }
 // 여객선
 let pendingTrip = null;
@@ -4003,6 +4045,12 @@ window.addEventListener('pagehide', save);
 /* ================= 시작 ================= */
 setTool(S.tool || 'hand');
 civLive = true; if (P.sail) showBoat(true);
+if (S.civ.relayout) {
+  delete S.civ.relayout;
+  for (const b of BUILDS) if (S.civ.bpos[b.id]) { const f = frontOf(b.id, S.civ.bpos[b.id]), p = roadPath(HOME_ANCHOR[0], HOME_ANCHOR[1], f[0], f[1], 200000); if (p) laySeg(p); }
+  for (const t of S.civ.towns) connectTown(t);
+  dirty();
+}
 groundLive = true; updateHUD(); updateClock(); updateCull(true); slowTick(); updateEnv(hour());
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawSign());
 if (S.seenHelp) $('#btnStart').textContent = '이어서 하기';
