@@ -219,7 +219,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
   <div id="money" class="card" title="도토리 (섬의 화폐)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6V2.5" stroke="#6d4320" stroke-width="2" stroke-linecap="round"/><path d="M4.5 10.5c0-3.2 3.4-5 7.5-5s7.5 1.8 7.5 5z" fill="#7a4a24"/><path d="M5.5 10.5h13c0 5.2-3 9.3-6.5 10.5-3.5-1.2-6.5-5.3-6.5-10.5z" fill="#c98a4b"/><path d="M8.5 13c.3 2 1.2 3.7 2.4 4.8" stroke="#e8b47a" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg><b id="coins">0</b></div>
   <button class="pill" id="btnCiv">조직 <kbd>V</kbd></button>
   <button class="pill" id="btnMap">지도 <kbd>M</kbd></button>
-  <button class="pill" id="btnNote">수첩 <kbd>N</kbd></button>
+  <button class="pill" id="btnNote">📱 폰 <kbd>N</kbd></button>
   <button class="pill" id="btnBag">가방 <kbd>I</kbd></button>
   <button class="pill" id="btnSet" aria-label="설정">설정</button>
 </div>
@@ -279,9 +279,9 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
   <div class="body"><div class="mapsearch"><input id="mapQ" type="search" placeholder="🔍 이름으로 찾기 (예: 경포대, 청진, 한라산)" autocomplete="off" aria-label="지도에서 이름으로 찾기"><div id="mapHits" role="listbox"></div></div><canvas id="mapC" width="1098" height="1734"></canvas><div id="mapPick" hidden></div><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">이름으로 찾거나 도시·명소를 눌러 📍 길 안내 · 🚆 빠른 이동. 휠(휴대폰은 두 손가락)로 확대, 끌어서 이동, 빈 곳을 누르면 확대 ↔ 전국. ▲ 나 · 🏠 도토리 마을 · 🏡 내 마을 · 🏰 라이벌 조직 · 주황 = 내 영토 · ★ 명소 · ⚓ 부두 · 붉은 점선 = 남북 경계</p></div>
 </div></div>
 
-<div class="wrap" id="pNote" hidden><div class="panel notep" role="dialog" aria-label="수첩">
-  <header><div>수첩 <span class="sub" id="noteSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><div class="tabs"><button class="tab" data-note="quest">받은 부탁</button><button class="tab" data-note="people">만난 주민</button><button class="tab" data-note="go">빠른 이동</button><button class="tab" data-note="log">지난 알림</button><button class="tab" data-note="dex">도감 ›</button></div><div class="rows" id="noteRows"></div></div>
+<div class="wrap" id="pNote" hidden><div class="panel notep" role="dialog" aria-label="휴대폰">
+  <header><div>📱 휴대폰 <span class="sub" id="noteSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="tabs"><button class="tab" data-note="job">의뢰</button><button class="tab" data-note="quest">부탁</button><button class="tab" data-note="people">연락처</button><button class="tab" data-note="go">🚕 이동</button><button class="tab" data-note="log">지난 알림</button><button class="tab" data-note="dex">도감 ›</button></div><div class="rows" id="noteRows"></div></div>
 </div></div>
 
 <div class="wrap" id="pBox" hidden><div class="panel" role="dialog" aria-label="집 보관함">
@@ -339,7 +339,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>WASD · 방향키</kbd><span>걷기 (Shift를 누르면 달리기) · 모바일은 화면 왼쪽을 끌어서 이동, 초록 버튼으로 행동</span>
       <kbd>Space · E</kbd><span>행동: 줍기, 흔들기, 말 걸기, 던지기, 파기</span>
       <kbd>1 2 3 4</kbd><span>맨손 · 잠자리채 · 낚싯대 · 삽</span>
-      <kbd>I · N · C</kbd><span>가방 · 수첩(부탁·주민·빠른 이동·알림) · 도감</span>
+      <kbd>I · N · C</kbd><span>가방 · 📱 휴대폰(의뢰·부탁·연락처·이동·알림) · 도감</span>
       <kbd>집 보관함</kbd><span>내 텐트(집) 앞에서 Space: 80칸 보관함. 동맹 도시가 보낸 특산물도 여기로 와요</span>
       <kbd>텃밭</kbd><span>상점의 모종·씨앗을 풀밭에 심으면 1분 반마다 자라요. 다 크면 Space로 수확 (농업 기술이면 두 배 빨리, 하나 더)</span>
       <kbd>농사철</kbd><span>고장마다 특산 작물이 실제 달력대로 심기고 자라고 익어요. 설정 '농사 계절 → 빠르게'면 1시간 = 한 달</span>
@@ -367,6 +367,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>멧돼지 · 엽총</kbd><span>밤엔 멧돼지가 밭을 파헤쳐요. 상점의 엽총(공포탄)으로 쏘면 달아나고 사례금을 받아요. 가까이 가면 받혀요</span>
       <kbd>수배 ★ · 경찰</kbd><span>죄를 지으면 수배 별이 붙고, 별 수만큼 경찰(북쪽은 보안원)이 쫓아와요. 눈에 안 띄게 숨어 있으면 별이 하나씩 줄고, 잡히면 체포(BUSTED)되어 벌금을 내요. 가까이 온 경찰은 '밀치기'로 잠깐 기절시킬 수 있지만 별이 올라요</span>
       <kbd>차 도둑</kbd><span>세워진 차는 보는 눈이 있으면 수배, 달리는 차를 빼앗으면 무조건 수배. 사람을 치면 넘어지고(만화식) 수배가 올라요. 수배 중 운전하면 경찰차가 쫓아와 붙어서 세우면 체포!</span>
+      <kbd>의뢰</kbd><span>휴대폰(N) › 의뢰: 배달(제한 시간 안에 짐 나르기)·차 주문(말한 차를 구해 정비소로)·레이스. GPS가 갈 곳을 짚어 주고, 끝내면 MISSION PASSED!</span>
       <kbd>털기</kbd><span>도시마다 편의점 '도토리24'(하루 한 번, ★2), 큰 도시엔 '도토리은행'(조직원 5명 필요, 금고 따는 8초를 버티면 큰돈, ★4). 큰 도시엔 가끔 현금 수송차: 차로 들이받아 세우면 돈 가방이 쏟아져요(★3)</span>
       <kbd>술</kbd><span>상점에서 사서 마시거나 주민과 한잔. 취하면 비틀비틀, 맞짱에선 취권</span>
       <kbd>소매치기 · 사기</kbd><span>주민 주머니를 털거나 싸구려를 비싸게 팔 수 있어요. 들키면 수배 지수가 오르고 밤에 순찰이 잡으러 와요</span>
@@ -4255,6 +4256,58 @@ function hitArmored(t, sp) {
     t.cash = 0; SFX.coin(); toast('💰 수송차가 멈추고 돈 가방이 쏟아졌어요! 내려서 주워요.');
   }
 }
+/* ================= 휴대폰 의뢰: 배달·차 주문·레이스 =================
+   게임 시간 2시간마다 의뢰 셋이 새로 온다. 받으면 GPS(📍 길 안내)가 갈 곳을 짚어 주고, 화면 아래에 남은 시간이 뜬다.
+   배달: 짐을 실어 정해진 도시로. 차 주문: 말한 차를 훔쳐 와 정비소에 넘긴다. 레이스: 출발점에서 결승점까지 제한 시간 안에. */
+const JOB_FROM = [['도토리파 깍두기', '🌰'], ['너굴 큰형님', '🦝'], ['택배 사장님', '📦'], ['레이서 번개', '🏁'], ['수달 선장', '🦦'], ['정비소 김씨', '🔧']];
+const CARGO = ['밀수 참기름', '수상한 상자', '급한 택배', '도시락 백 개', '위조 명품 가방', '꽃다발', '김장 김치'];
+function jobOffers() {
+  const d = gameNow(), key = dayKey(d) + '|' + (d.getHours() >> 1);
+  if (S.offers && S.offers.key === key) return S.offers.list;
+  const r = mulberry32(hashStr('job' + key)), near = CITIES.filter(c => Math.hypot(c.x - P.x, c.z - P.z) < 260 && c.region !== 'jeju'), list = [];
+  if (near.length >= 2) for (let k = 0; k < 3; k++) {
+    const kind = ['deliver', 'car', 'race'][k], a = near[Math.floor(r() * near.length)];
+    let b = near[Math.floor(r() * near.length)]; for (let t = 0; t < 8 && (b === a || Math.hypot(b.x - a.x, b.z - a.z) < 50); t++) b = near[Math.floor(r() * near.length)];
+    if (b === a) continue;
+    const km = Math.hypot(b.x - a.x, b.z - a.z) * GEO.S, [who, e] = kind === 'deliver' ? pick([JOB_FROM[0], JOB_FROM[1], JOB_FROM[2], JOB_FROM[4]], r) : kind === 'car' ? JOB_FROM[5] : JOB_FROM[3];
+    if (kind === 'deliver') list.push({ kind, who, e, cargo: pick(CARGO, r), from: { n: a.name, x: a.x, z: a.z }, to: { n: b.name, x: b.x, z: b.z }, limit: Math.round(60 + km * 4.2), reward: Math.round((600 + km * 18) / 10) * 10 });
+    else if (kind === 'car') { const ck = pick(['taxi', 'truck', 'sedan', 'scooter'], r); list.push({ kind, who, e, car: ck, to: { n: b.name, x: b.x, z: b.z }, limit: 0, reward: Math.round((2200 + km * 10) / 10) * 10 }); }
+    else list.push({ kind, who, e, from: { n: a.name, x: a.x, z: a.z }, to: { n: b.name, x: b.x, z: b.z }, limit: Math.round(30 + km * 3.0), reward: Math.round((900 + km * 22) / 10) * 10 });
+  }
+  S.offers = { key, list }; dirty(); return list;
+}
+const jobTitle = j => j.kind === 'deliver' ? `${j.cargo}: ${j.from.n} → ${j.to.n}` : j.kind === 'car' ? `${CAR_KINDS[j.car].n} 한 대를 ${j.to.n} 정비소로` : `레이스: ${j.from.n} → ${j.to.n}`;
+function takeJob(j) {
+  if (S.mission) { toast('이미 하고 있는 의뢰가 있어요.'); return; }
+  S.mission = Object.assign({}, j, { stage: j.kind === 'car' ? 'drop' : 'pickup', t: 0 });
+  S.offers.list = S.offers.list.filter(o => o !== j); dirty(); closePanels(); SFX.ui();
+  const m = S.mission, tgt = m.stage === 'pickup' ? m.from : m.to;
+  setPin(tgt);
+  toast(m.kind === 'deliver' ? `📦 ${m.who}: "${m.from.n}에서 ${m.cargo}을 받아 ${m.to.n}까지. 늦으면 안 돼!"` : m.kind === 'car' ? `🔧 ${m.who}: "${CAR_KINDS[m.car].n} 한 대만 구해 와. ${m.to.n} 정비소로!"` : `🏁 ${m.who}: "${m.from.n} 출발선으로 와. 신호 떨어지면 ${m.to.n}까지!"`);
+}
+function dropJob(fail) {
+  const m = S.mission; S.mission = null; if (S.pin) setPin(null); $('#mhud').hidden = true; dirty();
+  if (fail) { SFX.miss(); toast(`❌ 의뢰 실패: ${fail}`); }
+}
+function jobTick(dt) {
+  const m = S.mission; if (!m || heist) return;
+  const hud = $('#mhud'), tgt = m.stage === 'pickup' ? m.from : m.to, d = Math.hypot(tgt.x - P.x, tgt.z - P.z);
+  if (m.stage === 'run') { m.t += dt; if (m.limit && m.t > m.limit) { dropJob('시간 초과!'); return; } }
+  else if (m.stage === 'drop' && m.kind === 'deliver') { m.t += dt; if (m.t > m.limit) { dropJob(`시간 안에 ${m.to.n}에 못 갔어요.`); return; } }
+  const left = m.limit && m.stage !== 'pickup' ? ` · ⏱ ${mmss(Math.max(0, m.limit - m.t))}` : '';
+  hud.hidden = false; hud.textContent = `${m.e} ${m.stage === 'pickup' ? (m.kind === 'race' ? '출발선으로' : `${m.from.n}에서 짐 받기`) : m.kind === 'car' ? `${CAR_KINDS[m.car].n} 몰고 ${m.to.n} 정비소로` : `${m.to.n}까지`} · ${kmTxt(d * GEO.S)}${left}`;
+  if (d < 6) {
+    if (m.stage === 'pickup') {
+      m.stage = m.kind === 'race' ? 'run' : 'drop'; m.t = 0; setPin(m.to); SFX.fanfare();
+      toast(m.kind === 'race' ? '🏁 3, 2, 1… 출발!' : `📦 ${m.cargo}을 실었어요! ${m.to.n}까지 ${mmss(m.limit)} 안에.`); dirty();
+    } else if (m.kind === 'car' && !(P.car && P.car.kind === m.car)) { if (!m.warn) { m.warn = true; toast(`🔧 "${CAR_KINDS[m.car].n}을 몰고 와야지!"`); } }
+    else {
+      if (m.kind === 'car' && P.car) { const c = P.car; exitCar(true); dropCar(c); S.myCar = null; }
+      S.coins += m.reward; updateHUD(); SFX.coin(); bigNote(`${m.e} 의뢰 완료!`, 'MISSION PASSED', `${m.who}: "수고했어." 도토리 ${fmt(m.reward)}개`);
+      S.jobsDone = (S.jobsDone || 0) + 1; dropJob();
+    }
+  }
+}
 // 마을 발전 건물 앞에서 할 수 있는 일
 const CIV_ACT = {
   store: o => ({ l: '🏪 들어가기', f: () => storeTalk(o) }),
@@ -6880,7 +6933,7 @@ function fastTravel(p) {
 }
 
 /* ================= 수첩: 받은 부탁 · 만난 주민 · 빠른 이동 · 지난 알림 ================= */
-let noteTab = 'quest';
+let noteTab = 'job';
 function openNote(tab) { if (tab) noteTab = tab; renderNote(); openPanel('#pNote'); }
 function renderNote() {
   document.querySelectorAll('[data-note]').forEach(b => b.classList.toggle('on', b.dataset.note === noteTab));
@@ -6898,6 +6951,15 @@ function renderNote() {
   const goV = v => uiBtn('📍', () => { const h = v.def.home || v; setPin({ n: v.def.name, x: h.x, z: h.z }); closePanels(); }, true);
   const qs = Object.entries(S.vill).filter(([id, st]) => st.quest && vById.has(id));
   $('#noteSub').textContent = `부탁 ${qs.length}개`;
+  if (noteTab === 'job') {
+    const m = S.mission;
+    if (m) row(m.e, `진행 중: ${jobTitle(m)}`, `${m.who} · ${m.stage === 'pickup' ? '출발지로 가는 중' : '목적지로 가는 중'}${m.limit ? ` · 제한 ${mmss(m.limit)}` : ''}`, `🌰 ${fmt(m.reward)}`, [uiBtn('포기', () => { dropJob('의뢰를 포기했어요.'); renderNote(); }, true)]);
+    const offers = jobOffers();
+    if (!offers.length) empty('지금은 들어온 의뢰가 없어요. 도시 근처로 가 보세요.');
+    for (const j of offers) row(j.e, jobTitle(j), `${j.who}${j.limit ? ` · 제한 ${mmss(j.limit)}` : ''} · 여기서 ${kmTxt(Math.hypot((j.from || j.to).x - P.x, (j.from || j.to).z - P.z) * GEO.S)}`, `🌰 ${fmt(j.reward)}`, [uiBtn('수락', () => takeJob(j), false, !!m)]);
+    const p = document.createElement('p'); p.className = 'fine'; p.textContent = `의뢰는 게임 시간 2시간마다 새로 와요. 끝낸 의뢰 ${S.jobsDone || 0}건.`; rows.append(p);
+    return;
+  }
   if (noteTab === 'quest') {
     for (const [id, st] of Object.entries(S.vill)) {   // 빌려준 돈 · 떼인 돈
       const v = vById.get(id); if (!v || !(st.loan || st.debt)) continue;
@@ -7777,7 +7839,7 @@ function frame(now) {
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
   miniT -= rdt; if (miniT <= 0) { miniT = 0.25; pinTick(0.25); drawMini(); $('#miniName').textContent = placeName(); }
-  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt); carTick(dt); heistTick(dt); armorTick(dt);
+  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt); carTick(dt); heistTick(dt); armorTick(dt); jobTick(dt);
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
   hintT -= dt; if (hintT <= 0) { hintT = 0.1; updateHint(); }
