@@ -1764,6 +1764,9 @@ function faceTex(f, state) {
       x.beginPath(); x.moveTo(bx - 11, by + 2); x.quadraticCurveTo(bx, by - 4, bx + 11, by + 2); x.stroke();
     }
     if (f.patch === 'panda') { x.fillStyle = '#2a2a30'; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(128 + s * gap, ey + 4, 30, 36, s * 0.5, 0, Math.PI * 2); x.fill(); } }
+    if (f.patch === 'tiger') { x.fillStyle = 'rgba(40,24,16,0.85)'; for (const dx of [-30, 0, 30]) { x.beginPath(); x.ellipse(128 + dx, 8, 7, 22, 0, 0, Math.PI * 2); x.fill(); } for (const s of [-1, 1]) for (const k of [0, 1]) { x.beginPath(); x.ellipse(128 + s * (gap + 46), ey + 8 + k * 18, 18, 5, s * 0.3, 0, Math.PI * 2); x.fill(); } }
+    if (f.patch === 'spots') { x.fillStyle = 'rgba(40,36,40,0.85)'; x.beginPath(); x.ellipse(128 - gap - 10, ey - 18, 34, 26, 0.4, 0, Math.PI * 2); x.fill(); x.beginPath(); x.ellipse(128 + gap + 34, ey + 30, 22, 18, 0, 0, Math.PI * 2); x.fill(); }
+    if (f.patch === 'monkey') { x.fillStyle = f.patchCol || '#f3d9c0'; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(128 + s * gap * 0.55, ey + 2, gap * 0.95, 40, 0, 0, Math.PI * 2); x.fill(); } }
     if (f.patch === 'mask') { x.fillStyle = 'rgba(58,46,40,0.85)'; x.beginPath(); x.ellipse(128, ey + 2, gap + 42, 30, 0, 0, Math.PI * 2); x.fill(); }
     for (const s of [-1, 1]) drawEye(x, 128 + s * gap, ey, f, state, s);
   });
@@ -1946,7 +1949,12 @@ function makeAnimal(o) {
   const fur = M(furCol), earM = X.earCol ? M(X.earCol) : fur;
   const hd = put(head, mesh(CG.head, fur)); hd.scale.set(1, 0.92, 0.95);
   const mz = put(head, mesh(CG.muzzle, M(o.muzzle), 0, -0.13, 0.29)); mz.scale.set(1.18, 0.8, 0.82);
-  if (X.nose === 'snout') {
+  if (X.beak) {
+    // 새: 주둥이 대신 부리 (오리는 넓적한 부리)
+    mz.visible = false; const bc = M(X.beakCol || 0xf2a03a);
+    if (X.beak === 'duck') put(head, mesh(CG.muzzle, bc, 0, -0.08, 0.38)).scale.set(0.95, 0.32, 1.1);
+    else { const bk = mesh(accGeo('beak', () => new THREE.ConeGeometry(0.08, 0.2, 12)), bc, 0, -0.04, 0.47); bk.rotation.x = Math.PI / 2; head.add(bk); }
+  } else if (X.nose === 'snout') {
     put(head, mesh(CG.muzzle, M(X.snoutCol || 0xf29a9a), 0, -0.08, 0.4)).scale.set(0.55, 0.42, 0.3);
     for (const sx of [-1, 1]) put(head, mesh(CG.nose, M(0x6a3a3a), sx * 0.035, -0.08, 0.457)).scale.setScalar(0.32);
   } else put(head, mesh(CG.nose, M(X.noseCol || 0x2b1d14), 0, -0.075, 0.44)).scale.set(1.25, 0.85, 0.85).multiplyScalar(X.bigNose ? 1.6 : 1);
@@ -1968,9 +1976,33 @@ function makeAnimal(o) {
     const a = mesh(accGeo('antler', () => new THREE.CylinderGeometry(0.02, 0.028, 0.26, 6)), M(0x8a6a4a), sx * 0.13, 0.48, -0.02); a.rotation.z = -sx * 0.3; head.add(a);
     const b = mesh(accGeo('antler', () => new THREE.CylinderGeometry(0.02, 0.028, 0.26, 6)), M(0x8a6a4a), sx * 0.2, 0.55, -0.02); b.scale.y = 0.55; b.rotation.z = -sx * 1.0; head.add(b);
   }
+  // 삽살개: 눈을 덮는 앞머리
+  if (X.fringe) put(head, mesh(CG.head, fur, 0, 0.2, 0.12)).scale.set(0.95, 0.42, 0.85);
+  // 뿔: 소는 옆으로 짧게, 염소는 뒤로 휘게
+  if (X.horn) for (const sx of [-1, 1]) {
+    const h = mesh(accGeo('horn', () => new THREE.ConeGeometry(0.05, 0.18, 8)), M(X.horn === 'goat' ? 0x8a8478 : 0xf3ead6), sx * (X.horn === 'goat' ? 0.14 : 0.26), 0.38, X.horn === 'goat' ? -0.06 : 0);
+    if (X.horn === 'goat') h.rotation.set(-0.8, 0, -sx * 0.25); else h.rotation.z = -sx * 1.05;
+    head.add(h);
+  }
+  // 멧돼지: 작은 엄니
+  if (X.tusk) for (const sx of [-1, 1]) { const t = mesh(accGeo('tusk', () => new THREE.ConeGeometry(0.025, 0.1, 6)), M(0xfff8ec), sx * 0.13, -0.11, 0.42); t.rotation.x = -0.3; head.add(t); }
+  // 염소: 턱수염
+  if (X.beard) { const bd = mesh(accGeo('beard', () => new THREE.ConeGeometry(0.05, 0.16, 8)), fur, 0, -0.33, 0.3); bd.rotation.x = Math.PI; head.add(bd); }
+  // 고슴도치: 머리 뒤와 등에 가시
+  if (X.spikes) {
+    const sm = M(X.spikes), up = new THREE.Vector3(0, 1, 0), sg = accGeo('spike', () => new THREE.ConeGeometry(0.045, 0.17, 6));
+    for (let k = 0; k < 16; k++) {
+      const a = Math.PI * (0.55 + (k % 8) * 0.13), el = k < 8 ? 0.25 : -0.15, dir = new THREE.Vector3(Math.cos(a) * Math.cos(el), Math.sin(el) + 0.25, -Math.abs(Math.sin(a)) * Math.cos(el) - 0.3).normalize();
+      const s = mesh(sg, sm, dir.x * 0.4, dir.y * 0.4, dir.z * 0.4); s.quaternion.setFromUnitVectors(up, dir); head.add(s);
+    }
+  }
+  // 닭: 볏과 턱볏
+  if (X.comb) { for (let k = 0; k < 3; k++) head.add(mesh(accGeo('combb', () => new THREE.SphereGeometry(0.06, 10, 8)), M(0xe0303a), 0, 0.4 + (k === 1 ? 0.04 : 0), 0.02 + (k - 1) * 0.08)); head.add(mesh(accGeo('combb', () => new THREE.SphereGeometry(0.06, 10, 8)), M(0xe0303a), 0, -0.17, 0.43)); }
+  // 부엉이: 귀깃
+  if (X.tuft) for (const sx of [-1, 1]) { const t = mesh(CG.earCat, M(new THREE.Color(furCol).multiplyScalar(0.7).getHex()), sx * 0.25, 0.38, -0.02); t.scale.set(0.55, 0.7, 0.45); t.rotation.z = -sx * 0.5; head.add(t); }
   if (o.tail) { const t = mesh(CG.hand, fur, 0, 0.3, -0.2); t.scale.setScalar(o.tail * 0.9); u.body.add(t); }
   // 눈은 주둥이 위쪽, 입은 주둥이 아래쪽에 그린다
-  const f = Object.assign({ eyeY: 50, gap: 44, blush: '#ff8f96' }, o.face || {}, look ? look.face : {}, X.patch ? { patch: X.patch } : {});
+  const f = Object.assign({ eyeY: 50, gap: 44, blush: '#ff8f96' }, o.face || {}, look ? look.face : {}, X.face || {}, X.patch ? { patch: X.patch, patchCol: X.patchCol } : {});
   const eyes = faceShell(hd, 0.425, faceTex(f, 'open'), 2.0, 0.95, 1.25);
   const mouth = faceShell(mz, 0.193, mouthTex(o.mouth || 'w', false), 1.7, 1.45, 0.9);
   makeFace(u, f, eyes, mouth, o.mouth || 'w');
@@ -2166,9 +2198,36 @@ const SPECIES = {
   hamster: { sp: '햄스터', ear: 'small', furs: [0xf0b878, 0xf6e2c4, 0xd9a066], muzzles: [0xffffff, 0xfff6e8, 0xfff0dc], tail: 0.5, mouth: 'y' },
   raccoon: { sp: '너구리', ear: 'round', furs: [0x8a7a68, 0x7a6a5a], muzzles: [0xf0e8dc, 0xe8dccc], tail: 1.8, mouth: 'w', patch: 'mask' },
   koala: { sp: '코알라', ear: 'mouse', furs: [0xa8a8b0, 0x9a9aa4], muzzles: [0xd8d8de, 0xcfcfd6], earIn: 0xf0f0f4, tail: 0.4, mouth: 'w', noseCol: 0x3a3a40, bigNose: true },
+  // 우리 땅 동물
+  jindo: { sp: '진돗개', ear: 'cat', furs: [0xf6efe2, 0xe0b878], muzzles: [0xffffff, 0xfff4e6], earIn: 0xf3c9b6, tail: 1.4, mouth: 'w' },
+  sapsal: { sp: '삽살개', ear: 'floppy', furs: [0x8a8478, 0xb8a888, 0x4a4440], muzzles: [0xa89e90, 0xd0c4aa, 0x6a625a], tail: 1.5, mouth: 'w', fringe: true },
+  moonbear: { sp: '반달가슴곰', ear: 'round', furs: [0x2a2628], muzzles: [0xb89a7a], tail: 1, mouth: 'w' },
+  wolf: { sp: '늑대', ear: 'cat', furs: [0x8a8f99, 0x6b7480], muzzles: [0xe8e4e0, 0xdcd8d4], earIn: 0x4a4a52, tail: 1.8, mouth: 'w' },
+  tiger: { sp: '호랑이', ear: 'round', furs: [0xe8a23a, 0xd99a1e], muzzles: [0xfff4e6, 0xffffff], tail: 1.6, mouth: 'w', patch: 'tiger' },
+  boar: { sp: '멧돼지', ear: 'pig', furs: [0x6b4a32, 0x5a3e2a], muzzles: [0x8a6a4a, 0x7a5a3e], tail: 1, mouth: 'w', nose: 'snout', snoutCol: 0x9a7a5a, tusk: true },
+  hanwoo: { sp: '황소', ear: 'floppy', furs: [0xa8683a, 0x9a5a2e], muzzles: [0xd8a888, 0xcc9a7a], tail: 0.8, mouth: 'w', nose: 'snout', snoutCol: 0xd89a88, horn: 'cow' },
+  cow: { sp: '젖소', ear: 'floppy', furs: [0xf6f2ea], muzzles: [0xf2c4b8], tail: 0.8, mouth: 'w', nose: 'snout', snoutCol: 0xf2b4a8, horn: 'cow', patch: 'spots' },
+  goat: { sp: '염소', ear: 'floppy', furs: [0xf6f2ea, 0xd8d0c4], muzzles: [0xfffaf2, 0xf0e8dc], tail: 0.6, mouth: 'w', horn: 'goat', beard: true },
+  monkey: { sp: '원숭이', ear: 'round', furs: [0x8a5a3a, 0x9a6a48], muzzles: [0xf3d9c0, 0xf0d0b4], tail: 1.2, mouth: 'w', patch: 'monkey', patchCol: '#f3d9c0' },
+  hedgehog: { sp: '고슴도치', ear: 'small', furs: [0xd8c0a0, 0xe0ccb0], muzzles: [0xf6e8d4, 0xfff2e2], tail: 0, mouth: 'y', spikes: 0x6a4a32 },
+  mole: { sp: '두더지', ear: 'none', furs: [0x4a4044, 0x5a4e50], muzzles: [0x6a5e60, 0x766a6c], tail: 0.5, mouth: 'w', noseCol: 0xf29aa8, bigNose: true, face: { eyeW: 6, eyeH: 6 } },
+  // 새
+  chicken: { sp: '닭', ear: 'none', furs: [0xfffaf2, 0xd88a4a], muzzles: [0xffffff, 0xf6e6d0], tail: 1.2, mouth: 'w', beak: 'cone', comb: true },
+  duck: { sp: '오리', ear: 'none', furs: [0xfff6d0, 0xf6f2ea], muzzles: [0xffffff, 0xfffaf0], tail: 0.9, mouth: 'w', beak: 'duck' },
+  owl: { sp: '부엉이', ear: 'none', furs: [0x8a6a4a, 0x9a7a5a], muzzles: [0xe8d8c0, 0xf0e2cc], tail: 0.8, mouth: 'w', beak: 'cone', beakCol: 0x5a4a3a, tuft: true, face: { eyeW: 20, eyeH: 20, iris: '#d89a20' } },
+  magpie: { sp: '까치', ear: 'none', furs: [0x22242a], muzzles: [0xffffff], tail: 1.6, mouth: 'w', beak: 'cone', beakCol: 0x22242a },
+  sparrow: { sp: '참새', ear: 'none', furs: [0x9a6a48, 0x8a5e40], muzzles: [0xf3e6d6, 0xeeddca], tail: 1, mouth: 'w', beak: 'cone', beakCol: 0x3a3030 },
+  eagle: { sp: '수리', ear: 'none', furs: [0x5a3e2a, 0x6a4a32], muzzles: [0xf6f2ea, 0xfffaf2], tail: 1.2, mouth: 'w', beak: 'cone', beakCol: 0xf2c43a, face: { brow: '#2a1a10' } },
 };
 SPEC_LIST = Object.values(SPECIES);
-const REGION_SP = { sudo: ['cat', 'rabbit', 'squirrel', 'fox', 'dog', 'hamster', 'mouse', 'panda'], gangwon: ['bear', 'sheep', 'squirrel', 'deer', 'raccoon', 'koala'], chung: ['sheep', 'bear', 'rabbit', 'pig', 'dog', 'hamster'], jeolla: ['rabbit', 'squirrel', 'cat', 'otter', 'raccoon', 'dog', 'pig'], gyeong: ['cat', 'fox', 'otter', 'bear', 'dog', 'deer', 'pig'], jeju: ['cat', 'otter', 'rabbit', 'blackpig', 'dog'], seobuk: ['bear', 'rabbit', 'squirrel', 'sheep', 'deer', 'mouse'], dongbuk: ['bear', 'fox', 'sheep', 'otter', 'deer', 'raccoon'] };
+const REGION_SP = { sudo: ['cat', 'rabbit', 'squirrel', 'fox', 'dog', 'hamster', 'mouse', 'panda', 'monkey', 'sparrow', 'magpie', 'chicken'],
+  gangwon: ['bear', 'sheep', 'squirrel', 'deer', 'raccoon', 'koala', 'moonbear', 'goat', 'wolf', 'owl', 'hedgehog', 'eagle'],
+  chung: ['sheep', 'bear', 'rabbit', 'pig', 'dog', 'hamster', 'cow', 'hanwoo', 'chicken', 'duck', 'mole'],
+  jeolla: ['rabbit', 'squirrel', 'cat', 'otter', 'raccoon', 'dog', 'pig', 'jindo', 'jindo', 'duck', 'hanwoo', 'sparrow'],
+  gyeong: ['cat', 'fox', 'otter', 'bear', 'dog', 'deer', 'pig', 'sapsal', 'sapsal', 'hanwoo', 'boar', 'magpie'],
+  jeju: ['cat', 'otter', 'rabbit', 'blackpig', 'blackpig', 'dog', 'duck', 'chicken'],
+  seobuk: ['bear', 'rabbit', 'squirrel', 'sheep', 'deer', 'mouse', 'tiger', 'goat', 'owl', 'cow'],
+  dongbuk: ['bear', 'fox', 'sheep', 'otter', 'deer', 'raccoon', 'tiger', 'wolf', 'boar', 'hedgehog', 'eagle'] };
 // 사투리: 인사·말 걸기·잡담·야차룰 대사와 싸움 스타일
 const DIALECT = {
   seobuk: { cp: ['기래', '일없어', '알갔디?'], greet: { m: '날래 일어났구만. 좋은 아침이야요.', d: '어서 오라우. 반갑습네다.', e: '해가 지누만. 저녁은 먹었습네까?', n: '밤이 깊었는데 와 안 자구 기래?' },
@@ -3470,7 +3529,8 @@ function botRoad(b, ax, az, bx, bz) {
 /* --- 봇 지도자: 수도 앞에서 서성이는 주민 --- */
 const botLeaders = new Map();
 function botLeaderDef(b) {
-  const S0 = SPECIES[b.sp], D = DIALECT[REGION_OF[pget(b.cx, b.cz)]] || DIALECT[b.side === 'north' ? 'seobuk' : 'chung'], id = 'botl_' + b.id;
+  const NAME_SP = { 까치: 'magpie', 두더지: 'mole', 고슴도치: 'hedgehog', 부엉이: 'owl', 청설모: 'squirrel', 오소리: 'raccoon', 족제비: 'fox', 참새: 'sparrow', 살쾡이: 'cat', 반달곰: 'moonbear', 수리: 'eagle', 뱁새: 'sparrow' };
+  const S0 = SPECIES[NAME_SP[botShort(b)]] || SPECIES[b.sp], D = DIALECT[REGION_OF[pget(b.cx, b.cz)]] || DIALECT[b.side === 'north' ? 'seobuk' : 'chung'], id = 'botl_' + b.id;
   FDEF_X[id] = Object.assign({}, D.fd, { hp: D.fd.hp + 20 }); FLINES_X[id] = D.f; OPENERS_X[id] = D.open;
   try { FDEF[id] = FDEF_X[id]; FLINES[id] = D.f; OPENERS[id] = D.open; } catch (e) { }
   return { id, name: b.name, sp: S0.sp, cp: D.cp[0], pitch: 180, fur: S0.furs[0], muzzle: S0.muzzles[0], ear: S0.ear, earIn: S0.earIn, tail: S0.tail, mouth: S0.mouth,
