@@ -162,6 +162,8 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 #fBtns button.on{background:var(--ink);color:var(--paper)}
 #giveUp{pointer-events:auto;justify-self:center;grid-column:2;border:0;background:rgba(255,251,235,.8);color:var(--ink-soft);font-family:var(--f-display);font-size:12px;border-radius:999px;padding:3px 10px;cursor:pointer}
 #ftxt{inset:0;pointer-events:none;z-index:13}
+.vbub{position:absolute;transform:translate(-50%,-100%);max-width:200px;padding:5px 10px;border-radius:12px;background:rgba(255,251,235,.94);color:#4b3a28;font-size:12px;line-height:1.35;box-shadow:0 2px 0 rgba(0,0,0,.12);white-space:normal;text-align:center}
+.vbub::after{content:'';position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:rgba(255,251,235,.94)}
 .ft{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-size:24px;color:#fff;text-shadow:0 2px 0 #7a2a20,0 0 6px rgba(0,0,0,.25);white-space:nowrap}
 .ft.blk{color:#e6f0ff;text-shadow:0 2px 0 #2d3f6a}
 .ft.miss{color:#fff8d8;text-shadow:0 2px 0 #6a5a2d;font-size:20px}
@@ -3829,26 +3831,34 @@ function updateVillagers(dt, h) {
     if (far > 46) { if (v.mesh && far > 60) { scene.remove(v.mesh); v.mesh = null; } continue; }
     if (v.def.lazy && !v.placed) placeLazy(v);
     if (v.placed === 'fail') { v.vis = false; continue; }
-    if (!v.mesh) { v.mesh = makeVillMesh(v.def); scene.add(v.mesh); }
+    if (!v.mesh) { v.mesh = makeVillMesh(v.def); if (v.def.role === '야간 순찰') addFlashlight(v.mesh); scene.add(v.mesh); }
     // 사람마다 자는 시간이 다르다 (밤에 다니는 사람도 있다)
     v.vis = !asleep(v.def, h); v.mesh.visible = v.vis && v.inView !== false;
     if (!v.vis) { v.x = v.def.home.x; v.z = v.def.home.z; continue; }
     const u = v.mesh.userData; let moving = false;
+    // 수다 중: 상대를 보고 서 있다가, 차례가 오면 대답한다
+    if (v.chatT) { v.chatT = Math.max(0, v.chatT - dt); if (v.chatFace) v.rot = lerpAngle(v.rot, Math.atan2(v.chatFace.x - v.x, v.chatFace.z - v.z), 1 - Math.exp(-dt * 6)); if (!v.chatT) v.chatFace = null; }
+    if (v.replyAt) { v.replyAt -= dt; if (v.replyAt <= 0) { v.replyAt = 0; say(v, v.reply); } }
+    v.chatCD = (v.chatCD ?? rand(3, 12)) - dt;
+    if (v.chatCD <= 0) { v.chatCD = rand(8, 18); if (!v.talking && !v.chatT && !v.def.boss) tryChat(v); }
     if (v.talking) { v.rot = lerpAngle(v.rot, Math.atan2(P.x - v.x, P.z - v.z), 1 - Math.exp(-dt * 10)); }
     else if (!P.sail && Math.hypot(P.x - v.x, P.z - v.z) < 2.2) { v.wait = Math.max(v.wait, 0.8); v.rot = lerpAngle(v.rot, Math.atan2(P.x - v.x, P.z - v.z), 1 - Math.exp(-dt * 6)); }
     else if (v.wait > 0) v.wait -= dt;
     else {
       if (!v.target) {
-        const rr = v.def.roam || 7;
-        for (let k = 0; k < 12; k++) { const x = v.def.home.x + rand(-rr, rr), z = v.def.home.z + rand(-rr * 0.6, rr * 1.15); if (canStand(x, z, 0.25)) { v.target = { x, z }; break; } }
+        // 하루 일과에 맞는 곳을 맴돈다. 거기서 멀면 그쪽으로 걸어간다
+        const an = anchorOf(v, h), base = an || v.def.home, rr = an ? an.r : v.def.role === '별 보는 사람' ? 3 : (v.def.roam || 7);
+        if (Math.hypot(base.x - v.x, base.z - v.z) > rr + 4) { v.target = stepToward(v, base); v.commute = !!v.target; }
+        else for (let k = 0; k < 12; k++) { const x = base.x + rand(-rr, rr), z = base.z + rand(-rr * 0.6, rr * 1.15); if (canStand(x, z, 0.25)) { v.target = { x, z }; v.commute = false; break; } }
         if (!v.target) v.wait = 1;
       }
       if (v.target) {
         const dx = v.target.x - v.x, dz = v.target.z - v.z, d = Math.hypot(dx, dz);
-        if (d < 0.1) { v.target = null; v.wait = rand(2, 6); }
+        if (d < 0.1) { v.target = null; v.wait = v.commute ? 0.1 : rand(2, 6); }
         else if (Math.hypot(P.x - v.x, P.z - v.z) < 0.8) { v.wait = 0.6; }
         else {
-          const sp = 1.25 * dt, nx = v.x + dx / d * sp, nz = v.z + dz / d * sp;
+          const drunk = v.def.role === '한잔한 사람', sp = (drunk ? 0.8 : v.commute ? 1.6 : 1.25) * dt, sway = drunk ? Math.sin(performance.now() / 420 + v.x) * 0.6 : 0;
+          const ux = dx / d, uz = dz / d, nx = v.x + (ux + uz * sway) * sp, nz = v.z + (uz - ux * sway) * sp;
           if (canStand(nx, nz, 0.25)) { v.x = nx; v.z = nz; moving = true; v.rot = lerpAngle(v.rot, Math.atan2(dx, dz), 1 - Math.exp(-dt * 8)); }
           else { v.target = null; v.wait = rand(0.5, 1.5); }
         }
@@ -3857,7 +3867,9 @@ function updateVillagers(dt, h) {
     v.walk += moving ? dt * 7 : 0;
     u.lL.rotation.x = moving ? Math.sin(v.walk) * 0.6 : 0; u.lR.rotation.x = -u.lL.rotation.x;
     u.body.position.y = moving ? Math.abs(Math.sin(v.walk)) * 0.05 : Math.sin(performance.now() / 600 + v.x) * 0.012;
+    u.body.rotation.z = v.def.role === '한잔한 사람' ? Math.sin(performance.now() / 380 + v.z) * 0.18 : 0;
     u.head.rotation.z = v.talking ? Math.sin(performance.now() / 180) * 0.06 : 0;
+    u.head.rotation.x = v.def.role === '별 보는 사람' && !moving && !v.talking ? lerp(u.head.rotation.x, -0.55, 1 - Math.exp(-dt * 3)) : lerp(u.head.rotation.x, 0, 1 - Math.exp(-dt * 6));
     v.mesh.position.set(v.x, groundY(v.x, v.z), v.z); v.mesh.rotation.y = v.rot;
     if (v.def.alien) alienIdle(v, dt, moving);
     else {
@@ -4892,6 +4904,60 @@ function ambientUnload(ci) {
   ambOn.delete(ci);
 }
 // 집 없는 주민은 플레이어가 가까이 왔을 때 집(아파트) 근처 설 수 있는 자리를 잡는다
+/* --- 하루 일과: 낮엔 일터, 저녁엔 광장, 밤엔 집 근처 --- */
+const CITY_OF = Object.fromEntries(CITIES.map(c => [c.name, c]));
+const PLAZA = { x: HX + 0.5, z: HZ + 5.5 };   // 도토리 마을 광장
+function anchorOf(v, h) {
+  const d = v.def; if (d.boss || d.botLeader) return null;
+  const c = d.town ? CITY_OF[d.town] : null;
+  if (h >= 18 && h < 21) return c ? { x: c.x + 2.5, z: c.z + 2.5, r: 6 } : !d.region && !d.role ? { x: PLAZA.x, z: PLAZA.z, r: 4 } : null;
+  if (h >= 9 && h < 17 && c) {
+    // 일터: 사람마다 시내 한 곳 (같은 사람은 매일 같은 곳으로 출근)
+    if (!d.work) { const r = mulberry32(hashStr('work' + v.id)), a = r() * Math.PI * 2, dd = r() * CITY_R(c) * 0.7; d.work = { x: c.x + Math.cos(a) * dd, z: c.z + Math.sin(a) * dd }; }
+    return { x: d.work.x, z: d.work.z, r: 4 };
+  }
+  return null;
+}
+// 멀리 있는 곳으로 갈 땐 그쪽으로 몇 칸씩 끊어서 걷는다 (막히면 옆으로 비켜 간다)
+function stepToward(v, to) {
+  const a0 = Math.atan2(to.x - v.x, to.z - v.z);
+  for (const da of [0, 0.5, -0.5, 1.1, -1.1, 1.8, -1.8]) for (const len of [6, 3]) {
+    const x = v.x + Math.sin(a0 + da) * len, z = v.z + Math.cos(a0 + da) * len;
+    if (canStand(x, z, 0.25)) return { x, z };
+  }
+  return null;
+}
+/* --- 주민끼리 수다: 둘이 마주치면 멈춰서 고장 말로 주고받는다 --- */
+const REACT = { sudo: ['진짜?', '그치그치.', '아 그래?'], gangwon: ['그래요?', '맞드래요.'], chung: ['그류?', '그렇쥬.'], jeolla: ['아따, 그랑가?', '그라제.'], gyeong: ['맞나?', '하모.'], jeju: ['기우꽈?', '경허주.'], seobuk: ['기래?', '일없어.'], dongbuk: ['그렇슴둥?', '옳지비.'] };
+const bubbled = [];
+function say(v, text, dur = 3.4) {
+  if (v.bubble) v.bubble.el.remove(); else bubbled.push(v);
+  const el = document.createElement('div'); el.className = 'vbub'; el.textContent = text; $('#ftxt').append(el);
+  v.bubble = { el, t: dur };
+}
+function updateBubbles(dt) {
+  for (let i = bubbled.length - 1; i >= 0; i--) {
+    const v = bubbled[i], b = v.bubble; b.t -= dt;
+    if (b.t <= 0 || !v.mesh || !v.mesh.visible || v.talking || v.fighting || D.open) { b.el.remove(); v.bubble = null; bubbled.splice(i, 1); continue; }
+    const p = screenOf(v.x, 2.25, v.z); b.el.style.left = p.x + 'px'; b.el.style.top = p.y + 'px';
+  }
+}
+function tryChat(v) {
+  if (Math.hypot(v.x - camPos.x, v.z - camPos.z) > 22) return;
+  const o = villagers.find(o => o !== v && o.vis && o.mesh && !o.talking && !o.fighting && !o.chatT && !o.def.boss && Math.hypot(o.x - v.x, o.z - v.z) < 1.9);
+  if (!o) return;
+  const lineA = pick(v.def.chat || ['안녕!']), react = pick(REACT[o.def.region] || ['응응.', '그렇구나.']);
+  for (const [a, b] of [[v, o], [o, v]]) { a.chatT = 6; a.target = null; a.wait = 6; a.chatFace = b; }
+  say(v, lineA); o.replyAt = 2.2; o.reply = R() < 0.5 && o.def.chat ? `${react} ${pick(o.def.chat)}` : react;
+}
+/* --- 밤 풍경: 한잔한 사람은 비틀비틀, 순찰은 손전등, 별 보는 사람은 하늘을 본다 --- */
+function addFlashlight(m) {
+  const g = new THREE.Group(); g.position.set(0.28, 0.62, 0.3);
+  g.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 8), MB(0x3a3a46), 0, 0, 0));
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.6, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff3a0, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }));
+  beam.rotation.x = Math.PI / 2 + 0.5; beam.position.set(0, -0.35, 0.75); g.add(beam);
+  m.add(g);
+}
 function placeLazy(v) {
   const h = v.def.home;
   for (let rr = 2; rr <= 18 && !v.placed; rr += 4) for (let k = 0; k < 12; k++) {
@@ -5377,7 +5443,7 @@ function frame(now) {
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
   miniT -= rdt; if (miniT <= 0) { miniT = 0.25; drawMini(); $('#miniName').textContent = placeName(); }
-  updateFloats(rdt);
+  updateFloats(rdt); updateBubbles(rdt);
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
   hintT -= dt; if (hintT <= 0) { hintT = 0.1; updateHint(); }
