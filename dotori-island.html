@@ -281,7 +281,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pNote" hidden><div class="panel notep" role="dialog" aria-label="휴대폰">
   <header><div>📱 휴대폰 <span class="sub" id="noteSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><div class="tabs"><button class="tab" data-note="job">의뢰</button><button class="tab" data-note="quest">부탁</button><button class="tab" data-note="people">연락처</button><button class="tab" data-note="go">🚕 이동</button><button class="tab" data-note="log">지난 알림</button><button class="tab" data-note="dex">도감 ›</button></div><div class="rows" id="noteRows"></div></div>
+  <div class="body"><div class="tabs"><button class="tab" data-note="job">의뢰</button><button class="tab" data-note="quest">부탁</button><button class="tab" data-note="people">연락처</button><button class="tab" data-note="biz">💼 사업</button><button class="tab" data-note="go">🚕 이동</button><button class="tab" data-note="log">지난 알림</button><button class="tab" data-note="dex">도감 ›</button></div><div class="rows" id="noteRows"></div></div>
 </div></div>
 
 <div class="wrap" id="pBox" hidden><div class="panel" role="dialog" aria-label="집 보관함">
@@ -349,6 +349,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
     <div class="help" data-hpage="travel" hidden>
       <kbd>M</kbd><span>한반도 지도: 이름으로 찾기, 도시·명소를 눌러 📍 길 안내(미니맵 화살표와 남은 km)와 🚆 빠른 이동 (한 번 가 본 곳, 도토리를 내요)</span>
       <kbd>F · Space</kbd><span>차 타기·내리기. 도시엔 세워진 차와 달리는 차가 있어요. 방향키로 그쪽으로 핸들을 꺾고 밟아요(Shift 가속). 길·도시에선 빠르고 풀밭·모래에선 느려요. 마지막에 탄 차는 내 차로 그 자리에 남아요</span>
+      <kbd>R</kbd><span>차 라디오 바꾸기: 도토리 FM · 뽕짝 FM · 비트 FM · 끄기</span>
       <kbd>B</kbd><span>자전거 타기·내리기 (도토리 상점에서 사요. 걷기보다 두 배 넘게 빠르고, 길 위에선 더 빨라요)</span>
       <kbd>나무배</kbd><span>상점에서 사서 가방에 두면, 맨손으로 물가를 보고 Space를 눌러 바다·강을 자유롭게 오가요</span>
       <kbd>여객선</kbd><span>목포↔제주, 포항↔울릉도↔독도, 인천↔백령도. 부두에서 배를 타요</span>
@@ -367,6 +368,8 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>멧돼지 · 엽총</kbd><span>밤엔 멧돼지가 밭을 파헤쳐요. 상점의 엽총(공포탄)으로 쏘면 달아나고 사례금을 받아요. 가까이 가면 받혀요</span>
       <kbd>수배 ★ · 경찰</kbd><span>죄를 지으면 수배 별이 붙고, 별 수만큼 경찰(북쪽은 보안원)이 쫓아와요. 눈에 안 띄게 숨어 있으면 별이 하나씩 줄고, 잡히면 체포(BUSTED)되어 벌금을 내요. 가까이 온 경찰은 '밀치기'로 잠깐 기절시킬 수 있지만 별이 올라요</span>
       <kbd>차 도둑</kbd><span>세워진 차는 보는 눈이 있으면 수배, 달리는 차를 빼앗으면 무조건 수배. 사람을 치면 넘어지고(만화식) 수배가 올라요. 수배 중 운전하면 경찰차가 쫓아와 붙어서 세우면 체포!</span>
+      <kbd>사업체</kbd><span>도시에 가서 휴대폰 › 💼 사업: 포장마차·세차장·노래방·정비소·클럽(큰 도시)을 사면 2분마다 수입. 라이벌 나와바리 안 가게는 보호비 30%를 뜯겨요</span>
+      <kbd>병원</kbd><span>보스에게 맞짱으로 지면 기절(WASTED): 가까운 도시 도토리병원에서 깨어나고 병원비를 내요. 수배는 풀려요</span>
       <kbd>의뢰</kbd><span>휴대폰(N) › 의뢰: 배달(제한 시간 안에 짐 나르기)·차 주문(말한 차를 구해 정비소로)·레이스. GPS가 갈 곳을 짚어 주고, 끝내면 MISSION PASSED!</span>
       <kbd>털기</kbd><span>도시마다 편의점 '도토리24'(하루 한 번, ★2), 큰 도시엔 '도토리은행'(조직원 5명 필요, 금고 따는 8초를 버티면 큰돈, ★4). 큰 도시엔 가끔 현금 수송차: 차로 들이받아 세우면 돈 가방이 쏟아져요(★3)</span>
       <kbd>술</kbd><span>상점에서 사서 마시거나 주민과 한잔. 취하면 비틀비틀, 맞짱에선 취권</span>
@@ -621,12 +624,26 @@ const semi = n => Math.pow(2, n / 12);
 function musicUpdate() {
   if (!AC || !S.sound || !S.music) { nextNote = 0; return; }
   const now = AC.currentTime; if (nextNote < now) nextNote = now + 0.1;
-  const night = dayF(hour()) < 0.3; const beat = night ? 0.6 : 0.4; const base = night ? 220 : 261.63;
+  // 차 라디오: 1 도토리 FM(잔잔) · 2 뽕짝 FM(쿵짝 트로트) · 3 비트 FM(K-팝 비트) · 0 끄기
+  const st = P.car ? (S.radio ?? 1) : 1;
+  if (st === 0) { nextNote = 0; return; }
+  const night = dayF(hour()) < 0.3, beat = st === 2 ? 0.26 : st === 3 ? 0.21 : night ? 0.6 : 0.4, base = st === 2 ? 293.66 : st === 3 ? 246.94 : night ? 220 : 261.63;
   while (nextNote < now + 0.3) {
     const ch = CHORDS[Math.floor(mstep / 8) % 4], d = nextNote - now;
-    if (mstep % 8 === 0) tone(base / 2 * semi(ch[0]), beat * 3.6, { type: 'triangle', vol: 0.05, delay: d, bus: musicBus });
-    if (mstep % 4 === 2) ch.forEach((n, i) => tone(base * semi(n), beat * 1.4, { vol: 0.018, delay: d + i * 0.03, bus: musicBus }));
-    if (R() < (night ? 0.35 : 0.55)) { mel = clamp(mel + pick([-2, -1, -1, 0, 1, 1, 2]), 0, PENTA.length - 1); tone(base * semi(PENTA[mel]), beat * 1.7, { vol: 0.04, delay: d, bus: musicBus }); }
+    if (st === 2) {   // 쿵(베이스)·짝(화음)
+      if (mstep % 2 === 0) tone(base / 2 * semi(ch[mstep % 4 === 0 ? 0 : 2]), beat * 0.9, { type: 'triangle', vol: 0.06, delay: d, bus: musicBus });
+      else ch.forEach((n, i) => tone(base * semi(n), beat * 0.5, { type: 'square', vol: 0.008, delay: d + i * 0.01, bus: musicBus }));
+      if (R() < 0.7) { mel = clamp(mel + pick([-2, -1, 0, 1, 1, 2]), 0, PENTA.length - 1); tone(base * semi(PENTA[mel]), beat * 1.6, { type: 'square', vol: 0.02, delay: d, bus: musicBus }); }
+    } else if (st === 3) {   // 쿵쿵 킥, 짝 스네어, 통통 신스
+      if (mstep % 4 === 0 || mstep % 8 === 6) noise(0.12, 0.25, 110, { type: 'lowpass', delay: d });
+      if (mstep % 8 === 4) noise(0.1, 0.12, 1800, { delay: d });
+      if (mstep % 2 === 0) tone(base / 2 * semi(ch[0]), beat * 0.8, { type: 'sawtooth', vol: 0.02, delay: d, bus: musicBus });
+      if (R() < 0.5) { mel = clamp(mel + pick([-1, 0, 1, 2, -2]), 0, PENTA.length - 1); tone(base * 2 * semi(PENTA[mel]), beat * 0.9, { vol: 0.03, delay: d, bus: musicBus }); }
+    } else {
+      if (mstep % 8 === 0) tone(base / 2 * semi(ch[0]), beat * 3.6, { type: 'triangle', vol: 0.05, delay: d, bus: musicBus });
+      if (mstep % 4 === 2) ch.forEach((n, i) => tone(base * semi(n), beat * 1.4, { vol: 0.018, delay: d + i * 0.03, bus: musicBus }));
+      if (R() < (night ? 0.35 : 0.55)) { mel = clamp(mel + pick([-2, -1, -1, 0, 1, 1, 2]), 0, PENTA.length - 1); tone(base * semi(PENTA[mel]), beat * 1.7, { vol: 0.04, delay: d, bus: musicBus }); }
+    }
     nextNote += beat; mstep++;
   }
 }
@@ -4308,6 +4325,39 @@ function jobTick(dt) {
     }
   }
 }
+/* ================= 사업체: 도시마다 가게를 사서 수입 =================
+   그 도시에 가서 휴대폰 › 사업에서 산다. 플레이 2분마다 수입이 들어오고, 라이벌 나와바리 안의 가게는 보호비(30%)를 뜯긴다. */
+const BIZ = [{ id: 'pocha', n: '포장마차', e: '🏮', cost: 5000, inc: 150 }, { id: 'wash', n: '세차장', e: '🧽', cost: 15000, inc: 420 }, { id: 'karaoke', n: '노래방', e: '🎤', cost: 20000, inc: 600 },
+  { id: 'garage', n: '정비소', e: '🔧', cost: 30000, inc: 900 }, { id: 'club', n: '클럽', e: '🪩', cost: 60000, inc: 2000, big: true }];
+const BIZ_BY = Object.fromEntries(BIZ.map(b => [b.id, b])), BIZ_SEC = 120;
+let bizT = 0;
+const bizRival = c => { const k = kingdomAt(c.x, c.z); if (k) return k.n; const b = botAt(c.x, c.z); return b && botHostile(b) ? `${botShort(b)} 패거리` : null; };
+function bizTick(dt) {
+  if ((bizT += dt) < BIZ_SEC) return; bizT = 0;
+  const own = S.biz || []; if (!own.length) return;
+  let sum = 0, tax = 0;
+  for (const b of own) { const B = BIZ_BY[b.id], c = CITIES.find(o => o.name === b.city); let inc = B.inc; if (c && bizRival(c)) { const cut = Math.round(inc * 0.3); tax += cut; inc -= cut; } sum += inc; }
+  S.coins += sum; updateHUD(); dirty(); SFX.coin();
+  toast(`💼 사업체 수입 도토리 ${fmt(sum)}개${tax ? ` (라이벌 보호비 ${fmt(tax)}개 뜯김)` : ''}`);
+}
+function buyBiz(c, B) {
+  if (S.coins < B.cost) { toast('도토리가 모자라요.'); SFX.miss(); return; }
+  S.coins -= B.cost; (S.biz || (S.biz = [])).push({ id: B.id, city: c.name }); updateHUD(); dirty(); SFX.fanfare();
+  toast(`${B.e} ${c.name} ${B.n}을 샀어요! 2분마다 도토리 ${fmt(B.inc)}개${bizRival(c) ? ' (라이벌 나와바리라 보호비를 뜯겨요)' : ''}`); renderNote();
+}
+/* --- 쓰러지면 병원 (WASTED): 보스·조직 우두머리에게 지면 가까운 도시 도토리병원에서 깨어난다 --- */
+let pendingWasted = false;
+function wasted() {
+  pendingWasted = false;
+  const fee = Math.min(S.coins, Math.max(300, Math.round(S.coins * 0.08)));
+  let best = null, bd = 1e9; for (const c of CITIES) if (c.size >= 2) { const d = Math.hypot(c.x - P.x, c.z - P.z); if (d < bd) { bd = d; best = c; } }
+  const spot = best && standNear(best.x, best.z + 4, 12);
+  if (P.car) exitCar(true); if (P.bike) setBike(false, true);
+  if (spot) { P.x = spot[0]; P.z = spot[1]; camPos.x = P.x; camPos.z = P.z; updateCull(true); }
+  for (const c of cops.slice()) dropCop(c);
+  S.coins -= fee; S.heat = 0; updateHUD(); dirty(); SFX.miss();
+  bigNote('🚑 기절!', 'WASTED', `병원비 도토리 ${fmt(fee)}개. ${best ? best.name + ' ' : ''}도토리병원에서 깨어났어요.`);
+}
 // 마을 발전 건물 앞에서 할 수 있는 일
 const CIV_ACT = {
   store: o => ({ l: '🏪 들어가기', f: () => storeTalk(o) }),
@@ -6951,6 +7001,21 @@ function renderNote() {
   const goV = v => uiBtn('📍', () => { const h = v.def.home || v; setPin({ n: v.def.name, x: h.x, z: h.z }); closePanels(); }, true);
   const qs = Object.entries(S.vill).filter(([id, st]) => st.quest && vById.has(id));
   $('#noteSub').textContent = `부탁 ${qs.length}개`;
+  if (noteTab === 'biz') {
+    const own = S.biz || [];
+    let tot = 0; for (const b of own) tot += BIZ_BY[b.id].inc;
+    { const p = document.createElement('p'); p.className = 'fine'; p.textContent = own.length ? `내 사업체 ${own.length}곳 · 2분마다 도토리 ${fmt(tot)}개 (라이벌 나와바리는 30% 보호비)` : '아직 가진 사업체가 없어요. 도시에 가서 가게를 사 보세요.'; rows.append(p); }
+    for (const b of own) { const B = BIZ_BY[b.id], c = CITIES.find(o => o.name === b.city), rv = c && bizRival(c); row(B.e, `${b.city} ${B.n}`, rv ? `${rv} 나와바리 · 보호비를 뜯기는 중 (아지트를 접수하면 멈춰요)` : '도토리파 나와바리 · 수입 그대로', `+${fmt(B.inc)}`, []); }
+    let here = null, hd = 1e9; for (const c of CITIES) { const d = Math.hypot(c.x - P.x, c.z - P.z); if (d < hd) { hd = d; here = c; } }
+    if (!here || hd > (here.size === 3 ? 52 : 32)) { empty('사업체는 도시 안에서 살 수 있어요.'); return; }
+    const p = document.createElement('p'); p.className = 'fine'; p.textContent = `🏙️ ${here.name}에서 살 수 있는 가게`; rows.append(p);
+    for (const B of BIZ) {
+      if (B.big && here.size < 3) continue;
+      const has = own.some(b => b.id === B.id && b.city === here.name);
+      row(B.e, `${here.name} ${B.n}`, has ? '이미 내 가게예요' : `2분마다 도토리 ${fmt(B.inc)}개`, `🌰 ${fmt(B.cost)}`, has ? [] : [uiBtn('사기', () => buyBiz(here, B), false, S.coins < B.cost)]);
+    }
+    return;
+  }
   if (noteTab === 'job') {
     const m = S.mission;
     if (m) row(m.e, `진행 중: ${jobTitle(m)}`, `${m.who} · ${m.stage === 'pickup' ? '출발지로 가는 중' : '목적지로 가는 중'}${m.limit ? ` · 제한 ${mmss(m.limit)}` : ''}`, `🌰 ${fmt(m.reward)}`, [uiBtn('포기', () => { dropJob('의뢰를 포기했어요.'); renderNote(); }, true)]);
@@ -7063,6 +7128,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'm') { if (!$('#pMap').hidden) closePanels(); else openMap(); }
   else if (k === 'v') { if (!$('#pCiv').hidden) closePanels(); else openCiv(); }
   else if (k === 'n') { if (!$('#pNote').hidden) closePanels(); else openNote(); }
+  else if (k === 'r' && P.car) { const N = ['📻 라디오 끔', '📻 도토리 FM (잔잔한 노래)', '📻 뽕짝 FM (쿵짝 트로트)', '📻 비트 FM (K-팝 비트)']; S.radio = ((S.radio ?? 1) + 1) % 4; audioInit(); nextNote = 0; toast(N[S.radio]); dirty(); }
   else if (k === 'f' && !D.open && !panelOpen()) { if (P.car) exitCar(); else { const cr = nearestInFront(cars.filter(c => c.mode !== 'chase'), 2.2, 0); if (cr) enterCar(cr); } }
   else if (k === 'b' && !D.open && !panelOpen()) setBike(!P.bike);
   else if (TOOLKEYS[k] && !D.open && !panelOpen()) setTool(TOOLKEYS[k]);
@@ -7432,6 +7498,7 @@ function closeFight() {
   $('#toolbar').hidden = false; fightBtn.block = false;
   for (const f of floats) f.el.remove(); floats.length = 0;
   setTool(S.tool);
+  if (result === 'lose' && (v.def.boss || v.def.botLeader)) pendingWasted = true;   // 보스에게 지면 병원 신세
   if (v.def.boss) { bossAfterFight(v, result); return; }
   S.fights = S.fights || {}; const rec = S.fights[v.id] || (S.fights[v.id] = { w: 0, l: 0 });
   S.daily.fightWon = S.daily.fightWon || {};
@@ -7839,7 +7906,7 @@ function frame(now) {
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
   miniT -= rdt; if (miniT <= 0) { miniT = 0.25; pinTick(0.25); drawMini(); $('#miniName').textContent = placeName(); }
-  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt); carTick(dt); heistTick(dt); armorTick(dt); jobTick(dt);
+  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt); carTick(dt); heistTick(dt); armorTick(dt); jobTick(dt); bizTick(dt); if (pendingWasted && !D.open && !FT) wasted();
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
   hintT -= dt; if (hintT <= 0) { hintT = 0.1; updateHint(); }
