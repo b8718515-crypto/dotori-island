@@ -122,6 +122,25 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 .mapp{width:min(100%,820px)}
 #mapC{width:auto;height:auto;max-width:100%;max-height:calc(100vh - 230px);margin:0 auto;border-radius:16px;display:block;background:#d8c9a0;touch-action:none;cursor:grab}
 #mapC:active{cursor:grabbing}
+/* 지도 검색 · 고른 곳 · 수첩 · 집 보관함 */
+.mapsearch{position:relative}
+#mapQ{width:100%;box-sizing:border-box;border:0;border-radius:999px;padding:9px 16px;font:15px var(--f-body);background:var(--paper-2);color:var(--ink);outline:none}
+#mapQ:focus{box-shadow:inset 0 0 0 2px var(--leaf)}
+#mapHits{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:3;display:flex;flex-direction:column;background:var(--paper);border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.18);overflow:hidden}
+#mapHits:empty{display:none}
+#mapHits button{border:0;background:none;text-align:left;padding:8px 14px;font:15px var(--f-body);color:var(--ink);cursor:pointer;display:flex;gap:8px;align-items:center}
+#mapHits button small{color:var(--ink-soft);font-size:12px;margin-left:auto}
+#mapHits button:hover,#mapHits button.sel{background:var(--paper-2)}
+#mapPick{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-radius:16px;background:#e9f3d6;font-size:13px;color:var(--ink-soft)}
+#mapPick[hidden]{display:none}
+#mapPick .tx{flex:1;min-width:150px}
+#mapPick .tx b{font-family:var(--f-display);font-weight:400;font-size:17px;margin-right:6px;color:var(--ink)}
+.boxhd{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.boxhd b{font-family:var(--f-display);font-weight:400;font-size:17px}
+.boxgrid{grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.boxgrid .slot{font-size:clamp(18px,4.5vw,26px);border-radius:12px}
+.notep{width:min(100%,620px)}
+.row .nm b{font-weight:400;font-family:var(--f-display)}
 @media (max-width:520px){#mini{width:96px;height:96px;top:calc(var(--gt) + 64px)}}
 /* 마을 발전 (문명식 발전) */
 .civp{width:min(100%,640px)}
@@ -190,6 +209,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
   <div id="money" class="card" title="도토리 (섬의 화폐)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6V2.5" stroke="#6d4320" stroke-width="2" stroke-linecap="round"/><path d="M4.5 10.5c0-3.2 3.4-5 7.5-5s7.5 1.8 7.5 5z" fill="#7a4a24"/><path d="M5.5 10.5h13c0 5.2-3 9.3-6.5 10.5-3.5-1.2-6.5-5.3-6.5-10.5z" fill="#c98a4b"/><path d="M8.5 13c.3 2 1.2 3.7 2.4 4.8" stroke="#e8b47a" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg><b id="coins">0</b></div>
   <button class="pill" id="btnCiv">마을 <kbd>V</kbd></button>
   <button class="pill" id="btnMap">지도 <kbd>M</kbd></button>
+  <button class="pill" id="btnNote">수첩 <kbd>N</kbd></button>
   <button class="pill" id="btnBag">가방 <kbd>I</kbd></button>
   <button class="pill" id="btnDex">도감 <kbd>C</kbd></button>
   <button class="pill" id="btnSet" aria-label="설정">설정</button>
@@ -244,7 +264,23 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pMap" hidden><div class="panel mapp" role="dialog" aria-label="한반도 지도">
   <header><div>한반도 지도 <span class="sub" id="mapSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><canvas id="mapC" width="1098" height="1734"></canvas><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">마우스 휠(휴대폰은 두 손가락)로 확대·축소, 끌어서 이동, 누르면 그 자리 확대 ↔ 전국. 한반도 전체가 보이고, 확대할수록 작은 도시·산·강·명소 이름이 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
+  <div class="body"><div class="mapsearch"><input id="mapQ" type="search" placeholder="🔍 이름으로 찾기 (예: 경포대, 청진, 한라산)" autocomplete="off" aria-label="지도에서 이름으로 찾기"><div id="mapHits" role="listbox"></div></div><canvas id="mapC" width="1098" height="1734"></canvas><div id="mapPick" hidden></div><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">위 칸에 이름을 쳐서 찾고, 도시·명소·부두를 누르면 📍 길 안내와 🚆 빠른 이동을 골라요. 마우스 휠(휴대폰은 두 손가락)로 확대·축소, 끌어서 이동, 빈 곳을 누르면 그 자리 확대 ↔ 전국. 한반도 전체가 보이고, 확대할수록 작은 도시·산·강·명소 이름이 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
+</div></div>
+
+<div class="wrap" id="pNote" hidden><div class="panel notep" role="dialog" aria-label="수첩">
+  <header><div>수첩 <span class="sub" id="noteSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
+  <div class="body"><div class="tabs"><button class="tab" data-note="quest">받은 부탁</button><button class="tab" data-note="people">만난 주민</button><button class="tab" data-note="go">빠른 이동</button><button class="tab" data-note="log">지난 알림</button></div><div class="rows" id="noteRows"></div></div>
+</div></div>
+
+<div class="wrap" id="pBox" hidden><div class="panel" role="dialog" aria-label="집 보관함">
+  <header><div>집 보관함 <span class="sub" id="boxCount"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
+  <div class="body">
+    <p class="fine">가방 칸을 누르면 보관함에 넣고, 보관함 칸을 누르면 가방으로 꺼내요.</p>
+    <div class="boxhd"><b>보관함</b><div class="acts"><button class="btn alt" id="boxSort">정리</button><button class="btn alt" id="boxAllIn">가방 전부 넣기</button></div></div>
+    <div class="grid boxgrid" id="boxGrid"></div>
+    <div class="boxhd"><b>가방</b></div>
+    <div class="grid boxgrid" id="boxBag"></div>
+  </div>
 </div></div>
 
 <div class="wrap" id="pCiv" hidden><div class="panel civp" role="dialog" aria-label="마을 발전">
@@ -278,7 +314,9 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>WASD · 방향키</kbd><span>걷기 (Shift를 누르면 달리기)</span>
       <kbd>Space · E</kbd><span>행동: 줍기, 흔들기, 말 걸기, 던지기, 파기</span>
       <kbd>1 2 3 4</kbd><span>맨손 · 잠자리채 · 낚싯대 · 삽</span>
-      <kbd>M</kbd><span>한반도 지도 (가 본 곳만 보여요, 눌러서 확대)</span>
+      <kbd>M</kbd><span>한반도 지도: 이름으로 찾기, 도시·명소를 눌러 📍 길 안내(미니맵 화살표와 남은 km)와 🚆 빠른 이동 (한 번 가 본 곳, 도토리를 내요)</span>
+      <kbd>N</kbd><span>수첩: 받은 부탁 · 만난 주민 · 빠른 이동 · 지난 알림</span>
+      <kbd>집 보관함</kbd><span>내 텐트(집) 앞에서 Space: 가방 물건을 80칸 보관함에 맡겨 둬요</span>
       <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술(농업·건축·항해)을 배우고, 영토 밖에 새 마을을 세워요</span>
       <kbd>교류 · 동맹</kbd><span>도시 주민의 부탁을 들어주거나 선물을 보내 우호도를 올리면 동맹이 되어 특산물을 보내 줘요</span>
       <kbd>전쟁</kbd><span>군사 기술 → 병영 → 병사 모집 → 적 요새로 진군. 수비대를 무찌르면 성문 앞 장수와 야차룰 대장전! 이기면 요새가 내 땅, 수도를 빼앗으면 왕국이 항복해요. 왕국들도 쳐들어오니 수비 병력을 남겨 두세요</span>
@@ -3314,7 +3352,7 @@ const CIV_ACT = {
   workshop: () => ({ l: '공방 쓰기', f: () => openCiv('craft') }),
   dock: () => S.civ.boat ? { l: '배 띄우기', f: () => launch(dockLaunch()) } : { l: '살펴보기', f: () => openCiv('craft') },
   annex: () => ({ l: '말 걸기', f: talkShop }),
-  myhouse: () => ({ l: '살펴보기', f: () => toast('내 집이다! 텐트 시절이 벌써 그립… 지는 않다.') }),
+  myhouse: () => ({ l: '보관함 열기', f: openBox }),
   barracks: () => ({ l: '병영', f: () => openCiv('war') }),
   bothall: o => ({ l: '살펴보기', f: () => { const b = BOT_BY()[o.bot]; toast(b ? `${o.name}. ${SIDES[b.side].n} ${b.name}의 ${o.cap ? '수도' : '마을'}이다. ${botHostile(b) ? '적의 땅이다!' : '같은 편의 땅이다.'}` : o.name); } }),
   fort: o => ({ l: '살펴보기', f: () => { const st = fortSt(o.fort); toast(st.own === 'me' ? `${o.fort.n}. 이제 ${HOME}의 요새다!` : st.g > 0.5 ? `${o.fort.k.n}의 ${o.fort.n}. 수비대 ${Math.ceil(st.g)}명이 지키고 있다.` : `${o.fort.n}. 수비대가 무너졌다! 성문 앞 장수에게 말을 걸어 대장전!`); } }),
@@ -3921,7 +3959,7 @@ function removeBotWorld(b) {
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
-if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, tp: (x, z) => { P.x = x; P.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
   fish: () => ({ makeFish3D, makeFishShadow, showCatch3D, FISH_LOOK }), map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
@@ -4911,7 +4949,7 @@ function currentAction() {
     if (o.type === 'rock') return { l: '살펴보기', f: () => toast('단단한 바위다. 삽(4)으로 두드려 볼까?') };
     if (o.type === 'sapling') return { l: '살펴보기', f: () => toast(['갓 심은 새싹이다. 무럭무럭 자라라!', '조금씩 자라고 있다.', '거의 다 자랐다!'][o.stage] || '잘 자라고 있다.') };
     if (o.type === 'house') return { l: '노크', f: () => toast(villagers.find(v => v.id === o.owner)?.vis ? '집에 아무도 없는 것 같다. 밖에서 놀고 있나 봐.' : '쿨쿨… 깊이 잠든 것 같다.') };
-    if (o.type === 'tent') return { l: '살펴보기', f: () => toast('내 텐트다. 언젠가 멋진 집으로 바꾸고 싶다.') };
+    if (o.type === 'tent') return { l: '보관함 열기', f: openBox };
     const LOOK = { sign: o.name === '임진각' ? '임진각. 여기서 북쪽으로 가면 휴전선을 넘어 북쪽 땅이에요.' : `${o.name}에 오신 걸 환영해요!`, apt: '아파트 단지다. 창문마다 다른 집이 산다.', hanok: '기와지붕이 멋진 한옥이다. 처마 끝이 살짝 들려 있다.',
       gate: `${o.name || '성문'}. 돌로 쌓은 문 위에 기와 누각이 서 있다.`, tower: 'N서울타워. 남산 위에서 서울을 내려다본다.', observatory: '첨성대. 신라 사람들이 별을 살피던 곳이다.', statue: '돌하르방. 코를 만지면 복이 온다고 한다.',
       lighthouse: `${o.name || '등대'}. 밤바다를 비추는 등대다.`, fence: '휴전선 철책이다.', flag: '독도. 동해 한가운데 태극기가 펄럭인다.', tea: '보성 녹차밭. 차나무 이랑이 물결처럼 이어진다.',
@@ -5096,6 +5134,7 @@ $('#bubble').addEventListener('click', () => { if (D.open) dlgAdvance(); });
 
 /* ================= UI ================= */
 function toast(msg) {
+  logNote(msg);
   const box = $('#toasts'); const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; box.append(el);
   while (box.children.length > 3) box.firstChild.remove();
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, 2200);
@@ -5116,7 +5155,7 @@ function updateClock() {
   $('#clkTime').textContent = `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`;
   $('#clkDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일${S.timeMode === 'fast' ? ' · 빠른 시간' : ''}`;
 }
-const panels = ['#pBag', '#pShop', '#pDex', '#pSet', '#pHelp', '#pMap', '#pCiv'];
+const panels = ['#pBag', '#pShop', '#pDex', '#pSet', '#pHelp', '#pMap', '#pCiv', '#pNote', '#pBox'];
 const panelOpen = () => panels.some(p => !$(p).hidden);
 function closePanels() { if (!started) return; for (const p of panels) $(p).hidden = true; canvas.focus(); }
 function openPanel(id, force) { if (!started || FT || (D.open && !force)) return; for (const p of panels) $(p).hidden = p !== id; SFX.ui(); }
@@ -5530,6 +5569,7 @@ function drawMini() {
   const W = miniCv.width, k = W / MINI, ox = Math.floor(P.x - MINI / 2), oz = Math.floor(P.z - MINI / 2);
   renderTiles(miniCtx, ox, oz, MINI, MINI, W, W);
   drawMarks(miniCtx, k, ox, oz, false);
+  drawPinSel(miniCtx, k, ox, oz, 1.5, true); pinArrow(miniCtx, W, k);
 }
 // 지도 보기: 가운데 칸과 가로 폭(칸 수). 마우스 휠(휴대폰은 두 손가락)로 확대·축소하고, 끌어서 옮긴다. 폭 NX = 전국.
 // 가까이 볼 때(폭 520칸 이하)는 칸 하나하나를, 멀리 볼 때는 미리 그려 둔 전국 지도를 잘라서 그린다.
@@ -5543,7 +5583,7 @@ function mapRect(W, H) {
 }
 function fitMapCanvas() {
   const cv = $('#mapC'), dpr = Math.min(2, window.devicePixelRatio || 1), box = cv.parentElement;
-  const cs = getComputedStyle(box), maxW = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), maxH = window.innerHeight - 230;
+  const cs = getComputedStyle(box), maxW = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), maxH = window.innerHeight - 300;
   let w = maxW, h = w * NZ / NX; if (h > maxH) { h = maxH; w = h * NX / NZ; }
   w = Math.max(120, Math.round(w)); h = Math.max(190, Math.round(h));
   cv.style.width = w + 'px'; cv.style.height = h + 'px';
@@ -5561,13 +5601,13 @@ function drawWorldMap() {
     const ox = Math.floor(mapV.cx - sx / 2), oz = Math.floor(mapV.cz - sz / 2), w = Math.ceil(sx) + 1, h = Math.ceil(sz) + 1;
     buildCarto(); ctx.imageSmoothingEnabled = true; ctx.drawImage(cartoCv, ox / CART, oz / CART, w / CART, h / CART, 0, 0, w * k, h * k);
     renderTiles(ctx, ox, oz, w, h, w * k, h * k, true);
-    ctx.save(); ctx.scale(ui, ui); drawGeo(ctx, k / ui, ox, oz, W / ui, H / ui); drawMarks(ctx, k / ui, ox, oz, true); ctx.restore();
+    ctx.save(); ctx.scale(ui, ui); drawGeo(ctx, k / ui, ox, oz, W / ui, H / ui); drawMarks(ctx, k / ui, ox, oz, true); drawPinSel(ctx, k / ui, ox, oz); ctx.restore();
   } else {
     if (terrDirty) drawTerr();
     const ox = mapV.cx - sx / 2, oz = mapV.cz - sz / 2;
     buildCarto(); ctx.imageSmoothingEnabled = true; ctx.drawImage(cartoCv, ox / CART, oz / CART, sx / CART, sz / CART, 0, 0, W, H);
     ctx.imageSmoothingEnabled = false; ctx.drawImage(terrCv, ox / CS, oz / CS, sx / CS, sz / CS, 0, 0, W, H);
-    ctx.save(); ctx.scale(ui, ui); drawGeo(ctx, k / ui, ox, oz, W / ui, H / ui); drawMarks(ctx, k / ui, ox, oz, true); ctx.restore();
+    ctx.save(); ctx.scale(ui, ui); drawGeo(ctx, k / ui, ox, oz, W / ui, H / ui); drawMarks(ctx, k / ui, ox, oz, true); drawPinSel(ctx, k / ui, ox, oz); ctx.restore();
   }
   const full = mapV.span >= NX * 0.98;
   document.querySelectorAll('#segZoom button').forEach(b => b.classList.toggle('on', (b.dataset.z === '0') === full));
@@ -5586,7 +5626,7 @@ const LANDC = new Uint8Array(CX * CZ); let LAND_C = 0;
 for (let cz = 0; cz < CZ; cz++) for (let cx = 0; cx < CX; cx++) { const p = prov[(cz * CS + 2) * NX + cx * CS + 2]; if (p && p < 30) { LANDC[cz * CX + cx] = 1; LAND_C++; } }
 // 지도를 열면 확대해 둔 상태는 그대로, 가운데만 내 위치로
 window.addEventListener('resize', () => { if (!$('#pMap').hidden) mapRedraw(); });
-function openMap() { if (mapV.span < NX * 0.98) { mapV.cx = P.x; mapV.cz = P.z; } openPanel('#pMap'); drawWorldMap(); }
+function openMap() { if (mapV.span < NX * 0.98) { mapV.cx = P.x; mapV.cz = P.z; } mapSel = null; $('#mapHits').innerHTML = ''; renderMapPick(); openPanel('#pMap'); drawWorldMap(); }
 document.querySelectorAll('#segZoom button').forEach(b => b.addEventListener('click', () => { SFX.ui(); if (b.dataset.z === '1') mapView(MAP_NEAR, P.x, P.z); else mapView(NX, NX / 2, NZ / 2); }));
 {
   const cv = $('#mapC'), pts = new Map(); let dragged = false, pinch0 = null;
@@ -5611,7 +5651,8 @@ document.querySelectorAll('#segZoom button').forEach(b => b.addEventListener('cl
   // 끌지 않고 누르기만 하면 전국 ↔ 그 자리 확대
   cv.addEventListener('click', e => {
     if (dragged) { dragged = false; return; }
-    SFX.ui(); const [px, pz] = canvasXY(e);
+    SFX.ui(); const [px, pz] = canvasXY(e), hit = mapHit(px, pz);
+    if (hit) { mapSel = hit; renderMapPick(); if (mapV.span >= NX * 0.98) mapView(MAP_NEAR, hit.x, hit.z); else mapRedraw(); return; }
     if (mapV.span >= NX * 0.98) mapZoomAt(px, pz, MAP_NEAR); else mapView(NX, NX / 2, NZ / 2);
   });
 }
@@ -5670,11 +5711,286 @@ function travelTo(q) {
 $('#btnMap').addEventListener('click', openMap);
 $('#mini').addEventListener('click', openMap);
 
+/* ================= 길 안내 · 빠른 이동 · 지도 검색 ================= */
+const kmTxt = km => km < 1 ? `${Math.max(10, Math.round(km * 100) * 10)}m` : km < 10 ? `${km.toFixed(1)}km` : `${Math.round(km)}km`;
+const uiBtn = (t, f, alt, dis) => { const b = document.createElement('button'); b.className = 'btn' + (alt ? ' alt' : ''); b.textContent = t; b.disabled = !!dis; b.onclick = f; return b; };
+// 지도에서 고를 수 있는 이름 붙은 곳: { n, x, z, kind, ic, sub }
+function mapPlaces() {
+  const out = [{ n: HOME, x: HX, z: HZ + 3, kind: 'home', ic: '🏠', sub: '내 마을' }];
+  for (const t of S.civ.towns) out.push({ n: t.name, x: t.x + 1, z: t.z + 1, kind: 'town', ic: '🏡', sub: '내가 세운 마을' });
+  for (const c of CITIES) out.push({ n: c.name, x: c.x, z: c.z, kind: 'city', ic: c.size === 3 ? '🏙️' : c.size === 2 ? '🏘️' : '🏡', c, sub: KR_PROV[c.prov - 1] ? KR_PROV[c.prov - 1].n : '' });
+  for (const l of LANDMARKS) out.push({ n: l.name, x: l.x, z: l.z, kind: 'lm', ic: '★', sub: '명소' });
+  for (const p of PIERS) if (p.x != null) out.push({ n: p.name, x: p.x + 0.5, z: p.z + 0.5, kind: 'pier', ic: '⚓', p, sub: '여객선 부두' });
+  return out;
+}
+let geoIdx = null;
+function searchPlaces(q) {
+  const norm = s => s.replace(/\s+/g, '').toLowerCase(); q = norm(q); if (!q) return [];
+  if (!geoIdx) geoIdx = [
+    ...KR_PROV.map(p => ({ n: p.n, x: p.x, z: p.z, kind: 'prov', ic: '🗺️', sub: '시·도', span: 900 })),
+    ...GEO_L.sea.map(s => ({ n: s.n, x: s.x, z: s.z, kind: 'geo', ic: '🌊', sub: '바다', span: 1500 })),
+    ...GEO_L.mt.map(s => ({ n: s.n, x: s.x, z: s.z, kind: 'geo', ic: '⛰️', sub: '산', span: 260 })),
+    ...GEO_L.river.map(s => ({ n: s.n, x: s.x, z: s.z, kind: 'geo', ic: '〰️', sub: '강', span: 420 })),
+    ...GEO_L.area.map(s => ({ n: s.n, x: s.x, z: s.z, kind: 'geo', ic: '🌾', sub: '들·고원', span: 520 }))];
+  const hit = [], seen = new Set();
+  for (const p of [...mapPlaces(), ...geoIdx]) {
+    const n = norm(p.n), i = n.indexOf(q); if (i < 0 || seen.has(p.kind + p.n)) continue;
+    seen.add(p.kind + p.n); hit.push([i === 0 ? 0 : 1, n.length, p]);
+  }
+  return hit.sort((a, b) => a[0] - b[0] || a[1] - b[1]).slice(0, 8).map(h => h[2]);
+}
+const SEL_SPAN = { home: 220, town: 220, lm: 260, pier: 260, city: 0 };
+function mapGoTo(p) {
+  mapSel = p; $('#mapHits').innerHTML = '';
+  mapView(p.span || SEL_SPAN[p.kind] || (p.c ? [0, 240, 300, 400][p.c.size] : 260), p.x, p.z); renderMapPick();
+}
+{
+  const q = $('#mapQ'), hits = $('#mapHits'); let list = [], cur = 0;
+  const show = () => {
+    hits.innerHTML = '';
+    list.forEach((p, i) => {
+      const b = document.createElement('button'); b.className = i === cur ? 'sel' : ''; b.setAttribute('role', 'option');
+      b.textContent = `${p.ic} ${p.n}`; const s = document.createElement('small'); s.textContent = p.sub || ''; b.append(s);
+      b.onclick = () => { SFX.ui(); mapGoTo(p); q.blur(); }; hits.append(b);
+    });
+    if (q.value.trim() && !list.length) { const b = document.createElement('button'); b.disabled = true; b.textContent = '찾는 곳이 없어요'; hits.append(b); }
+  };
+  q.addEventListener('input', () => { list = searchPlaces(q.value); cur = 0; show(); });
+  q.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (list.length) { cur = (cur + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length; show(); } }
+    else if (e.key === 'Enter') { e.preventDefault(); if (list[cur]) { mapGoTo(list[cur]); q.blur(); } }
+    else if (e.key === 'Escape') { e.preventDefault(); if (q.value) { q.value = ''; list = []; show(); } else q.blur(); }
+  });
+}
+// 큰 지도에서 누른 자리 가까이의 이름 붙은 곳 (그 배율에서 보이는 것만)
+function mapHit(px, pz) {
+  const cv = $('#mapC'), { ox, oz, k } = mapRect(cv.width, cv.height), ui = cv.width / (cv.getBoundingClientRect().width || cv.width) * MAP_UI, kk = k / ui;
+  let best = null, bd = 16 * ui;
+  for (const p of mapPlaces()) {
+    if (p.kind === 'city' && p.c.size === 1 && kk < 0.35) continue;
+    if ((p.kind === 'lm' || p.kind === 'pier') && kk < 0.35) continue;
+    const d = Math.hypot((p.x - ox) * k - px, (p.z - oz) * k - pz) - (p.c ? p.c.size * 4 * ui : 0);   // 겹치면 큰 도시를 먼저
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
+}
+let mapSel = null;
+// 지도 아래 띠: 고른 곳(또는 지금 길 안내 중인 곳)과 할 수 있는 일
+function renderMapPick() {
+  const box = $('#mapPick'), p = mapSel || (S.pin && Object.assign({ kind: 'pin', ic: '📍' }, S.pin));
+  box.innerHTML = ''; box.hidden = !p; if (!p) return;
+  const tx = document.createElement('div'), b = document.createElement('b'); tx.className = 'tx';
+  b.textContent = `${p.ic || '📍'} ${p.n}`; tx.append(b, `${p.sub ? p.sub + ' · ' : ''}여기서 ${kmTxt(Math.hypot(p.x - P.x, p.z - P.z) * GEO.S)}${p.kind === 'pin' ? ' · 길 안내 중' : ''}`);
+  box.append(tx);
+  const pinned = S.pin && Math.hypot(S.pin.x - p.x, S.pin.z - p.z) < 1;
+  box.append(pinned ? uiBtn('안내 끄기', () => { SFX.ui(); setPin(null); renderMapPick(); mapRedraw(); }, true) : uiBtn('📍 길 안내', () => { SFX.ui(); setPin(p); renderMapPick(); mapRedraw(); }));
+  const w = warpInfo(p);
+  if (w && !w.no) box.append(uiBtn(`${w.ic} ${w.mode} · 🌰 ${fmt(w.fare)}`, () => fastTravel(p), true, S.coins < w.fare));
+  else if (w) { const s = document.createElement('small'); s.textContent = w.no; box.append(s); }
+  if (mapSel) box.append(uiBtn('✕', () => { SFX.ui(); mapSel = null; renderMapPick(); mapRedraw(); }, true));
+}
+// 길 안내: S.pin = { n, x, z }. 길은 행군 길찾기(16칸 구역 A*)로 찾고, 길에서 멀어지면 다시 찾는다.
+let pinRoute = null, pinRouteT = 0;
+function setPin(p) {
+  S.pin = p ? { n: p.n, x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 } : null; pinRoute = null; pinRouteT = 0; dirty();
+  if (p) { routePin(); toast(`📍 ${josa(p.n, '으로', '로')} 길 안내를 시작해요. 미니맵의 빨간 화살표를 따라가세요.`); }
+}
+function routePin() { if (!S.pin) return; const r = marchRoute([P.x, P.z], [S.pin.x, S.pin.z]); pinRoute = r.path || [[P.x, P.z], [S.pin.x, S.pin.z]]; }
+function routeNear(r) {
+  let d = Infinity, j = 0;
+  for (let i = 0; i < r.length - 1; i++) {
+    const a = r[i], b = r[i + 1], vx = b[0] - a[0], vz = b[1] - a[1], t = clamp(((P.x - a[0]) * vx + (P.z - a[1]) * vz) / (vx * vx + vz * vz || 1), 0, 1);
+    const dd = Math.hypot(a[0] + vx * t - P.x, a[1] + vz * t - P.z); if (dd < d) { d = dd; j = i; }
+  }
+  return { d, j };
+}
+function pinTick(dt) {
+  if (!S.pin) return;
+  if (Math.hypot(S.pin.x - P.x, S.pin.z - P.z) < 10) { toast(`📍 ${S.pin.n}에 다 왔어요! 길 안내를 마칠게요.`); SFX.coin(); S.pin = null; pinRoute = null; dirty(); return; }
+  if ((pinRouteT -= dt) > 0) return; pinRouteT = 3;
+  if (!pinRoute || routeNear(pinRoute).d > MG * 3) routePin();
+}
+// 지도 위에 길(점선)·핀·고른 곳 고리를 그린다. s: 굵기 배율
+function drawPinSel(ctx, k, ox, oz, s = 1, mini = false) {
+  const X = x => (x - ox) * k, Z = z => (z - oz) * k;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (!mini && mapSel) { ctx.fillStyle = 'rgba(26,115,232,.16)'; ctx.strokeStyle = '#1a73e8'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(X(mapSel.x), Z(mapSel.z), 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  if (S.pin) {
+    if (pinRoute) {
+      const pts = [[P.x, P.z], ...pinRoute.slice(routeNear(pinRoute).j + 1)];
+      const line = () => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(X(p[0]), Z(p[1])) : ctx.moveTo(X(p[0]), Z(p[1]))); ctx.stroke(); };
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 5 * s; line();
+      ctx.setLineDash([7 * s, 6 * s]); ctx.strokeStyle = '#1a73e8'; ctx.lineWidth = 3 * s; line(); ctx.setLineDash([]);
+    }
+    const px = X(S.pin.x), pz = Z(S.pin.z), r = 6 * s;
+    ctx.fillStyle = '#ea4335'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * s;
+    ctx.beginPath(); ctx.moveTo(px - r * 0.8, pz - r * 1.6); ctx.lineTo(px, pz); ctx.lineTo(px + r * 0.8, pz - r * 1.6); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, pz - r * 2.1, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px, pz - r * 2.1, r * 0.38, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+// 미니맵: 핀이 밖에 있으면 가장자리에 방향 화살표, 그리고 남은 거리
+function pinArrow(ctx, W, k) {
+  if (!S.pin) return;
+  const dx = S.pin.x - P.x, dz = S.pin.z - P.z, d = Math.hypot(dx, dz) || 1, half = W / 2, s = W / 128;
+  let tx = half, tz = 11 * s;
+  ctx.save();
+  if (Math.abs(dx) * k > half - 10 * s || Math.abs(dz) * k > half - 10 * s) {
+    const ux = dx / d, uz = dz / d, t = (half - 9 * s) / Math.max(Math.abs(ux), Math.abs(uz));
+    ctx.save(); ctx.translate(half + ux * t, half + uz * t); ctx.rotate(Math.atan2(uz, ux));
+    ctx.fillStyle = '#ea4335'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * s; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(8 * s, 0); ctx.lineTo(-6 * s, -6.5 * s); ctx.lineTo(-2.5 * s, 0); ctx.lineTo(-6 * s, 6.5 * s); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+    tx = clamp(half + ux * (t - 22 * s), 26 * s, W - 26 * s); tz = clamp(half + uz * (t - 16 * s), 10 * s, W - 30 * s);
+  }
+  ctx.font = `${11 * s}px Jua, "Gowun Dodum", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  const t = kmTxt(d * GEO.S); ctx.lineWidth = 3.5 * s; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.strokeText(t, tx, tz); ctx.fillStyle = '#c5221f'; ctx.fillText(t, tx, tz);
+  ctx.restore();
+}
+// 빠른 이동: 한 번 가 본 도시·부두, 내 마을 사이를 도토리를 내고 버스·기차(바다 건너면 비행기)로 바로 간다
+let landComp = null;
+function compAt(x, z) {
+  if (!landComp) {   // 16칸 구역 단위로 이어진 땅마다 번호 (같은 번호 = 다리 없이 걸어서 이어짐)
+    landComp = new Int32Array(MGX * MGZ); let id = 0;
+    const isL = ci => { const x0 = (ci % MGX) * MG, z0 = Math.floor(ci / MGX) * MG; for (const [ox, oz] of [[8, 8], [3, 3], [13, 3], [3, 13], [13, 13]]) { const p = prov[(z0 + oz) * NX + x0 + ox]; if (p && p < 30) return true; } return false; };
+    for (let s0 = 0; s0 < MGX * MGZ; s0++) {
+      if (landComp[s0] || !isL(s0)) continue; landComp[s0] = ++id; const st = [s0];
+      while (st.length) { const c = st.pop(), cx = c % MGX, cz = (c - cx) / MGX; for (const [dx, dz] of N8) { const x = cx + dx, z = cz + dz; if (x < 0 || z < 0 || x >= MGX || z >= MGZ) continue; const n = z * MGX + x; if (!landComp[n] && isL(n)) { landComp[n] = id; st.push(n); } } }
+    }
+  }
+  const cx = clamp(Math.floor(x / MG), 0, MGX - 1), cz = clamp(Math.floor(z / MG), 0, MGZ - 1);
+  for (let r = 0; r < 3; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { const x2 = cx + dx, z2 = cz + dz; if (x2 >= 0 && z2 >= 0 && x2 < MGX && z2 < MGZ && landComp[z2 * MGX + x2]) return landComp[z2 * MGX + x2]; }
+  return 0;
+}
+const WARP_HEAT = 30;
+function warpInfo(p) {
+  if (!['home', 'town', 'city', 'pier'].includes(p.kind)) return null;
+  if (p.kind === 'city' && !S.found[p.n] || p.kind === 'pier' && !S.found['pier:' + p.p.id]) return { no: '한 번 가 본 곳만 바로 갈 수 있어요.' };
+  const km = Math.hypot(p.x - P.x, p.z - P.z) * GEO.S;
+  if (km < 2) return { no: '바로 코앞이에요. 걸어가요!' };
+  const air = compAt(P.x, P.z) !== compAt(p.x, p.z);
+  let fare = (air ? 260 : 60) + km * (air ? 2.4 : 1.8); if (p.kind === 'home' || p.kind === 'town') fare *= 0.5;   // 내 마을로 갈 땐 반값
+  return { km, air, fare: Math.max(50, Math.round(fare / 10) * 10), ic: air ? '✈️' : km < 40 ? '🚌' : '🚆', mode: air ? '비행기' : km < 40 ? '버스' : '기차' };
+}
+function standNear(x, z, R) {
+  const bx = Math.floor(x), bz = Math.floor(z);
+  for (let r = 0; r <= R; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    if (canStand(bx + dx + 0.5, bz + dz + 0.5)) return [bx + dx + 0.5, bz + dz + 0.5];
+  }
+  return null;
+}
+function fastTravel(p) {
+  const w = warpInfo(p); if (!w) return;
+  if (w.no) { toast(w.no); SFX.miss(); return; }
+  if (FT) return;
+  if (P.sail) { toast('배에서 먼저 내려야 해요.'); SFX.miss(); return; }
+  if ((S.heat || 0) >= WARP_HEAT) { toast(`🚨 수배 중이라 ${w.air ? '공항' : '역·터미널'} 검문에 걸려요. 수배 지수가 ${WARP_HEAT} 밑으로 식으면 타요.`); SFX.miss(); return; }
+  if (S.coins < w.fare) { toast(`도토리가 모자라요. ${fmt(w.fare)}개가 필요해요.`); SFX.miss(); return; }
+  const spot = standNear(p.x, p.z, 14); if (!spot) { toast('내릴 자리를 못 찾았어요.'); SFX.miss(); return; }
+  S.coins -= w.fare; updateHUD(); closePanels(); if (FS) endFishing();
+  P.x = spot[0]; P.z = spot[1]; camPos.x = P.x; camPos.z = P.z; updateCull(true); SFX.fanfare();
+  toast(`${w.ic} ${josa(w.mode, '을', '를')} 타고 ${p.n}에 왔어요! (도토리 ${fmt(w.fare)}개)`);
+  if (S.pin && Math.hypot(S.pin.x - P.x, S.pin.z - P.z) < 16) { S.pin = null; pinRoute = null; }
+  pinRouteT = 0; dirty();
+}
+
+/* ================= 수첩: 받은 부탁 · 만난 주민 · 빠른 이동 · 지난 알림 ================= */
+let noteTab = 'quest';
+function openNote(tab) { if (tab) noteTab = tab; renderNote(); openPanel('#pNote'); }
+function renderNote() {
+  document.querySelectorAll('[data-note]').forEach(b => b.classList.toggle('on', b.dataset.note === noteTab));
+  const rows = $('#noteRows'); rows.innerHTML = '';
+  const row = (icon, name, sub, pr, btns = []) => {
+    const r = document.createElement('div'); r.className = 'row';
+    r.innerHTML = `<div class="ic"></div><div class="nm"><b></b><small></small></div><div class="pr"></div>`;
+    r.querySelector('.ic').textContent = icon; r.querySelector('.nm b').textContent = name; r.querySelector('small').textContent = sub; r.querySelector('.pr').textContent = pr || '';
+    btns.forEach(b => r.append(b)); rows.append(r);
+  };
+  const empty = t => { const e = document.createElement('div'); e.className = 'empty'; e.textContent = t; rows.append(e); };
+  const vById = new Map(villagers.map(v => [v.id, v]));
+  const where = v => v.def.town || (v.def.region && PERSONA[v.def.region] ? PERSONA[v.def.region].n : HOME);
+  const who = v => `${where(v)} · ${v.def.sp}${v.def.role ? ' · ' + v.def.role : ''}`;
+  const goV = v => uiBtn('📍', () => { const h = v.def.home || v; setPin({ n: v.def.name, x: h.x, z: h.z }); closePanels(); }, true);
+  const qs = Object.entries(S.vill).filter(([id, st]) => st.quest && vById.has(id));
+  $('#noteSub').textContent = `부탁 ${qs.length}개`;
+  if (noteTab === 'quest') {
+    if (!qs.length) return empty('받은 부탁이 없어요. 주민에게 말을 걸면 가끔 부탁을 해요.');
+    for (const [id, st] of qs) {
+      const v = vById.get(id), it = ITEMS[st.quest.item], have = countItem(st.quest.item);
+      row(it.i, `${v.def.name}: ${it.n} 구해 주기`, `${who(v)} · ${have ? `가방에 ${have}개 있어요. 가져다줘요!` : '아직 없어요'}`, `🌰 ${fmt(st.quest.reward)}`, [goV(v)]);
+    }
+  } else if (noteTab === 'people') {
+    const met = Object.entries(S.vill).filter(([id, st]) => vById.has(id) && (st.fr > 0 || st.quest)).sort((a, b) => b[1].fr - a[1].fr);
+    if (!met.length) return empty('아직 친해진 주민이 없어요. 말을 걸고 선물을 주면 친해져요.');
+    for (const [id, st] of met.slice(0, 120)) { const v = vById.get(id); row('🐾', v.def.name, who(v), '♥'.repeat(Math.min(5, 1 + Math.floor(st.fr / 4))), [goV(v)]); }
+    if (met.length > 120) empty(`… 그리고 ${met.length - 120}명 더`);
+  } else if (noteTab === 'go') {
+    const list = mapPlaces().map(p => [p, warpInfo(p)]).filter(([, w]) => w && !w.no).sort((a, b) => (a[0].kind === 'home' || a[0].kind === 'town' ? 0 : 1) - (b[0].kind === 'home' || b[0].kind === 'town' ? 0 : 1) || a[1].km - b[1].km);
+    if ((S.heat || 0) >= WARP_HEAT) empty(`🚨 수배 지수 ${Math.round(S.heat)}: 검문 때문에 지금은 못 타요.`);
+    if (!list.length) return empty('한 번 가 본 도시·부두와 내 마을로 바로 갈 수 있어요. 먼저 여행을 떠나 보세요!');
+    for (const [p, w] of list) row(p.ic, p.n, `${p.sub ? p.sub + ' · ' : ''}${w.ic} ${w.mode} · ${kmTxt(w.km)}`, `🌰 ${fmt(w.fare)}`, [uiBtn('가기', () => fastTravel(p), false, S.coins < w.fare)]);
+  } else {
+    const log = S.log || [];
+    if (!log.length) return empty('지난 알림이 없어요.');
+    for (let i = log.length - 1; i >= 0; i--) row('🔔', log[i][1], log[i][0], '');
+    const c = uiBtn('알림 지우기', () => { S.log = []; dirty(); renderNote(); }, true); c.style.alignSelf = 'flex-end'; rows.append(c);
+  }
+}
+document.querySelectorAll('[data-note]').forEach(b => b.addEventListener('click', () => { noteTab = b.dataset.note; SFX.ui(); renderNote(); }));
+$('#btnNote').addEventListener('click', () => openNote());
+// 알림 기록 (최근 60개, 세이브에 남는다)
+function logNote(msg) {   // 부팅 중 일찍 불려도 되도록 함수 속성에 마지막 알림을 둔다
+  if (msg === logNote.last) return; logNote.last = msg;
+  const d = gameNow(), h = d.getHours(), L = S.log || (S.log = []);
+  L.push([`${d.getMonth() + 1}/${d.getDate()} ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`, msg]);
+  if (L.length > 60) L.splice(0, L.length - 60);
+}
+
+/* ================= 집 보관함: 텐트·내 집 앞에서 연다 ================= */
+const BOX_N = 80;
+function boxArr() { if (!S.box) S.box = []; while (S.box.length < BOX_N) S.box.push(null); return S.box; }
+// arr에 id를 q개까지 넣고, 넣은 개수를 돌려준다
+function putIn(arr, id, q) {
+  const st = ITEMS[id].stack; let need = q;
+  for (const s of arr) if (need && s && s.id === id && s.q < st) { const a = Math.min(need, st - s.q); s.q += a; need -= a; }
+  for (let i = 0; i < arr.length && need; i++) if (!arr[i]) { const a = Math.min(need, st); arr[i] = { id, q: a }; need -= a; }
+  return q - need;
+}
+function moveSlot(from, i, to) {
+  const s = from[i]; if (!s) return;
+  const n = putIn(to, s.id, s.q); s.q -= n; if (!s.q) from[i] = null;
+  if (n) SFX.pickup(); else { toast(to === S.inv ? '가방이 가득 찼어요.' : '보관함이 가득 찼어요.'); SFX.miss(); }
+  dirty(); renderBox();
+}
+function openBox() { boxArr(); renderBox(); openPanel('#pBox'); }
+function renderBox() {
+  const box = boxArr(), fill = (el, arr, to) => {
+    el.innerHTML = '';
+    arr.forEach((s, i) => {
+      const b = document.createElement('button'); b.className = 'slot'; b.setAttribute('aria-label', s ? `${ITEMS[s.id].n} ${s.q}개` : '빈 칸'); b.title = s ? ITEMS[s.id].n : '';
+      if (s) { b.textContent = ITEMS[s.id].i; if (s.q > 1) { const q = document.createElement('span'); q.className = 'q'; q.textContent = s.q; b.append(q); } b.onclick = () => moveSlot(arr, i, to); }
+      el.append(b);
+    });
+  };
+  fill($('#boxGrid'), box, S.inv); fill($('#boxBag'), S.inv, box);
+  $('#boxCount').textContent = `${box.filter(Boolean).length} / ${BOX_N}칸`;
+}
+$('#boxAllIn').addEventListener('click', () => { let left = 0; S.inv.forEach((s, i) => { if (!s) return; const n = putIn(boxArr(), s.id, s.q); s.q -= n; if (!s.q) S.inv[i] = null; else left++; }); SFX.pickup(); if (left) toast('보관함이 가득 차서 다 못 넣었어요.'); dirty(); renderBox(); });
+$('#boxSort').addEventListener('click', () => {
+  const tot = {}; for (const s of boxArr()) if (s) tot[s.id] = (tot[s.id] || 0) + s.q;
+  const order = Object.keys(ITEMS); S.box = Array(BOX_N).fill(null);
+  for (const id of Object.keys(tot).sort((a, b) => order.indexOf(a) - order.indexOf(b))) putIn(S.box, id, tot[id]);
+  SFX.ui(); dirty(); renderBox();
+});
+
 /* ================= 입력 ================= */
 const keys = {};
 const TOOLKEYS = { '1': 'hand', '2': 'net', '3': 'rod', '4': 'shovel' };
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
+  if (e.target instanceof HTMLInputElement) return;   // 지도 검색 칸에 글을 칠 때는 게임 조작을 하지 않는다
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'tab'].includes(k)) e.preventDefault();
   if (!started) { if ((k === 'enter' || k === ' ') && !$('#pHelp').hidden) $('#btnStart').click(); return; }
   keys[k] = true;
@@ -5695,6 +6011,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'c') { if (!$('#pDex').hidden) closePanels(); else openDex(); }
   else if (k === 'm') { if (!$('#pMap').hidden) closePanels(); else openMap(); }
   else if (k === 'v') { if (!$('#pCiv').hidden) closePanels(); else openCiv(); }
+  else if (k === 'n') { if (!$('#pNote').hidden) closePanels(); else openNote(); }
   else if (TOOLKEYS[k] && !D.open && !panelOpen()) setTool(TOOLKEYS[k]);
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -6388,7 +6705,7 @@ function frame(now) {
   sun.position.set(sx0 - 6, 14, sz0 + 4); sun.target.position.set(sx0, 0, sz0 - 2);
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
-  miniT -= rdt; if (miniT <= 0) { miniT = 0.25; drawMini(); $('#miniName').textContent = placeName(); }
+  miniT -= rdt; if (miniT <= 0) { miniT = 0.25; pinTick(0.25); drawMini(); $('#miniName').textContent = placeName(); }
   updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt);
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
