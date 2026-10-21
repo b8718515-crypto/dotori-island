@@ -319,6 +319,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>집 보관함</kbd><span>내 텐트(집) 앞에서 Space: 80칸 보관함. 동맹 도시가 보낸 특산물도 여기로 와요</span>
       <kbd>텃밭</kbd><span>상점의 모종·씨앗을 풀밭에 심으면 1분 반마다 자라요. 다 크면 Space로 수확 (농업 기술이면 두 배 빨리, 하나 더)</span>
       <kbd>농사철</kbd><span>고장마다 특산 작물이 실제 달력대로 심기고 자라고 익어요. 설정 '농사 계절 → 빠르게'면 1시간 = 한 달</span>
+      <kbd>계절 · 날씨</kbd><span>봄 벚꽃, 가을 단풍, 겨울 눈. 물고기·곤충은 나오는 달이 있어요(도감에 표시). 비 오는 날엔 물고기가 잘 나오고 곤충은 숨어요</span>
       <kbd>Esc</kbd><span>창 닫기 · 낚싯대 거두기</span>
     </div>
     <div class="help" data-hpage="travel" hidden>
@@ -1088,6 +1089,23 @@ function shadeGeo(geo, low, high, bias = 0) {
   geo.setAttribute('color', new THREE.BufferAttribute(c, 3)); return geo;
 }
 const VC = bend(new THREE.MeshLambertMaterial({ vertexColors: true }));
+/* --- 계절 물들이기: 잎·풀·밭 재질에 계절 색(uSC, 세기 uSA)과 눈 쌓임(uSnow, 위를 보는 면만)을 섞는다 --- */
+const SEASON_U = { snow: { value: 0 } };
+function seasonize(m) {
+  const prev = m.onBeforeCompile; m.userData.sc = { value: new THREE.Color(0xffffff) }; m.userData.sa = { value: 0 };
+  m.onBeforeCompile = sh => {
+    prev(sh);
+    sh.uniforms.uSC = m.userData.sc; sh.uniforms.uSA = m.userData.sa; sh.uniforms.uSnow = SEASON_U.snow;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vUpN;').replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvUpN = objectNormal.y;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vUpN; uniform vec3 uSC; uniform float uSA; uniform float uSnow;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n{ float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = mix(diffuseColor.rgb, uSC * (0.45 + lum * 1.3), uSA); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95, 0.97, 1.0), uSnow * smoothstep(0.3, 0.85, vUpN)); }');
+  };
+  return m;
+}
+// 넓은잎나무 잎은 세 갈래(벚꽃·단풍 빛깔이 나무마다 다르게), 바늘잎나무는 눈만
+const LEAF_MATS = [0, 1, 2].map(() => seasonize(bend(new THREE.MeshLambertMaterial({ vertexColors: true }))));
+const CONIFER_MAT = seasonize(bend(new THREE.MeshLambertMaterial({ vertexColors: true })));
+let leafVar = 0;
 const texMats = {};
 const TM = (tex, color, o) => { const k = tex.uuid + color + (o ? JSON.stringify(Object.keys(o)) : ''); return texMats[k] || (texMats[k] = bend(new THREE.MeshLambertMaterial(Object.assign({ map: tex, color }, o || {})))); };
 const DS = c => mats['d' + c] || (mats['d' + c] = bend(new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide })));
@@ -1185,7 +1203,7 @@ function fieldTex(key, mulch) {
 const soilTex = fieldTex('soil', false);
 // 쌀은 논흙, 나머지는 두둑 밭 (비닐·물은 철 따라 3D로 덮는다)
 const CROP_TEX = [paddyTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex];
-const groundMats = [[grassTex, 0.25], [sandTex, 0.45], [paddyTex, 0.25], [mudTex, 0.35], [cityTex, 0.5], ...CROP_TEX.slice(1).map(t => [t, 0.25])].map(([tx, s]) => worldUV(bend(new THREE.MeshLambertMaterial({ vertexColors: true, map: tx })), s));
+const groundMats = [[grassTex, 0.25], [sandTex, 0.45], [paddyTex, 0.25], [mudTex, 0.35], [cityTex, 0.5], ...CROP_TEX.slice(1).map(t => [t, 0.25])].map(([tx, s]) => seasonize(worldUV(bend(new THREE.MeshLambertMaterial({ vertexColors: true, map: tx })), s)));
 const SIDE = { [T.GRASS]: 0x9a7552, [T.MOUNT]: 0x8a8174, [T.NORTH]: 0x7a6a52, [T.SAND]: 0xd9c08a, [T.SNOW]: 0xc2ccd4, [T.PADDY]: 0x8fa262, [T.MUD]: 0x7d7064, [T.CITY]: 0xa9a49c };
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
 function tileColor(t, i, x, z, out) {
@@ -1381,7 +1399,7 @@ const CROP_LOOK = {
     if (st === 'heading') return { over: 'green', plants: [{ parts: [...clump(0.46, [0x4a8e2e, 0x96cf5a], 0.4, 8), ...ring(4, a => blade(0.14, 0.03, lerpN(0.6, 1.1, p), a, [0x9ab040, 0xd8e070], 0.38))], xs: ROWS3, zs: ROWS3 }] };
     if (st === 'ripe') { return { over: 'gold', plants: [{ parts: [...clump(0.44, [0x9a8a2a, 0xe0c860], 0.42, 8), ...ring(5, a => blade(0.16, 0.035, lerpN(1.1, 1.5, p), a, [0xb08a2a, 0xf2d870], 0.36))], xs: ROWS3, zs: ROWS3 }] }; }
     // 수확 끝: 그루터기와 하얀 볏짚 곤포(마시멜로)
-    return { plants: [{ parts: ring(4, a => blade(0.08, 0.02, 0.2, a, STRAW)), xs: ROWS3, zs: ROWS3 }, { parts: [[PG.cylC, [0xd8d8d4, 0xffffff], [0, 0.3, 0], [0.3, 0.55, 0.3], [0, 0, Math.PI / 2]]], xs: [0.5], zs: [0.5], prob: 0.05 }] };
+    return { plants: [{ parts: ring(4, a => blade(0.08, 0.02, 0.2, a, STRAW)), xs: ROWS3, zs: ROWS3 }, { parts: [[PG.cylC, [0xd8d8d4, 0xffffff], [0, 0.3, 0], [0.3, 0.55, 0.3], [0, 0, Math.PI / 2]]], xs: [0.5], zs: [0.5], prob: 0.025 }] };
   },
   cabbage(st, p) {
     if (st === 'bare') return { plants: [] };
@@ -1495,7 +1513,7 @@ function cropLook(k, shift) {
   if (!L) { L = CROP_LOOK[id](st, (pb + 0.5) / 4); for (const pl of L.plants) pl.g = bakePlant(pl.parts); lookCache.set(key, L); }
   return L;
 }
-const cropMat = bend(new THREE.MeshLambertMaterial({ vertexColors: true }));
+const cropMat = seasonize(bend(new THREE.MeshLambertMaterial({ vertexColors: true })));
 const filmMat = bend(new THREE.MeshLambertMaterial({ color: 0xf2f6f8, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }));
 const HOUSE_CROP = { melon: 1, strawberry: 1 };
 function buildCrops(cx, cz) {
@@ -1625,12 +1643,14 @@ function makeTree(fruit) {
     if (fruit === 'birch') { trunk.scale.set(0.75, 1.3, 0.75); trunk.position.y = 0.85; for (let k = 0; k < 5; k++) crown.add(mesh(accGeo('bmark', () => new THREE.BoxGeometry(0.06, 0.025, 0.02)), M(0x2a2a2a), Math.sin(k * 2) * 0.08, 0.35 + k * 0.28, Math.cos(k * 2) * 0.08 + 0.02)); }
     else { trunk.scale.set(0.85, 1.45, 0.85); trunk.position.y = 0.95; }
     const spots = fruit === 'birch' ? [[0, 1.95, 0, 0.82], [0.32, 1.65, 0.12, 0.6], [-0.3, 1.6, -0.1, 0.62], [0.05, 2.35, 0.05, 0.56]] : [[0, 2.0, 0, 1.15], [0.5, 1.82, 0.25, 0.78], [-0.48, 1.86, -0.22, 0.82], [0.1, 2.2, -0.35, 0.7]];
-    spots.forEach(([x, y, z, s], k) => { const b = mesh((fruit === 'birch' ? TG.leafBirch : TG.leafOak)[k % 3], VC, x, y, z); b.scale.set(s, fruit === 'redpine' ? s * 0.42 : s, s); b.rotation.y = x * 4 + z; crown.add(b); });
+    const lm = LEAF_MATS[leafVar = (leafVar + 1) % 3];
+    spots.forEach(([x, y, z, s], k) => { const b = mesh((fruit === 'birch' ? TG.leafBirch : TG.leafOak)[k % 3], fruit === 'redpine' ? CONIFER_MAT : lm, x, y, z); b.scale.set(s, fruit === 'redpine' ? s * 0.42 : s, s); b.rotation.y = x * 4 + z; crown.add(b); });
   } else if (fruit === 'cedar' || fruit === 'snowpine') {
-    for (const [y, s] of [[0.78, 1], [1.32, 0.8], [1.8, 0.58]]) { const t = mesh(fruit === 'snowpine' ? TG.tierSnow : TG.tier, VC, 0, y, 0); t.scale.setScalar(s); t.rotation.y = y * 3; crown.add(t); }
+    for (const [y, s] of [[0.78, 1], [1.32, 0.8], [1.8, 0.58]]) { const t = mesh(fruit === 'snowpine' ? TG.tierSnow : TG.tier, CONIFER_MAT, 0, y, 0); t.scale.setScalar(s); t.rotation.y = y * 3; crown.add(t); }
   } else {
+    const lm = LEAF_MATS[leafVar = (leafVar + 1) % 3];
     for (const [x, y, z, s, k] of [[0, 1.62, 0, 1.22, 0], [0.5, 1.42, 0.2, 0.8, 1], [-0.52, 1.46, 0.12, 0.82, 2], [0.05, 2.1, -0.05, 0.84, 1], [-0.15, 1.46, -0.5, 0.8, 0], [0.25, 1.36, 0.52, 0.7, 2]]) {
-      const b = mesh((fruit === 'oak' ? TG.leafOak : TG.leaf)[k], VC, x, y, z); b.scale.setScalar(s); b.rotation.y = x * 4 + z; crown.add(b);
+      const b = mesh((fruit === 'oak' ? TG.leafOak : TG.leaf)[k], lm, x, y, z); b.scale.setScalar(s); b.rotation.y = x * 4 + z; crown.add(b);
     }
     if (FRUITCOL[fruit]) for (const [x, y, z] of [[0.62, 1.42, 0.56], [-0.64, 1.32, 0.5], [0.05, 1.14, 0.86], [0.36, 1.96, 0.6]]) {
       const f = mesh(TG.fruit, M(FRUITCOL[fruit]), x, y, z); f.add(mesh(TG.stem, M(0x6b4a2a), 0, 0.14, 0)); fr.add(f);
@@ -4370,7 +4390,7 @@ function removeBotWorld(b) {
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
-if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ WX, weather: k => { WX.kind = k; updateClock(); }, tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
   fish: () => ({ makeFish3D, makeFishShadow, showCatch3D, FISH_LOOK }), map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
@@ -5115,12 +5135,18 @@ function updateCatch3D(dt) {
   if (c.g.userData.tail) c.g.userData.tail.rotation.y = Math.sin(k * 14) * 0.6;
 }
 function weighted(list) { let s = 0; for (const x of list) s += x.r; let t = R() * s; for (const x of list) { t -= x.r; if (t <= 0) return x; } return list[0]; }
+/* --- 철 따라 나오는 물고기·곤충 (달, 앞이 크면 해를 넘김) --- */
+const FISH_MON = { sweetfish: [5, 9], trout: [10, 5], catfish: [5, 10], horsemack: [5, 11], mackerel: [8, 2], squid: [6, 11], seabream: [3, 11], puffer: [11, 4], shark: [6, 9] };
+const BUG_MON = { cabbage: [3, 10], swallowtail: [4, 9], jewel: [5, 8], ladybug: [4, 10], moth: [4, 10], firefly: [6, 7] };
+const seasonMonth = () => clamp(Math.ceil(farmDOY() / 30.42), 1, 12);
+const inMon = (id, T0) => { const r = T0[id]; if (!r) return true; const m = seasonMonth(); return r[0] <= r[1] ? m >= r[0] && m <= r[1] : m >= r[0] || m <= r[1]; };
+const monTxt = (id, T0) => { const r = T0[id]; return r ? `${r[0]}~${r[1]}월` : '사계절'; };
 function spawnFish(h) {
   for (let k = 0; k < 20; k++) {
     const a = R() * Math.PI * 2, d = rand(4, 15), x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d;
     const w = waterType(x, z); if (!w) continue;
     if (w === 'sea') { let land = false; for (let r = 1; r <= 5 && !land; r++) for (const [ax, az] of [[r, 0], [-r, 0], [0, r], [0, -r]]) if (!waterType(x + ax, z + az)) { land = true; break; } if (!land) continue; }
-    const opts = FISH.filter(f => f.w === w && inHours(h, f.h)); if (!opts.length) continue;
+    const opts = FISH.filter(f => f.w === w && inHours(h, f.h) && inMon(f.id, FISH_MON)); if (!opts.length) continue;
     const sp = weighted(opts), len = 0.3 + sp.size * 0.11;
     const m = makeFishShadow(sp.id, len); m.position.set(x, -0.27, z); m.renderOrder = 3; scene.add(m);
     fish.push({ sp, w, x, z, h: R() * 6.28, mesh: m, t: rand(1, 3), speed: 0.4, life: rand(60, 120), state: 'swim', fade: 0 });
@@ -5129,7 +5155,7 @@ function spawnFish(h) {
 }
 function removeFish(f) { scene.remove(f.mesh); const i = fish.indexOf(f); if (i >= 0) fish.splice(i, 1); }
 function updateFish(dt, h) {
-  if (fish.length < 7 && R() < dt * 1.5) spawnFish(h);
+  if (fish.length < 7 && R() < dt * (WX.kind === 'rain' ? 2.4 : 1.5)) spawnFish(h);
   for (const f of [...fish]) {
     f.life -= dt;
     if (f.state === 'flee') { f.fade += dt; f.x += Math.sin(f.h) * 3 * dt; f.z += Math.cos(f.h) * 3 * dt; f.mesh.scale.setScalar(Math.max(0.01, 1 - f.fade)); if (f.fade > 1) { removeFish(f); continue; } }
@@ -5225,7 +5251,7 @@ function makeBugMesh(sp) {
   return g;
 }
 function spawnBug(h) {
-  const opts = BUGS.filter(b => inHours(h, b.h)); if (!opts.length) return;
+  const opts = BUGS.filter(b => inHours(h, b.h) && inMon(b.id, BUG_MON)); if (!opts.length) return;
   const sp = weighted(opts);
   if (sp.kind === 'flower') {
     const fl = []; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const cx = Math.floor(P.x / CH) + dx, cz = Math.floor(P.z / CH) + dz; if (cx < 0 || cz < 0 || cx >= NCX || cz >= NCZ) continue; for (const e of chunkEnts[cz * NCX + cx]) if (e.type === 'flower' && Math.hypot(e.cx - P.x, e.cz - P.z) < 14 && Math.hypot(e.cx - P.x, e.cz - P.z) > 3 && !bugs.some(b => b.on === e)) fl.push(e); }
@@ -5244,7 +5270,7 @@ function spawnBug(h) {
 }
 function removeBug(b) { scene.remove(b.mesh); const i = bugs.indexOf(b); if (i >= 0) bugs.splice(i, 1); }
 function updateBugs(dt, h) {
-  if (bugs.length < 6 && R() < dt * 0.8) spawnBug(h);
+  if (bugs.length < 6 && R() < dt * (WX.kind === 'clear' ? 0.8 : 0.2)) spawnBug(h);
   const now = performance.now() / 1000;
   for (const b of [...bugs]) {
     b.t += dt;
@@ -5567,7 +5593,7 @@ const WD = ['일', '월', '화', '수', '목', '금', '토'];
 function updateClock() {
   const d = gameNow(), h = d.getHours(), m = d.getMinutes();
   $('#clkTime').textContent = `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`;
-  $('#clkDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일${S.timeMode === 'fast' ? ' · 빠른 시간' : ''}`;
+  $('#clkDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일${wxIcon()}${S.timeMode === 'fast' ? ' · 빠른 시간' : ''}`;
 }
 const panels = ['#pBag', '#pShop', '#pDex', '#pSet', '#pHelp', '#pMap', '#pCiv', '#pNote', '#pBox'];
 const panelOpen = () => panels.some(p => !$(p).hidden);
@@ -5658,7 +5684,7 @@ function renderDex() {
     c.querySelector('.ic').textContent = x.i; c.querySelector('b').textContent = has ? x.n : '???';
     const sp = c.querySelectorAll('span');
     if (dexTab === 'fossil') { sp[0].textContent = 'X 표시를 파서'; sp[1].textContent = has ? `도토리 ${fmt(x.v)}` : ''; }
-    else { sp[0].textContent = (dexTab === 'fish' ? (x.w === 'sea' ? '바다 · ' : '강 · ') : '') + hoursText(x.h); sp[1].textContent = has ? `도토리 ${fmt(x.v)}` : ''; }
+    else { const T0 = dexTab === 'fish' ? FISH_MON : BUG_MON; sp[0].textContent = (dexTab === 'fish' ? (x.w === 'sea' ? '바다 · ' : '강 · ') : '') + monTxt(x.id, T0) + ' · ' + hoursText(x.h); sp[1].textContent = has ? `도토리 ${fmt(x.v)}` : (inMon(x.id, T0) ? '지금 철이에요' : ''); }
     g.append(c);
   }
 }
@@ -6986,6 +7012,71 @@ document.querySelectorAll('#fBtns button').forEach(b => {
   if (f === 'block') for (const t of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(t, () => { fightBtn.block = false; b.classList.remove('on'); });
 });
 
+/* ================= 계절과 날씨 =================
+   계절은 농사 달력(farmDOY)을 따른다: 봄 벚꽃·새잎, 여름 짙은 초록, 가을 단풍, 겨울 마른 잎과 눈.
+   날씨는 게임 시간 2시간마다 바뀐다: 장마(6월 말~7월)엔 비가 잦고, 겨울엔 눈(북쪽일수록 자주). 비 오면 물고기가 잘 나오고 곤충은 숨는다. */
+const WX = { kind: 'clear', key: '', cover: 0 };
+const SEASON_COL = { pink: new THREE.Color(0xf4b4c8), fresh: new THREE.Color(0xb8e07a), red: new THREE.Color(0xd8402a), orange: new THREE.Color(0xe8902a), yellow: new THREE.Color(0xe8c840), dry: new THREE.Color(0x8a7a5a), straw: new THREE.Color(0xc8b860), brown: new THREE.Color(0xa89a70) };
+const bump = (d, a, b, c, e) => d <= a || d >= e ? 0 : d < b ? (d - a) / (b - a) : d <= c ? 1 : (e - d) / (e - c);
+function seasonTick() {
+  const d = farmDOY(), aut = bump(d, 265, 290, 318, 336), win = d >= 330 || d < 62 ? Math.min(1, (d >= 330 ? d - 330 : 35) / 8) * (d < 62 ? clamp((62 - d) / 10, 0, 1) : 1) : 0;
+  const bloom = bump(d, 82, 92, 102, 114), fresh = bump(d, 62, 80, 115, 140);
+  const autCols = [SEASON_COL.red, SEASON_COL.orange, SEASON_COL.yellow];
+  LEAF_MATS.forEach((m, k) => {
+    const sc = m.userData.sc.value, sa = m.userData.sa;
+    if (win > 0) { sc.copy(SEASON_COL.dry); sa.value = 0.55 * win; }
+    else if (aut > 0) { sc.copy(autCols[k]); sa.value = 0.78 * aut; }
+    else if (bloom > 0 && k === 0) { sc.copy(SEASON_COL.pink); sa.value = 0.8 * bloom; }
+    else { sc.copy(SEASON_COL.fresh); sa.value = 0.3 * fresh; }
+  });
+  const g = groundMats[0].userData; if (win > 0) { g.sc.value.copy(SEASON_COL.brown); g.sa.value = 0.4 * win; } else { g.sc.value.copy(SEASON_COL.straw); g.sa.value = 0.28 * aut; }
+}
+function weatherPick() {
+  const d = farmDOY(), gd = gameNow(), key = dayKey(gd) + '|' + (gd.getHours() >> 1) + '|' + d, north = pget(Math.floor(P.x), Math.floor(P.z)) >= 18;
+  if (key === WX.key) return; const first = !WX.key; WX.key = key;
+  const r = (hashStr('wx' + key) >>> 0) / 4294967296, winter = d >= 335 || d < 60;
+  const pRain = d >= 172 && d <= 205 ? 0.6 : d >= 152 && d < 244 ? 0.3 : d >= 60 && d < 152 ? 0.2 : d >= 244 && d < 335 ? 0.15 : 0.05;
+  const pSnow = winter ? (north ? 0.5 : 0.3) : 0;
+  const kind = r < pSnow ? 'snow' : r < pSnow + pRain ? 'rain' : 'clear';
+  if (kind === WX.kind) return;
+  const was = WX.kind; WX.kind = kind; updateClock();
+  if (!first) toast(kind === 'rain' ? (d >= 172 && d <= 205 ? '🌧️ 장맛비가 내려요. 물고기가 잘 잡히는 날!' : '🌧️ 비가 내리기 시작했어요.') : kind === 'snow' ? '❄️ 눈이 펑펑 내려요.' : was === 'snow' ? '🌤️ 눈이 그쳤어요.' : '🌤️ 비가 그쳤어요.');
+}
+const WX_N = 900, wxPos = new Float32Array(WX_N * 6), wxSpd = new Float32Array(WX_N);
+const wxGeo = new THREE.BufferGeometry(); wxGeo.setAttribute('position', new THREE.BufferAttribute(wxPos, 3));
+const rainMesh = new THREE.LineSegments(wxGeo, new THREE.LineBasicMaterial({ color: 0xe4eefa, transparent: true, opacity: 0.68 }));
+const snowGeo = new THREE.BufferGeometry(), snowPos = new Float32Array(WX_N * 3); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+const snowMesh = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.22, transparent: true, opacity: 0.95 }));
+for (const m of [rainMesh, snowMesh]) { m.frustumCulled = false; m.visible = false; scene.add(m); }
+const wxSpot = (k, y, c = camPos) => { wxSpd[k] = 0.6 + Math.random() * 0.4; return [c.x + (Math.random() - 0.5) * 34, y, c.z - 18 + Math.random() * 26]; };
+for (let k = 0; k < WX_N; k++) { const [x, y, z] = wxSpot(k, Math.random() * 10, P); wxPos.set([x, y, z, x, y + 0.5, z], k * 6); snowPos.set([x, y, z], k * 3); }
+function weatherTick(dt) {
+  const rain = WX.kind === 'rain', snow = WX.kind === 'snow';
+  rainMesh.visible = rain; snowMesh.visible = snow;
+  if (rain) {
+    for (let k = 0; k < WX_N; k++) {
+      const o = k * 6; let y = wxPos[o + 1] - dt * 16 * wxSpd[k];
+      if (y < 0 || Math.abs(wxPos[o] - camPos.x) > 18 || wxPos[o + 2] < camPos.z - 20 || wxPos[o + 2] > camPos.z + 9) { const [x, y0, z] = wxSpot(k, 8 + Math.random() * 3); wxPos.set([x, y0, z, x + 0.05, y0 + 0.55, z], o); continue; }
+      wxPos[o + 1] = y; wxPos[o + 4] = y + 0.55;
+    }
+    wxGeo.attributes.position.needsUpdate = true;
+  } else if (snow) {
+    const t = performance.now() / 1000;
+    for (let k = 0; k < WX_N; k++) {
+      const o = k * 3; let y = snowPos[o + 1] - dt * 1.3 * wxSpd[k];
+      if (y < 0 || Math.abs(snowPos[o] - camPos.x) > 18 || snowPos[o + 2] < camPos.z - 20 || snowPos[o + 2] > camPos.z + 9) { snowPos.set(wxSpot(k, 8 + Math.random() * 3), o); continue; }
+      snowPos[o + 1] = y; snowPos[o] += Math.sin(t + k) * dt * 0.3;
+    }
+    snowGeo.attributes.position.needsUpdate = true;
+  }
+  // 눈은 내리면 차츰 쌓이고, 그치면 천천히 녹는다 (겨울이 아니면 빨리)
+  const d = farmDOY(), winter = d >= 335 || d < 60;
+  WX.cover = snow ? Math.min(1, WX.cover + dt / 40) : Math.max(0, WX.cover - dt / (winter ? 600 : 60));
+  SEASON_U.snow.value = WX.cover * 0.85;
+}
+const wxDim = () => WX.kind === 'rain' ? 0.62 : WX.kind === 'snow' ? 0.82 : 1;
+function wxIcon() { try { return WX.kind === 'rain' ? ' · 🌧️' : WX.kind === 'snow' ? ' · ❄️' : ''; } catch (e) { return ''; } }   // 부팅 중 일찍 불려도 되게
+
 /* ================= 환경(하늘, 빛) ================= */
 const SKYK = [[0, '#0e1636', '#2a3566'], [4.5, '#141d42', '#3a3f6e'], [5.6, '#5d6fb0', '#f4a582'], [7, '#5fb4ea', '#c4e8f5'], [12, '#4aa9e6', '#b6e3f6'], [16.5, '#56aee3', '#cbe6ef'], [18, '#6a7fc4', '#f6ae78'], [19.3, '#2d3270', '#a8708e'], [20.5, '#111a40', '#2e3a6a'], [24, '#0e1636', '#2a3566']];
 const cA = new THREE.Color(), cB = new THREE.Color(), cT = new THREE.Color(), cH = new THREE.Color();
@@ -6994,12 +7085,13 @@ function updateEnv(h) {
   let i = 0; while (i < SKYK.length - 2 && h >= SKYK[i + 1][0]) i++;
   const a = SKYK[i], b = SKYK[i + 1], t = clamp((h - a[0]) / (b[0] - a[0]), 0, 1);
   cT.set(a[1]).lerp(cA.set(b[1]), t); cH.set(a[2]).lerp(cB.set(b[2]), t);
+  if (WX.kind !== 'clear') { const gr = WX.kind === 'rain' ? 0.55 : 0.4; cT.lerp(cA.set(0x7a8494).multiplyScalar(dayF(h) * 0.8 + 0.2), gr); cH.lerp(cB.set(0xa0a8b4).multiplyScalar(dayF(h) * 0.8 + 0.2), gr); }
   $('#sky').style.background = `linear-gradient(#${cT.getHexString()} 0%, #${cH.getHexString()} 70%)`;
   scene.fog.color.copy(cH);
   const f = dayF(h);
   hemi.intensity = 0.48 + 0.38 * f; hemi.color.set(0x8a96d0).lerp(cA.set(0xffffff), f); hemi.groundColor.set(0x323a58).lerp(cA.set(0x7a9a5a), f);
   const dusk = Math.max(0, 1 - Math.abs(h - 18) / 1.5) + Math.max(0, 1 - Math.abs(h - 6) / 1.2);
-  sun.intensity = 0.12 + 0.42 * f; sun.color.set(0xffffff).lerp(cA.set(0xffa860), clamp(dusk, 0, 1) * 0.7);
+  sun.intensity = (0.12 + 0.42 * f) * wxDim(); hemi.intensity *= 0.85 + 0.15 * wxDim(); sun.color.set(0xffffff).lerp(cA.set(0xffa860), clamp(dusk, 0, 1) * 0.7);
   waterMat.color.set(0x3a4a86).lerp(cA.set(0xffffff), 0.25 + 0.75 * f); oceanMat.color.set(0x2c86c6).multiply(waterMat.color);
   const night = f < 0.4;
   if (night !== lastNight) { lastNight = night; winMat.emissive.setHex(night ? 0xffc66a : 0x000000); lampMat.emissive.setHex(night ? 0xffd27a : 0x000000); }
@@ -7129,7 +7221,8 @@ function frame(now) {
   const rdt = Math.min(0.05, (now - last) / 1000); last = now;
   const dt = rdt * (FT && FT.slow > 0 ? 0.3 : 1);
   const h = hour();
-  envTimer -= dt; if (envTimer <= 0) { envTimer = 0.5; updateEnv(h); }
+  envTimer -= dt; if (envTimer <= 0) { envTimer = 0.5; weatherPick(); seasonTick(); updateEnv(h); }
+  weatherTick(rdt);
   slowT -= dt; if (slowT <= 0) { slowT = 1; slowTick(); }
   updatePlayer(dt);
   updateFight(dt, rdt);
