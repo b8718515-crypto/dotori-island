@@ -1102,10 +1102,17 @@ const barkTex = repeatTex(canvasTex('bark', 64, 128, (x, w, h) => {
   for (let i = 0; i < 14; i++) { const px = r() * w; x.strokeStyle = 'rgba(70,40,20,0.3)'; x.lineWidth = 2 + r() * 2; x.beginPath(); x.moveTo(px, 0); x.bezierCurveTo(px + 6, h * 0.3, px - 6, h * 0.6, px + 2, h); x.stroke(); }
 }));
 
-const paddyTex = repeatTex(canvasTex('paddy', 256, 256, (x, w) => {
-  x.fillStyle = '#e6eef0'; x.fillRect(0, 0, w, w);
-  for (let y = 0; y < w; y += 16) { x.fillStyle = 'rgba(120,170,60,0.85)'; for (let i = 4; i < w; i += 12) { x.beginPath(); x.ellipse(i, y + 8, 3.2, 5, 0, 0, Math.PI * 2); x.fill(); } }
-  x.fillStyle = 'rgba(255,255,255,0.35)'; for (let i = 0; i < 40; i++) x.fillRect((i * 53) % w, (i * 97) % w, 18, 2);
+// 논 한 배미 = 4×4칸 (지도 무늬가 4칸마다 되풀이): 가장자리는 풀 덮인 논둑, 안은 물 위에 모가 길게 줄지어 선다
+const paddyTex = repeatTex(canvasTex('paddy3', 512, 512, (x, w) => {
+  x.fillStyle = '#bcdce0'; x.fillRect(0, 0, w, w);
+  x.fillStyle = 'rgba(255,255,255,0.5)'; for (let i = 0; i < 26; i++) x.fillRect((i * 151) % w, (i * 97) % w, 26, 2);
+  const r = mulberry32(21);
+  for (let y = 34; y < w - 24; y += 38) for (let i = 20; i < w - 16; i += 8) {
+    const g = 135 + Math.floor(r() * 45);
+    x.fillStyle = `rgb(${(60 + g / 5) | 0},${g},48)`; x.beginPath(); x.ellipse(i + r() * 2, y + r() * 2, 3.8, 8.5, 0, 0, Math.PI * 2); x.fill();
+  }
+  x.fillStyle = '#a9bb7a'; x.fillRect(0, 0, w, 12); x.fillRect(0, w - 12, w, 12); x.fillRect(0, 0, 12, w); x.fillRect(w - 12, 0, 12, w);
+  x.fillStyle = 'rgba(70,95,40,0.35)'; x.fillRect(12, 12, w - 24, 2); x.fillRect(12, 12, 2, w - 24); x.fillRect(12, w - 14, w - 24, 2); x.fillRect(w - 14, 12, 2, w - 24);
 }));
 const mudTex = repeatTex(canvasTex('mud', 256, 256, (x, w) => {
   x.fillStyle = '#e4e4e4'; x.fillRect(0, 0, w, w); const r = mulberry32(16), at = tiled(w);
@@ -1120,10 +1127,10 @@ const cityTex = repeatTex(canvasTex('city', 128, 128, (x, w) => {
 }));
 
 /* --- 지면 (16×16칸 구역마다 하나로 합친 메시를 플레이어 근처에서만 만든다) --- */
-const TOPY = t => t === T.SAND ? -0.12 : t === T.MUD ? -0.2 : t === T.PADDY ? -0.04 : t === T.CITY ? 0.02 : 0;
+const TOPY = t => t === T.SAND ? -0.12 : t === T.MUD ? -0.2 : t === T.PADDY ? -0.025 : t === T.CITY ? 0.02 : 0;
 const GROUP = t => t === T.GRASS || t === T.MOUNT || t === T.NORTH ? 0 : t === T.SAND || t === T.SNOW ? 1 : t === T.PADDY ? 2 : t === T.MUD ? 3 : 4;
-const groundMats = [[grassTex, 0.25], [sandTex, 0.45], [paddyTex, 0.5], [mudTex, 0.35], [cityTex, 0.5]].map(([tx, s]) => worldUV(bend(new THREE.MeshLambertMaterial({ vertexColors: true, map: tx })), s));
-const SIDE = { [T.GRASS]: 0x9a7552, [T.MOUNT]: 0x8a8174, [T.NORTH]: 0x7a6a52, [T.SAND]: 0xd9c08a, [T.SNOW]: 0xc2ccd4, [T.PADDY]: 0x8f7a58, [T.MUD]: 0x7d7064, [T.CITY]: 0xa9a49c };
+const groundMats = [[grassTex, 0.25], [sandTex, 0.45], [paddyTex, 0.25], [mudTex, 0.35], [cityTex, 0.5]].map(([tx, s]) => worldUV(bend(new THREE.MeshLambertMaterial({ vertexColors: true, map: tx })), s));
+const SIDE = { [T.GRASS]: 0x9a7552, [T.MOUNT]: 0x8a8174, [T.NORTH]: 0x7a6a52, [T.SAND]: 0xd9c08a, [T.SNOW]: 0xc2ccd4, [T.PADDY]: 0x8fa262, [T.MUD]: 0x7d7064, [T.CITY]: 0xa9a49c };
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
 function tileColor(t, i, x, z, out) {
   const n = 0.5 + 0.5 * Math.sin(x * 0.23 + z * 0.11) * Math.cos(z * 0.19 - x * 0.07);
@@ -1132,7 +1139,7 @@ function tileColor(t, i, x, z, out) {
     case T.NORTH: return out.set(0x5a8f48).lerp(_c1.set(0x6c9c55), n * 0.6);
     case T.SAND: return prov[i] === PV.JEJU ? out.set(0x8d8a86).lerp(_c1.set(0xa7a39c), n) : out.set(0xf3e2a6).lerp(_c1.set(0xfbeec0), n * 0.6);
     case T.SNOW: return out.set(0xe9f0f5).lerp(_c1.set(0xfafdff), n * 0.7);
-    case T.PADDY: return out.set(0x9fcf62).lerp(_c1.set(0xb6d873), n * 0.7);
+    case T.PADDY: return out.set(0xdcecc0).lerp(_c1.set(0xe8f2cc), n * 0.6);   // 색은 무늬가 낸다
     case T.MUD: return out.set(0x8f8273).lerp(_c1.set(0xa39684), n * 0.7);
     case T.CITY: return out.set(0xcfc9bf).lerp(_c1.set(0xdcd6cc), n * 0.6);
     default: return out.set(0x8d8a7f);
