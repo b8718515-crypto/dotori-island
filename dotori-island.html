@@ -120,7 +120,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 #miniC{width:100%;height:100%;display:block}
 #miniName{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-family:var(--f-display);font-size:12px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.75);pointer-events:none;white-space:nowrap}
 .mapp{width:min(100%,820px)}
-#mapC{width:auto;height:auto;max-width:100%;max-height:calc(100vh - 230px);margin:0 auto;border-radius:16px;display:block;background:#d8c9a0;touch-action:none;cursor:grab}
+#mapC{width:auto;height:auto;max-width:100%;max-height:calc(100vh - 230px);margin:0 auto;border-radius:16px;display:block;background:#d8c9a0;touch-action:none;cursor:grab;background:#86cfe0}
 #mapC:active{cursor:grabbing}
 /* 지도 검색 · 고른 곳 · 수첩 · 집 보관함 */
 .mapsearch{position:relative}
@@ -264,7 +264,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pMap" hidden><div class="panel mapp" role="dialog" aria-label="한반도 지도">
   <header><div>한반도 지도 <span class="sub" id="mapSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><div class="mapsearch"><input id="mapQ" type="search" placeholder="🔍 이름으로 찾기 (예: 경포대, 청진, 한라산)" autocomplete="off" aria-label="지도에서 이름으로 찾기"><div id="mapHits" role="listbox"></div></div><canvas id="mapC" width="1098" height="1734"></canvas><div id="mapPick" hidden></div><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">위 칸에 이름을 쳐서 찾고, 도시·명소·부두를 누르면 📍 길 안내와 🚆 빠른 이동을 골라요. 마우스 휠(휴대폰은 두 손가락)로 확대·축소, 끌어서 이동, 빈 곳을 누르면 그 자리 확대 ↔ 전국. 한반도 전체가 보이고, 확대할수록 작은 도시·산·강·명소 이름이 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
+  <div class="body"><div class="mapsearch"><input id="mapQ" type="search" placeholder="🔍 이름으로 찾기 (예: 경포대, 청진, 한라산)" autocomplete="off" aria-label="지도에서 이름으로 찾기"><div id="mapHits" role="listbox"></div></div><canvas id="mapC" width="1098" height="1734"></canvas><div id="mapPick" hidden></div><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">이름으로 찾거나 도시·명소를 눌러 📍 길 안내 · 🚆 빠른 이동. 휠(휴대폰은 두 손가락)로 확대, 끌어서 이동, 빈 곳을 누르면 확대 ↔ 전국. ▲ 나 · 🏠 도토리 마을 · 🏡 내 마을 · 🏰 봇 마을 · 주황 = 내 영토 · ★ 명소 · ⚓ 부두 · 붉은 점선 = 남북 경계</p></div>
 </div></div>
 
 <div class="wrap" id="pNote" hidden><div class="panel notep" role="dialog" aria-label="수첩">
@@ -5320,29 +5320,25 @@ for (let i = 0; i < NX * NZ; i++) if (road[i]) { const x = i % NX, z = (i - x) /
   const b = atob(S.seen || ''); for (let i = 0; i < b.length && i * 8 < CX * CZ; i++) { const v = b.charCodeAt(i); for (let k = 0; k < 8; k++) if (v & (1 << k)) seen[i * 8 + k] = 1; }
 } catch (e) { } })();
 function packSeen() { const out = []; for (let i = 0; i < CX * CZ; i += 8) { let v = 0; for (let k = 0; k < 8; k++) if (seen[i + k]) v |= 1 << k; out.push(String.fromCharCode(v)); } return btoa(out.join('')); }
-// 전체 지도 바탕: 고도 색 + 산 그림자 + 시·도 경계 + 강
+// 지도 색: 게임 화면처럼 단순한 파스텔 (바다는 얕은 곳·깊은 곳, 땅은 높이 5단, 바닷가는 모래)
+const MAPC = { sea: 0x86cfe0, shallow: 0xa7dde9, foam: 0xd2f0f1, sand: 0xf2e2b0, foreign: 0xe6dcc0, road: 0xf2c46a,
+  bands: [[200, 0xaad98a], [600, 0x94cb76], [1200, 0x80bb66], [1900, 0xb3a982], [9e9, 0xf1ede2]] };
+const mapBand = h => { let i = 0; while (h >= MAPC.bands[i][0]) i++; return i; };
+// 전체 지도 바탕(미니맵의 안 만든 구역): 높이 띠 + 강 + 도시
 const mapBase = new Uint8ClampedArray(CX * CZ * 4);
 {
-  const c = new THREE.Color(), d = new THREE.Color();
+  const c = new THREE.Color();
   for (let cz = 0; cz < CZ; cz++) for (let cx = 0; cx < CX; cx++) {
     const i = cz * CX + cx, tx = cx * CS + 2, tz = cz * CS + 2, p = prov[tz * NX + tx], h = ELEV[i];
-    if (!p || !h) c.set(0x86d0de).lerp(d.set(0x2a6aa8), clamp(shoreC[i] / 6, 0, 1));
-    else if (p === PV.FOREIGN) c.set(0x6d7a66);
-    else if (p === PV.BORDER) c.set(0x3a9ad6);
-    else {
-      if (h < 45) c.set(0xb4d66a); else if (h < 250) c.set(0x86c85a).lerp(d.set(0x5ea844), (h - 45) / 205);
-      else if (h < 900) c.set(0x5ea844).lerp(d.set(0x8a7e5e), (h - 250) / 650); else c.set(0x8a7e5e).lerp(d.set(0xf2f6f8), clamp((h - 900) / 900, 0, 1));
-      const sh = clamp(1 + ((eg(cx - 1, cz) - eg(cx + 1, cz)) + (eg(cx, cz - 1) - eg(cx, cz + 1))) / 900, 0.72, 1.18);
-      c.multiplyScalar(sh);
-      const pr = prov[tz * NX + Math.min(NX - 1, tx + CS)], pd = prov[Math.min(NZ - 1, tz + CS) * NX + tx];
-      if ((pr && pr < 30 && pr !== p) || (pd && pd < 30 && pd !== p)) c.multiplyScalar(0.72);
-    }
+    if (!p || !h || p === PV.BORDER) c.set(shoreC[i] <= 1 ? MAPC.shallow : MAPC.sea);
+    else if (p === PV.FOREIGN) c.set(MAPC.foreign);
+    else c.set(MAPC.bands[mapBand(h)][1]);
     mapBase[i * 4] = c.r * 255; mapBase[i * 4 + 1] = c.g * 255; mapBase[i * 4 + 2] = c.b * 255; mapBase[i * 4 + 3] = 255;
   }
   // 강과 도시는 바탕에 직접 찍는다
   const dot = (x, z, rgb) => { const cx = Math.floor(x / CS), cz = Math.floor(z / CS); if (cx < 0 || cz < 0 || cx >= CX || cz >= CZ) return; const i = (cz * CX + cx) * 4; mapBase[i] = rgb[0]; mapBase[i + 1] = rgb[1]; mapBase[i + 2] = rgb[2]; };
-  for (const path of riverPaths) for (let i = 0; i < path.length - 1; i++) { const a = path[i], b = path[i + 1], L = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1])); for (let k = 0; k <= L; k++) if (prov[clamp(Math.floor(lerp(a[1], b[1], k / L)), 0, NZ - 1) * NX + clamp(Math.floor(lerp(a[0], b[0], k / L)), 0, NX - 1)]) dot(lerp(a[0], b[0], k / L), lerp(a[1], b[1], k / L), [58, 154, 214]); }
-  for (const c of CITIES) { const r = CITY_PAVE(c) || 6; for (let dz = -r; dz <= r; dz += 2) for (let dx = -r; dx <= r; dx += 2) if (dx * dx + dz * dz <= r * r) dot(c.x + dx, c.z + dz, [185, 178, 168]); }
+  for (const path of riverPaths) for (let i = 0; i < path.length - 1; i++) { const a = path[i], b = path[i + 1], L = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1])); for (let k = 0; k <= L; k++) if (prov[clamp(Math.floor(lerp(a[1], b[1], k / L)), 0, NZ - 1) * NX + clamp(Math.floor(lerp(a[0], b[0], k / L)), 0, NX - 1)]) dot(lerp(a[0], b[0], k / L), lerp(a[1], b[1], k / L), [134, 207, 224]); }
+  for (const c of CITIES) { const r = CITY_PAVE(c) || 6; for (let dz = -r; dz <= r; dz += 2) for (let dx = -r; dx <= r; dx += 2) if (dx * dx + dz * dz <= r * r) dot(c.x + dx, c.z + dz, [233, 224, 204]); }
 }
 const fogCv = document.createElement('canvas'); fogCv.width = CX; fogCv.height = CZ;
 const fogCtx = fogCv.getContext('2d'), fogImg = fogCtx.createImageData(CX, CZ);
@@ -5398,19 +5394,19 @@ const _tc = new THREE.Color(), _td = new THREE.Color();
 function tileRGB(x, z, out, o) {
   const i = z * NX + x, t = tiles[i];
   switch (t) {
-    case T.SEA: _tc.set(0xa6d2f2); break;
-    case T.SAND: _tc.set(prov[i] === PV.JEJU ? 0xb8b3ab : 0xf3e8c8); break;
-    case T.GRASS: _tc.set(forest[i] ? 0xc8dfb0 : 0xe4edd2); break;
-    case T.PADDY: _tc.set(0xe8efc4); break;
-    case T.MUD: _tc.set(0xd8d1c0); break;
-    case T.CITY: _tc.set(0xe6e1d8); break;
+    case T.SEA: _tc.set(MAPC.sea); break;
+    case T.SAND: _tc.set(prov[i] === PV.JEJU ? 0xb8b3ab : MAPC.sand); break;
+    case T.GRASS: _tc.set(forest[i] ? 0x94cb76 : 0xaad98a); break;
+    case T.PADDY: _tc.set(0xc9e08e); break;
+    case T.MUD: _tc.set(0xd6c9a4); break;
+    case T.CITY: _tc.set(0xe9e0cc); break;
     case T.SNOW: _tc.set(0xfafafa); break;
-    case T.MOUNT: _tc.set(0xd2c8b8); break;
-    case T.RIVER: _tc.set(0xa6d2f2); break;
-    case T.BRIDGE: _tc.set(0xffffff); break;
+    case T.MOUNT: _tc.set(0xb3a982); break;
+    case T.RIVER: _tc.set(MAPC.sea); break;
+    case T.BRIDGE: _tc.set(0xfffbeb); break;
     default: _tc.set(0xebebe8);
   }
-  if (road[i]) _tc.set(0xf2c46a);
+  if (road[i]) _tc.set(MAPC.road);
   out[o] = _tc.r * 255; out[o + 1] = _tc.g * 255; out[o + 2] = _tc.b * 255; out[o + 3] = 255;
 }
 // 확대 보기·미니맵: 칸 단위로 그린다 (안 만든 구역은 바탕 지도 색, 안 가 본 곳은 안개)
@@ -5467,47 +5463,69 @@ function drawMarks(ctx, k, ox, oz, big) {
   for (const b of S.ai.bots || []) if (b.alive) {
     const col = '#' + b.col.toString(16).padStart(6, '0');
     if (vis(b.cx + 1, b.cz + 1)) { label(X(b.cx + 1), Z(b.cz + 1), '🏰', big ? 15 : 12, '#000'); if (big) label(X(b.cx + 1), Z(b.cz + 1) + 14, `${botShort(b)} 마을 ${SIDES[b.side].e}`, 11, col); }
-    for (const t of b.towns) if (vis(t.x + 1, t.z + 1)) { label(X(t.x + 1), Z(t.z + 1), '🏘️', big ? 13 : 11, '#000'); if (big && k > 0.6) label(X(t.x + 1), Z(t.z + 1) + 13, t.name, 10, col); }
+    if (!big || k > 0.4) for (const t of b.towns) if (vis(t.x + 1, t.z + 1)) { label(X(t.x + 1), Z(t.z + 1), '🏘️', big ? 13 : 11, '#000'); if (big && k > 0.6) label(X(t.x + 1), Z(t.z + 1) + 13, t.name, 10, col); }
   }
   for (const t of S.civ.towns) if (vis(t.x + 1, t.z + 1)) { label(X(t.x + 1), Z(t.z + 1), '🏡', big ? 15 : 12, '#000'); if (big) label(X(t.x + 1), Z(t.z + 1) + 14, t.name, 11, '#2f7a35'); }
   if (vis(HX, HZ)) { label(X(HX + 0.5), Z(HZ + 3), '🏠', big ? 16 : 13, '#000'); if (big) label(X(HX + 0.5), Z(HZ + 3) + 15, HOME, 12, '#2f7a35'); }
   ctx.save(); ctx.translate(X(P.x), Z(P.z)); ctx.rotate(Math.PI - P.rot);
   ctx.fillStyle = '#e0453c'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(7, 7); ctx.lineTo(0, 3); ctx.lineTo(-7, 7); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
 }
-/* ================= 큰 지도: 구글 지도처럼 ================= */
-// 안개 없이 한반도 전체를 보여 준다. 바탕은 2칸 = 1점의 지형도(물·땅 높이 색·산 그림자·시·도/군사분계선/국경선),
-// 그 위에 강·시가지·이름(바다·나라·시·도·도시·산·강·명소)을 확대 정도에 맞춰 겹치지 않게 그린다.
+/* ================= 큰 지도: 게임 화면처럼 단순하게 ================= */
+// 안개 없이 한반도 전체를 보여 준다. 바탕은 2칸 = 1점: 바다(얕은 곳은 밝게), 모래 해변, 높이 5단의 납작한 색, 남북 경계(붉은 점선)·나라 경계.
+// 그 위에 큰 강·이름은 확대 정도에 맞춰 조금씩 더한다.
 const CART = 2, CWX = NX / CART, CWZ = NZ / CART;
 let cartoCv = null, cartoPx = null;
 function buildCarto() {
   if (cartoCv) return;
   const cv = document.createElement('canvas'); cv.width = CWX; cv.height = CWZ;
-  const ctx = cv.getContext('2d'), img = ctx.createImageData(CWX, CWZ), d = img.data;
-  const ramp = [[0, 0xf0f3e6], [120, 0xe3ecd2], [350, 0xdbe6c6], [700, 0xe4dfc9], [1200, 0xdad2c3], [1800, 0xeeeeec], [2600, 0xffffff]].map(([h, c]) => [h, new THREE.Color(c)]);
-  const c = new THREE.Color(), eb = (u, w) => { const cx = Math.floor(u), cz = Math.floor(w), fx = u - cx, fz = w - cz; return lerp(lerp(eg(cx, cz), eg(cx + 1, cz), fx), lerp(eg(cx, cz + 1), eg(cx + 1, cz + 1), fx), fz); };
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(CWX, CWZ), d = img.data, N = CWX * CWZ;
+  // 높이를 7×7 격자(약 7km)로 뭉갠 뒤 띠를 나눈다: 잔무늬 없이 큰 산줄기만 보이게
+  const EB = new Float32Array(CX * CZ), tmp = new Float32Array(CX * CZ), R = 3;
+  for (let z = 0; z < CZ; z++) for (let x = 0; x < CX; x++) { let s = 0; for (let k = -R; k <= R; k++) s += eg(clamp(x + k, 0, CX - 1), z); tmp[z * CX + x] = s / (2 * R + 1); }
+  for (let z = 0; z < CZ; z++) for (let x = 0; x < CX; x++) { let s = 0; for (let k = -R; k <= R; k++) s += tmp[clamp(z + k, 0, CZ - 1) * CX + x]; EB[z * CX + x] = s / (2 * R + 1); }
+  const ebg = (x, z) => EB[clamp(z, 0, CZ - 1) * CX + clamp(x, 0, CX - 1)];
+  const eb = (u, w) => { const cx = Math.floor(u), cz = Math.floor(w), fx = u - cx, fz = w - cz; return lerp(lerp(ebg(cx, cz), ebg(cx + 1, cz), fx), lerp(ebg(cx, cz + 1), ebg(cx + 1, cz + 1), fx), fz); };
   const P_ = (x, z) => prov[clamp(z * CART + 1, 0, NZ - 1) * NX + clamp(x * CART + 1, 0, NX - 1)];
-  const land = p => p > 0 && p < 30, south = p => p >= 1 && p <= 17;
+  const land = p => p > 0 && p < 30, south = p => p >= 1 && p <= 17, dmz = new Map();
+  // 점마다: 0 바다, 1 우리 땅, 2 나라 밖 / 높이 띠 / 바닷가까지 거리
+  const kind = new Uint8Array(N), band = new Uint8Array(N), dist = new Uint8Array(N);
   for (let z = 0; z < CWZ; z++) for (let x = 0; x < CWX; x++) {
-    const o = (z * CWX + x) * 4, p = P_(x, z), u = (x + 0.5) * CART / CS - 0.5, w = (z + 0.5) * CART / CS - 0.5;
-    if (!p || p === PV.BORDER) c.set(0xa6d2f2);
+    const i = z * CWX + x, p = P_(x, z);
+    kind[i] = !p || p === PV.BORDER ? 0 : p === PV.FOREIGN ? 2 : 1;
+    if (kind[i] === 1) band[i] = mapBand(eb((x + 0.5) * CART / CS - 0.5, (z + 0.5) * CART / CS - 0.5));
+  }
+  for (let i = 0; i < N; i++) {
+    const x = i % CWX, s = kind[i] > 0, diff = j => (kind[j] > 0) !== s;
+    dist[i] = (x > 0 && diff(i - 1)) || (x < CWX - 1 && diff(i + 1)) || (i >= CWX && diff(i - CWX)) || (i + CWX < N && diff(i + CWX)) ? 0 : 255;
+  }
+  for (let i = 0; i < N; i++) { const x = i % CWX; let v = dist[i]; if (x > 0) v = Math.min(v, dist[i - 1] + 1); if (i >= CWX) v = Math.min(v, dist[i - CWX] + 1); dist[i] = v; }
+  for (let i = N - 1; i >= 0; i--) { const x = i % CWX; let v = dist[i]; if (x < CWX - 1) v = Math.min(v, dist[i + 1] + 1); if (i + CWX < N) v = Math.min(v, dist[i + CWX] + 1); dist[i] = v; }
+  const c = new THREE.Color(), cols = MAPC.bands.map(b => new THREE.Color(b[1]));
+  for (let i = 0; i < N; i++) {
+    const x = i % CWX, z = (i - x) / CWX;
+    if (!kind[i]) c.set(dist[i] <= 1 ? MAPC.foam : dist[i] <= 5 ? MAPC.shallow : MAPC.sea);
+    else if (dist[i] <= 1) c.set(MAPC.sand);
+    else if (kind[i] === 2) c.set(MAPC.foreign);
     else {
-      const h = eb(u, w);
-      if (p === PV.FOREIGN) c.set(0xebebe8); else { let k = 1; while (k < ramp.length - 1 && h > ramp[k][0]) k++; c.copy(ramp[k - 1][1]).lerp(ramp[k][1], clamp((h - ramp[k - 1][0]) / (ramp[k][0] - ramp[k - 1][0]), 0, 1)); }
-      // 산 그림자: 북서쪽에서 빛이 온다
-      const sh = clamp(1 + ((eb(u - 0.5, w) - eb(u + 0.5, w)) + (eb(u, w - 0.5) - eb(u, w + 0.5))) / 520, 0.74, 1.1); c.multiplyScalar(sh);
-      // 경계선: 시·도(회색 점선), 군사분계선(붉은 점선), 나라 밖(보랏빛 실선)
-      const pr = P_(x + 1, z), pd = P_(x, z + 1), dash = ((x + z) >> 1) % 3 !== 2;
-      for (const q of [pr, pd]) {
-        if (!q || q === p) continue;
-        if (q === PV.FOREIGN || p === PV.FOREIGN) { c.set(0x9a8faa); break; }
-        if (land(q) && land(p) && south(p) !== south(q)) { if (((x + z) >> 2) % 3 !== 2) c.set(0xc07a7a); break; }
-        if (land(q) && land(p) && dash) { c.multiplyScalar(0.8); break; }
+      c.copy(cols[band[i]]);
+      // 높은 띠가 시작되는 곳에 옅은 등고선
+      if ((x < CWX - 1 && kind[i + 1] === 1 && band[i + 1] !== band[i]) || (i + CWX < N && kind[i + CWX] === 1 && band[i + CWX] !== band[i])) c.multiplyScalar(0.92);
+    }
+    if (kind[i]) {   // 경계: 남북(붉은 점선), 나라 밖(갈색 실선)
+      const p = P_(x, z);
+      for (const q of [P_(x + 1, z), P_(x, z + 1)]) {
+        if (!q || q === p || q === PV.BORDER || p === PV.BORDER) continue;
+        if ((q === PV.FOREIGN) !== (p === PV.FOREIGN)) { c.set(0xb4a27e); break; }
+        if (land(p) && land(q) && south(p) !== south(q)) { const b = x >> 3, o = dmz.get(b) || [0, 0]; o[0] += z; o[1]++; dmz.set(b, o); break; }
       }
     }
-    d[o] = c.r * 255; d[o + 1] = c.g * 255; d[o + 2] = c.b * 255; d[o + 3] = 255;
+    d[i * 4] = c.r * 255; d[i * 4 + 1] = c.g * 255; d[i * 4 + 2] = c.b * 255; d[i * 4 + 3] = 255;
   }
   ctx.putImageData(img, 0, 0); cartoCv = cv; cartoPx = d;
+  // 남북 경계: 8점 폭마다 평균 자리를 이어 선으로 (지도 위에 붉은 점선으로 그린다)
+  DMZ_LINE = [...dmz.entries()].sort((a, b) => a[0] - b[0]).map(([b, o]) => [(b * 8 + 4) * CART, (o[0] / o[1] + 0.5) * CART]);
 }
+let DMZ_LINE = [];
 // 지명: 바다·나라·산·강 (실제 위치)
 const GEO_SEA = [['동해', 37.6, 130.4], ['서해', 36.9, 124.75], ['남해', 34.05, 127.6], ['대한해협', 34.45, 129.25]];
 const GEO_LAND = [['중국', 41.25, 124.9], ['중국', 42.55, 128.4], ['러시아', 42.85, 130.85]];
@@ -5522,45 +5540,52 @@ const RIV_BOX = riverPaths.map(p => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9, 
 // k: 화면 픽셀(CSS)당 칸 수의 역수 (전국 보기 약 0.22). 큰 이름부터 놓고, 겹치는 작은 이름은 뺀다
 function drawGeo(ctx, k, ox, oz, W, H) {
   const X = x => (x - ox) * k, Z = z => (z - oz) * k, inV = (x, z, m = 40) => X(x) > -m && X(x) < W + m && Z(z) > -m && Z(z) < H + m;
-  const FONT = '"Gowun Dodum", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif', placed = [];
+  const FONT = 'Jua, "Gowun Dodum", sans-serif', placed = [];
   const text = (x, y, s, size, col, o = {}) => {
-    ctx.font = `${o.bold ? 'bold ' : ''}${o.italic ? 'italic ' : ''}${size}px ${FONT}`;
+    ctx.font = `${size}px ${FONT}`;
     const w = ctx.measureText(s).width + 4, h = size + 3, r = { x: x - w / 2, y: y - h / 2, w, h };
     if (!o.force && placed.some(q => r.x < q.x + q.w && r.x + r.w > q.x && r.y < q.y + q.h && r.y + r.h > q.y)) return false;
     placed.push(r);
-    ctx.lineWidth = Math.max(2.5, size / 4); ctx.strokeStyle = o.halo || 'rgba(255,255,255,.92)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y);
+    ctx.lineWidth = Math.max(3, size / 3.5); ctx.strokeStyle = o.halo || 'rgba(255,251,235,.95)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y);
     return true;
   };
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  // 시가지
-  for (const c of CITIES) if (inV(c.x, c.z)) { const r = Math.max(c.size === 3 ? 4 : c.size === 2 ? 2.6 : 1.6, (CITY_PAVE(c) || CITY_R(c) * 0.6) * k); ctx.fillStyle = 'rgba(222,214,200,.7)'; ctx.beginPath(); ctx.arc(X(c.x), Z(c.z), r, 0, Math.PI * 2); ctx.fill(); }
-  // 강: 굵은 강은 늘, 가는 지류는 확대했을 때
-  ctx.strokeStyle = '#7ab8ea';
+  // 강: 전국 보기에선 큰 강만
+  ctx.strokeStyle = '#86cfe0';
   riverPaths.forEach((p, i) => {
     const b = RIV_BOX[i]; if (X(b.c) < -10 || X(b.a) > W + 10 || Z(b.d) < -10 || Z(b.b) > H + 10) return;
-    if (b.w < 1 && k < 0.45) return; if (b.w < 2 && k < 0.28) return;
-    for (let j = 0; j < p.length - 1; j++) { const a = p[j], c = p[j + 1]; ctx.lineWidth = Math.max(a[2] >= 2 ? 1.2 : 0.7, RW[a[2] || 0] * 2 * k); ctx.beginPath(); ctx.moveTo(X(a[0]), Z(a[1])); ctx.lineTo(X(c[0]), Z(c[1])); ctx.stroke(); }
+    if (b.w < 1 && k < 0.6) return; if (b.w < 2 && k < 0.3) return;
+    for (let j = 0; j < p.length - 1; j++) { const a = p[j], c = p[j + 1]; ctx.lineWidth = Math.max(a[2] >= 2 ? 1.8 : 1, RW[a[2] || 0] * 2 * k); ctx.beginPath(); ctx.moveTo(X(a[0]), Z(a[1])); ctx.lineTo(X(c[0]), Z(c[1])); ctx.stroke(); }
   });
-  // 여객선 항로
-  ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(70,120,190,.6)'; ctx.lineWidth = 1.5;
+  // 남북 경계: 붉은 점선
+  ctx.setLineDash([6, 5]); ctx.strokeStyle = 'rgba(216,112,94,.9)'; ctx.lineWidth = 2.2;
+  ctx.beginPath(); DMZ_LINE.forEach((q, i) => i ? ctx.lineTo(X(q[0]), Z(q[1])) : ctx.moveTo(X(q[0]), Z(q[1]))); ctx.stroke();
+  // 여객선 항로: 흰 점선
+  ctx.setLineDash([1, 6]); ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 3;
   for (const p of PIERS) for (const id of p.to) { const q = PIERS.find(o => o.id === id); if (!q || p.id > q.id || p.x == null || q.x == null) continue; ctx.beginPath(); ctx.moveTo(X(p.x), Z(p.z)); ctx.lineTo(X(q.x), Z(q.z)); ctx.stroke(); }
   ctx.setLineDash([]);
-  // 이름: 바다·나라 → 큰 도시 → 시·도 → 중간 도시 → 산·평야 → 강 → 작은 도시 → 명소
-  for (const s of GEO_L.sea) if (inV(s.x, s.z, 80)) text(X(s.x), Z(s.z), s.n, k > 0.6 ? 18 : 15, '#4a86c0', { italic: true, force: true, halo: 'rgba(166,210,242,.8)' });
-  for (const s of GEO_L.land) if (inV(s.x, s.z, 80)) text(X(s.x), Z(s.z), s.n, 15, '#8a8a8a', { force: true });
-  const cityDot = (c, r) => { ctx.fillStyle = '#fff'; ctx.strokeStyle = '#5f6368'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X(c.x), Z(c.z), r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); if (S.civ.ally[c.name]) { ctx.strokeStyle = '#3f9a45'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(c.x), Z(c.z), r + 3, 0, Math.PI * 2); ctx.stroke(); } };
-  const cityLabel = (c, size, bold) => text(X(c.x), Z(c.z) - size - 2, c.name, size, '#202124', { bold });
-  const big = CITIES.filter(c => c.size === 3), mid = CITIES.filter(c => c.size === 2), small = CITIES.filter(c => c.size === 1);
-  for (const c of big) if (inV(c.x, c.z)) { cityDot(c, c.name === '서울' || c.name === '평양' ? 4.5 : 3.6); cityLabel(c, 14, true); }
-  if (k < 1.4) for (const p of KR_PROV) if (inV(p.x, p.z) && !['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '평양', '남포'].includes(p.s)) text(X(p.x), Z(p.z), p.n, 12, 'rgba(95,99,104,.75)');
-  for (const c of mid) if (inV(c.x, c.z)) { cityDot(c, 2.8); if (k >= 0.3) cityLabel(c, 12, false); }
-  if (k >= 0.32) for (const m of GEO_L.mt) if (inV(m.x, m.z)) { ctx.fillStyle = '#8a7350'; ctx.beginPath(); ctx.moveTo(X(m.x), Z(m.z) - 5); ctx.lineTo(X(m.x) + 4.5, Z(m.z) + 3); ctx.lineTo(X(m.x) - 4.5, Z(m.z) + 3); ctx.fill(); text(X(m.x), Z(m.z) + 12, m.n, 11, '#6b5a3a'); }
-  if (k >= 0.25 && k < 2) for (const a of GEO_L.area) if (inV(a.x, a.z)) text(X(a.x), Z(a.z), a.n, 12, 'rgba(120,100,60,.7)', { italic: true });
-  if (k >= 0.4) for (const r of GEO_L.river) if (inV(r.x, r.z)) text(X(r.x), Z(r.z), r.n, 11, '#3f7fbf', { italic: true });
-  for (const c of small) if (inV(c.x, c.z) && k >= 0.35) { cityDot(c, 2.2); if (k >= 0.6) cityLabel(c, 11, false); }
-  if (k >= 0.35) {
-    for (const p of PIERS) if (p.x != null && inV(p.x, p.z)) text(X(p.x + 0.5), Z(p.z + 0.5), '⚓', 12, '#2f6fa8', { force: true });
-    for (const l of LANDMARKS) if (inV(l.x, l.z)) { text(X(l.x), Z(l.z), '★', 12, '#d93025', { force: true }); if (k >= 0.9) text(X(l.x), Z(l.z) + 12, l.name, 10, '#a3372b'); }
+  // 이름: 바다·나라 → 큰 도시 → 이름난 산 → 중간 도시 → 강 → 작은 도시 → 명소
+  for (const s of GEO_L.sea) if (inV(s.x, s.z, 80)) text(X(s.x), Z(s.z), s.n, k > 0.6 ? 19 : 16, '#3d8fb0', { force: true, halo: 'rgba(214,242,246,.85)' });
+  for (const s of GEO_L.land) if (inV(s.x, s.z, 80)) text(X(s.x), Z(s.z), s.n, 15, '#a8987a', { force: true });
+  const dot = (c, r) => {
+    ctx.fillStyle = '#fffbeb'; ctx.strokeStyle = '#4b3a28'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(c.x), Z(c.z), r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (S.civ.ally[c.name]) { ctx.strokeStyle = '#4a9f45'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(X(c.x), Z(c.z), r + 3.5, 0, Math.PI * 2); ctx.stroke(); }
+  };
+  const label = (c, size) => text(X(c.x), Z(c.z) - size - 1, c.name, size, '#4b3a28');
+  const mtn = m => {
+    const x = X(m.x), y = Z(m.z);
+    ctx.fillStyle = '#7d6a48'; ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x + 6.5, y + 4); ctx.lineTo(x - 6.5, y + 4); ctx.fill();
+    ctx.fillStyle = '#fffbeb'; ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x + 2.4, y - 2.9); ctx.lineTo(x - 2.4, y - 2.9); ctx.fill();
+  };
+  const FAMOUS = ['백두산', '한라산', '지리산', '설악산', '금강산'];
+  for (const c of CITIES) if (c.size === 3 && inV(c.x, c.z)) { dot(c, c.name === '서울' || c.name === '평양' ? 5 : 4); label(c, 15); }
+  for (const m of GEO_L.mt) if (inV(m.x, m.z) && (k >= 0.45 || FAMOUS.includes(m.n))) { mtn(m); text(X(m.x), Z(m.z) + 12, m.n, 11, '#6b5a3a'); }
+  if (k >= 0.3) for (const c of CITIES) if (c.size === 2 && inV(c.x, c.z)) { dot(c, 3); if (k >= 0.42) label(c, 12); }
+  if (k >= 0.7) for (const r of GEO_L.river) if (inV(r.x, r.z)) text(X(r.x), Z(r.z), r.n, 11, '#3d8fb0');
+  if (k >= 0.55) for (const c of CITIES) if (c.size === 1 && inV(c.x, c.z)) { dot(c, 2.4); if (k >= 0.85) label(c, 11); }
+  if (k >= 0.5) {
+    for (const p of PIERS) if (p.x != null && inV(p.x, p.z)) text(X(p.x + 0.5), Z(p.z + 0.5), '⚓', 13, '#2f6fa8', { force: true });
+    for (const l of LANDMARKS) if (inV(l.x, l.z)) { text(X(l.x), Z(l.z), '★', 13, '#e2574c', { force: true }); if (k >= 1) text(X(l.x), Z(l.z) + 12, l.name, 10, '#a3372b'); }
   }
 }
 const miniCv = $('#miniC'), miniCtx = miniCv.getContext('2d'), MINI = 120;
@@ -5767,8 +5792,8 @@ function mapHit(px, pz) {
   const cv = $('#mapC'), { ox, oz, k } = mapRect(cv.width, cv.height), ui = cv.width / (cv.getBoundingClientRect().width || cv.width) * MAP_UI, kk = k / ui;
   let best = null, bd = 16 * ui;
   for (const p of mapPlaces()) {
-    if (p.kind === 'city' && p.c.size === 1 && kk < 0.35) continue;
-    if ((p.kind === 'lm' || p.kind === 'pier') && kk < 0.35) continue;
+    if (p.kind === 'city' && (p.c.size === 1 && kk < 0.55 || p.c.size === 2 && kk < 0.3)) continue;   // 그 배율에서 안 보이는 곳은 못 고른다
+    if ((p.kind === 'lm' || p.kind === 'pier') && kk < 0.5) continue;
     const d = Math.hypot((p.x - ox) * k - px, (p.z - oz) * k - pz) - (p.c ? p.c.size * 4 * ui : 0);   // 겹치면 큰 도시를 먼저
     if (d < bd) { bd = d; best = p; }
   }
