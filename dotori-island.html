@@ -4312,7 +4312,8 @@ function jobTick(dt) {
   if (m.stage === 'run') { m.t += dt; if (m.limit && m.t > m.limit) { dropJob('시간 초과!'); return; } }
   else if (m.stage === 'drop' && m.kind === 'deliver') { m.t += dt; if (m.t > m.limit) { dropJob(`시간 안에 ${m.to.n}에 못 갔어요.`); return; } }
   const left = m.limit && m.stage !== 'pickup' ? ` · ⏱ ${mmss(Math.max(0, m.limit - m.t))}` : '';
-  hud.hidden = false; hud.textContent = `${m.e} ${m.stage === 'pickup' ? (m.kind === 'race' ? '출발선으로' : `${m.from.n}에서 짐 받기`) : m.kind === 'car' ? `${CAR_KINDS[m.car].n} 몰고 ${m.to.n} 정비소로` : `${m.to.n}까지`} · ${kmTxt(d * GEO.S)}${left}`;
+  const onPin = S.pin && pinRoute && Math.hypot(S.pin.x - tgt.x, S.pin.z - tgt.z) < 1;
+  hud.hidden = false; hud.textContent = `${m.e} ${m.stage === 'pickup' ? (m.kind === 'race' ? '출발선으로' : `${m.from.n}에서 짐 받기`) : m.kind === 'car' ? `${CAR_KINDS[m.car].n} 몰고 ${m.to.n} 정비소로` : `${m.to.n}까지`} · ${kmTxt((onPin ? routeLeft(pinRoute) : d) * GEO.S)}${left}`;
   if (d < 6) {
     if (m.stage === 'pickup') {
       m.stage = m.kind === 'race' ? 'run' : 'drop'; m.t = 0; setPin(m.to); SFX.fanfare();
@@ -6648,13 +6649,23 @@ function drawGeo(ctx, k, ox, oz, W, H) {
     for (const l of LANDMARKS) if (inV(l.x, l.z)) { text(X(l.x), Z(l.z), '★', 13, '#e2574c', { force: true }); if (k >= 1) text(X(l.x), Z(l.z) + 12, l.name, 10, '#a3372b'); }
   }
 }
-const miniCv = $('#miniC'), miniCtx = miniCv.getContext('2d'), MINI = 120;
+// 미니맵: 큰 지도와 똑같이 그린다 (바탕 지형도·나와바리·강·고속도로·이름·표시). 내 자리를 가운데 두고 MINI칸만큼
+const miniCv = $('#miniC'), miniCtx = miniCv.getContext('2d'), MINI = 120, MINI_UI = 2;
+const miniOv = document.createElement('canvas'); miniOv.width = miniOv.height = MINI / 2;
 function drawMini() {
   flushFog();
-  const W = miniCv.width, k = W / MINI, ox = Math.floor(P.x - MINI / 2), oz = Math.floor(P.z - MINI / 2);
-  renderTiles(miniCtx, ox, oz, MINI, MINI, W, W);
-  drawMarks(miniCtx, k, ox, oz, false);
-  drawPinSel(miniCtx, k, ox, oz, 1.5, true); pinArrow(miniCtx, W, k);
+  const ctx = miniCtx, W = miniCv.width, k = W / MINI, ox = P.x - MINI / 2, oz = P.z - MINI / 2;
+  buildCarto();
+  ctx.fillStyle = '#a6d2f2'; ctx.fillRect(0, 0, W, W);
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(cartoCv, ox / CART, oz / CART, MINI / CART, MINI / CART, 0, 0, W, W);
+  // 나와바리: 2칸 = 1점으로 칠해 겹친다
+  const octx = miniOv.getContext('2d'), img = octx.createImageData(MINI / 2, MINI / 2);
+  paintTerr(MINI / 2, MINI / 2, ox, oz, 2, img.data); octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false; ctx.drawImage(miniOv, 0, 0, W, W);
+  ctx.save(); ctx.scale(MINI_UI, MINI_UI);
+  const kk = k / MINI_UI; drawGeo(ctx, kk, ox, oz, W / MINI_UI, W / MINI_UI); drawMarks(ctx, kk, ox, oz, true); drawPinSel(ctx, kk, ox, oz, 0.8, true);
+  ctx.restore();
+  pinArrow(ctx, W, k);
 }
 // 지도 보기: 가운데 칸과 가로 폭(칸 수). 마우스 휠(휴대폰은 두 손가락)로 확대·축소하고, 끌어서 옮긴다. 폭 NX = 전국.
 // 가까이 볼 때(폭 520칸 이하)는 칸 하나하나를, 멀리 볼 때는 미리 그려 둔 전국 지도를 잘라서 그린다.
@@ -6865,9 +6876,9 @@ function renderMapPick() {
   const box = $('#mapPick'), p = mapSel || (S.pin && Object.assign({ kind: 'pin', ic: '📍' }, S.pin));
   box.innerHTML = ''; box.hidden = !p; if (!p) return;
   const tx = document.createElement('div'), b = document.createElement('b'); tx.className = 'tx';
-  b.textContent = `${p.ic || '📍'} ${p.n}`; tx.append(b, `${p.sub ? p.sub + ' · ' : ''}여기서 ${kmTxt(Math.hypot(p.x - P.x, p.z - P.z) * GEO.S)}${p.kind === 'pin' ? ' · 길 안내 중' : ''}`);
+  const pinned = S.pin && Math.hypot(S.pin.x - p.x, S.pin.z - p.z) < 1, len = pinned && pinRoute ? routeLeft(pinRoute) : roadRoute([P.x, P.z], [p.x, p.z]).len;
+  b.textContent = `${p.ic || '📍'} ${p.n}`; tx.append(b, `${p.sub ? p.sub + ' · ' : ''}길 따라 ${kmTxt(len * GEO.S)}${pinned ? ' · 길 안내 중' : ''}`);
   box.append(tx);
-  const pinned = S.pin && Math.hypot(S.pin.x - p.x, S.pin.z - p.z) < 1;
   box.append(pinned ? uiBtn('안내 끄기', () => { SFX.ui(); setPin(null); renderMapPick(); mapRedraw(); }, true) : uiBtn('📍 길 안내', () => { SFX.ui(); setPin(p); renderMapPick(); mapRedraw(); }));
   const w = warpInfo(p);
   if (w && !w.no) box.append(uiBtn(`${w.ic} ${w.mode} · 🌰 ${fmt(w.fare)}`, () => fastTravel(p), true, S.coins < w.fare));
@@ -6880,7 +6891,67 @@ function setPin(p) {
   S.pin = p ? { n: p.n, x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 } : null; pinRoute = null; pinRouteT = 0; dirty();
   if (p) { routePin(); toast(`📍 ${josa(p.n, '으로', '로')} 길 안내를 시작해요. 미니맵의 빨간 화살표를 따라가세요.`); }
 }
-function routePin() { if (!S.pin) return; const r = marchRoute([P.x, P.z], [S.pin.x, S.pin.z]); pinRoute = r.path || [[P.x, P.z], [S.pin.x, S.pin.z]]; }
+function routePin() { if (!S.pin) return; pinRoute = roadRoute([P.x, P.z], [S.pin.x, S.pin.z]).path; }
+/* 길 안내 길찾기: 실제 길처럼 고속도로를 따라간다.
+   고속도로를 8칸마다 점으로 나눈 그래프에서 가장 빠른 길(다익스트라)을 찾고, 출발·도착에서 고속도로까지는 땅 길(행군 길찾기)로 잇는다.
+   고속도로는 땅 길보다 2.5배 빠르게 친다. 고속도로를 타는 게 더 느리면 땅 길로 바로 간다. */
+const HWY_K = 0.4, HWY_REACH = 240;
+let HWG = null;
+function hwyGraph() {
+  if (HWG) return HWG;
+  const key = new Map(), xs = [], zs = [], adj = [], lines = [];
+  const node = (x, z) => { const k = Math.round(x) + ',' + Math.round(z); let n = key.get(k); if (n === undefined) { n = xs.length; key.set(k, n); xs.push(x); zs.push(z); adj.push([]); } return n; };
+  const link = (a, b) => { if (a === b) return; const L = Math.hypot(xs[a] - xs[b], zs[a] - zs[b]); adj[a].push(b, L); adj[b].push(a, L); };
+  for (const p of HWY_PATHS) {
+    const ids = [node(p[0][0], p[0][1])];
+    for (let j = 0; j < p.length - 1; j++) {
+      const [x0, z0] = p[j], [x1, z1] = p[j + 1], n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 8));
+      for (let t = 1; t <= n; t++) { const id = node(x0 + (x1 - x0) * t / n, z0 + (z1 - z0) * t / n); link(ids[ids.length - 1], id); ids.push(id); }
+    }
+    lines.push(ids);
+  }
+  return HWG = { xs, zs, adj, lines };
+}
+// 돌려주는 값: { path: [[x,z]…] 출발→도착, len: 길이(칸) }
+function roadRoute(from, to) {
+  const G = hwyGraph(), N = G.xs.length, GOAL = N, straight = Math.hypot(to[0] - from[0], to[1] - from[1]);
+  // 고속도로마다 가장 가까운 점 (너무 멀면 뺀다)
+  const ends = p => { const out = []; for (const ids of G.lines) { let b = -1, bd = HWY_REACH; for (const n of ids) { const d = Math.hypot(G.xs[n] - p[0], G.zs[n] - p[1]); if (d < bd) { bd = d; b = n; } } if (b >= 0) out.push([b, bd]); } return out; };
+  const dist = new Float64Array(N + 1).fill(Infinity), prev = new Int32Array(N + 1).fill(-1), done = new Uint8Array(N + 1), exit = new Map(ends(to));
+  const hn = [], hk = [];
+  const swap = (a, b) => { let t = hn[a]; hn[a] = hn[b]; hn[b] = t; t = hk[a]; hk[a] = hk[b]; hk[b] = t; };
+  const push = (k, n) => { hn.push(n); hk.push(k); let i = hn.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (hk[p] <= hk[i]) break; swap(p, i); i = p; } };
+  const pop = () => {
+    const n = hn[0], lk = hk.pop(), ln = hn.pop();
+    if (hn.length) { hn[0] = ln; hk[0] = lk; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < hn.length && hk[l] < hk[m]) m = l; if (r < hn.length && hk[r] < hk[m]) m = r; if (m === i) break; swap(m, i); i = m; } }
+    return n;
+  };
+  const relax = (n, d, from_) => { if (d < dist[n]) { dist[n] = d; prev[n] = from_; push(d, n); } };
+  relax(GOAL, straight, -1);
+  for (const [n, d] of ends(from)) relax(n, d, -1);
+  while (hn.length) {
+    const u = pop(); if (done[u]) continue; done[u] = 1;
+    if (u === GOAL) break;
+    const a = G.adj[u]; for (let i = 0; i < a.length; i += 2) relax(a[i], dist[u] + a[i + 1] * HWY_K, u);
+    if (exit.has(u)) relax(GOAL, dist[u] + exit.get(u), u);
+  }
+  // 땅 길 구간: 행군 길찾기로 찾고 모서리를 다듬는다
+  const leg = (a, b) => { if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 4) return [a, b]; const r = marchRoute(a, b); return r.path ? chaikin(r.path) : [a, b]; };
+  let path;
+  if (prev[GOAL] < 0) path = leg(from, to);
+  else {
+    const hw = []; for (let n = prev[GOAL]; n >= 0; n = prev[n]) hw.push([G.xs[n], G.zs[n]]); hw.reverse();
+    path = [...leg(from, hw[0]), ...hw.slice(1), ...leg(hw[hw.length - 1], to).slice(1)];
+  }
+  let len = 0; for (let i = 0; i < path.length - 1; i++) len += Math.hypot(path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1]);
+  return { path, len };
+}
+// 길을 따라 남은 거리 (칸)
+function routeLeft(r) {
+  const { j } = routeNear(r); let s = Math.hypot(r[j + 1][0] - P.x, r[j + 1][1] - P.z);
+  for (let i = j + 1; i < r.length - 1; i++) s += Math.hypot(r[i + 1][0] - r[i][0], r[i + 1][1] - r[i][1]);
+  return s;
+}
 function routeNear(r) {
   let d = Infinity, j = 0;
   for (let i = 0; i < r.length - 1; i++) {
@@ -6930,7 +7001,7 @@ function pinArrow(ctx, W, k) {
     tx = clamp(half + ux * (t - 22 * s), 26 * s, W - 26 * s); tz = clamp(half + uz * (t - 16 * s), 10 * s, W - 30 * s);
   }
   ctx.font = `${11 * s}px Jua, "Gowun Dodum", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-  const t = kmTxt(d * GEO.S); ctx.lineWidth = 3.5 * s; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.strokeText(t, tx, tz); ctx.fillStyle = '#c5221f'; ctx.fillText(t, tx, tz);
+  const t = kmTxt((pinRoute ? routeLeft(pinRoute) : d) * GEO.S); ctx.lineWidth = 3.5 * s; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.strokeText(t, tx, tz); ctx.fillStyle = '#c5221f'; ctx.fillText(t, tx, tz);
   ctx.restore();
 }
 // 빠른 이동: 한 번 가 본 도시·부두, 내 마을 사이를 도토리를 내고 버스·기차(바다 건너면 비행기)로 바로 간다
