@@ -887,12 +887,12 @@ function blob(r) { const s = mesh(G.shadow, SHADOW_M, 0, 0.015, 0); s.scale.setS
 /* --- 배경 공통 --- */
 // 원작 배경처럼 매끈한 곡면에 위는 밝고 아래는 어두운 은은한 음영을 입히고, 무늬는 캔버스로 그린다
 const texCache = {};
-function canvasTex(key, w, h, draw) {
-  if (texCache[key]) return texCache[key];
+function drawTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const x = c.getContext('2d'); x.lineCap = 'round'; x.lineJoin = 'round'; draw(x, w, h);
-  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return (texCache[key] = t);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
 }
+function canvasTex(key, w, h, draw) { return texCache[key] || (texCache[key] = drawTex(w, h, draw)); }
 const repeatTex = t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
 const vnoise = (x, y, z) => Math.sin(x * 2.3 + y * 1.1) * Math.cos(z * 2.1 - x * 0.7) * 0.6 + Math.sin(y * 4.7 + z * 3.3 + x * 1.9) * 0.4;
 function lumpy(geo, amt, freq, seed) {
@@ -1752,8 +1752,12 @@ function drawEye(x, cx, cy, f, state, out) {
   }
   x.restore();
 }
+const faceCache = new Map();
 function faceTex(f, state) {
-  return canvasTex('f' + f.key + state, 256, 160, x => {
+  f.key = f.key || JSON.stringify(f);   // 처음 그릴 때도 그 얼굴만의 열쇠로 (없으면 모두가 첫 캐릭터 얼굴을 같이 쓰게 된다)
+  const key = 'f' + f.key + state, hit = faceCache.get(key);
+  if (hit) { faceCache.delete(key); faceCache.set(key, hit); return hit; }
+  const t = drawTex(256, 160, x => {
     const ey = f.eyeY || 64, gap = f.gap || 40;
     if (f.blush) for (const s of [-1, 1]) {
       const bx = 128 + s * (gap + 26), by = ey + 32, g = x.createRadialGradient(bx, by, 2, bx, by, 24);
@@ -1763,6 +1767,7 @@ function faceTex(f, state) {
       x.strokeStyle = f.brow; x.lineWidth = f.browW || 6; const bx = 128 + s * gap, by = ey - (f.eyeH || 19) - 13;
       x.beginPath(); x.moveTo(bx - 11, by + 2); x.quadraticCurveTo(bx, by - 4, bx + 11, by + 2); x.stroke();
     }
+    if (f.freckle) { x.fillStyle = 'rgba(140,80,50,0.55)'; for (const s of [-1, 1]) for (const [dx, dy] of [[-8, 0], [4, -5], [10, 6], [-2, 9]]) { x.beginPath(); x.arc(128 + s * (gap + 22) + dx, ey + 30 + dy, 2.6, 0, Math.PI * 2); x.fill(); } }
     if (f.patch === 'panda') { x.fillStyle = '#2a2a30'; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(128 + s * gap, ey + 4, 30, 36, s * 0.5, 0, Math.PI * 2); x.fill(); } }
     if (f.patch === 'tiger') { x.fillStyle = 'rgba(40,24,16,0.85)'; for (const dx of [-30, 0, 30]) { x.beginPath(); x.ellipse(128 + dx, 8, 7, 22, 0, 0, Math.PI * 2); x.fill(); } for (const s of [-1, 1]) for (const k of [0, 1]) { x.beginPath(); x.ellipse(128 + s * (gap + 46), ey + 8 + k * 18, 18, 5, s * 0.3, 0, Math.PI * 2); x.fill(); } }
     if (f.patch === 'spots') { x.fillStyle = 'rgba(40,36,40,0.85)'; x.beginPath(); x.ellipse(128 - gap - 10, ey - 18, 34, 26, 0.4, 0, Math.PI * 2); x.fill(); x.beginPath(); x.ellipse(128 + gap + 34, ey + 30, 22, 18, 0, 0, Math.PI * 2); x.fill(); }
@@ -1770,6 +1775,9 @@ function faceTex(f, state) {
     if (f.patch === 'mask') { x.fillStyle = 'rgba(58,46,40,0.85)'; x.beginPath(); x.ellipse(128, ey + 2, gap + 42, 30, 0, 0, Math.PI * 2); x.fill(); }
     for (const s of [-1, 1]) drawEye(x, 128 + s * gap, ey, f, state, s);
   });
+  faceCache.set(key, t);
+  if (faceCache.size > 320) { const [k0, t0] = faceCache.entries().next().value; faceCache.delete(k0); t0.dispose(); }
+  return t;
 }
 function mouthTex(kind, open) {
   return canvasTex('m' + kind + open, 128, 96, x => {
@@ -1884,7 +1892,6 @@ function varyLook(id, role) {
   o.face = { iris: pick(['#24160e', '#2f6b4a', '#2a3f7a', '#5a2a1a', '#3b2238', '#4a4a52'], r), tilt: (r() - 0.5) * 0.5, eyeW: 11 + Math.floor(r() * 7), eyeH: 13 + Math.floor(r() * 7) };
   if (r() < 0.35) o.face.brow = pick(['#3a2416', '#6b4528', '#2a2a30'], r);
   const bl = pick(['#ff8f96', '#ff9f6a', '#f6a6d8', null], r); if (bl) o.face.blush = bl;
-  if (o.age === 'kid') { o.face.eyeW += 3; o.face.eyeH += 3; }
   return o;
 }
 const ACCG = {};
@@ -1938,6 +1945,31 @@ function addLook(u, o, look) {
   }
   // 어르신: 등이 살짝 굽고 지팡이를 짚는다
   if (look.age === 'elder') { u.body.rotation.x = 0.12; u.aR.add(mesh(accGeo('cane', () => new THREE.CylinderGeometry(0.018, 0.018, 0.55, 6)), M(0x7a5536), 0, -0.4, 0.02)); }
+}
+// 얼굴 번호 → 얼굴 생김새. 눈 너비·높이·기울기·눈동자 색·눈썹·볼터치·속눈썹·눈 사이·눈 높이·주근깨의 조합(1,728,000가지)에
+// 번호를 하나씩 대응시킨다. 번호가 다르면 조합도 반드시 다르므로 같은 얼굴의 캐릭터는 생기지 않는다.
+// (번호에 서로소인 수를 곱해 섞어서, 이웃 번호끼리도 한 군데만 다르지 않고 골고루 다르게 보이게 한다)
+const FACE_DIM = [
+  ['eyeW', [10, 12, 14, 16, 18, 20]], ['eyeH', [12, 14, 16, 18, 20, 22]], ['tilt', [-0.3, -0.15, 0, 0.15, 0.3]],
+  ['iris', ['#24160e', '#2f6b4a', '#2a3f7a', '#5a2a1a', '#3b2238', '#4a4a52', '#6a4a1a', '#1a4a5a']],
+  ['brow', [null, '#3a2416', '#6b4528', '#2a2a30', '#8a6a4a']], ['blush', [null, '#ff8f96', '#ff9f6a', '#f6a6d8', '#f6c2a0']],
+  ['lash', [false, true]], ['gap', [38, 42, 46, 50]], ['eyeY', [44, 50, 56]], ['freckle', [false, true]]];
+const FACE_N = FACE_DIM.reduce((a, [, v]) => a * v.length, 1);
+function faceFor(uid) {
+  let n = (uid * 1000003 + 77777) % FACE_N; const f = {};
+  for (const [k, v] of FACE_DIM) { f[k] = v[n % v.length]; n = Math.floor(n / v.length); }
+  return f;
+}
+// 캐릭터마다 겹치지 않는 얼굴 번호 (주인공 친구들·외계인·상점 주인은 저마다 따로 그린 얼굴이라 번호가 없다)
+function faceUid(o) {
+  if (o.uid != null) return o.uid;
+  const id = o.id || ''; let m;
+  if ((m = /^g(\d+)$/.exec(id))) return 1000 + +m[1];            // 원래 고장 주민
+  if ((m = /^t(\d+)$/.exec(id))) return 3000 + +m[1];            // 더한 고장 주민
+  if ((m = /^a(\d+)_(\d+)$/.exec(id))) return 10000 + +m[1] * 6 + +m[2];   // 길가 행인 (구역 번호 × 6 + 순번)
+  if ((m = /^botl_b(\d+)$/.exec(id))) return 400 + +m[1];        // 봇 지도자
+  if (/^boss_/.test(id)) return 300 + FORTS.findIndex(f => 'boss_' + f.id === id);   // 요새 장수
+  return null;
 }
 function makeAnimal(o) {
   const X = SPEC_LIST.find(s => s.sp === o.sp) || {};
@@ -2002,7 +2034,10 @@ function makeAnimal(o) {
   if (X.tuft) for (const sx of [-1, 1]) { const t = mesh(CG.earCat, M(new THREE.Color(furCol).multiplyScalar(0.7).getHex()), sx * 0.25, 0.38, -0.02); t.scale.set(0.55, 0.7, 0.45); t.rotation.z = -sx * 0.5; head.add(t); }
   if (o.tail) { const t = mesh(CG.hand, fur, 0, 0.3, -0.2); t.scale.setScalar(o.tail * 0.9); u.body.add(t); }
   // 눈은 주둥이 위쪽, 입은 주둥이 아래쪽에 그린다
-  const f = Object.assign({ eyeY: 50, gap: 44, blush: '#ff8f96' }, o.face || {}, look ? look.face : {}, X.face || {}, X.patch ? { patch: X.patch, patchCol: X.patchCol } : {});
+  const uid = faceUid(o);
+  const f = Object.assign({ eyeY: 50, gap: 44, blush: '#ff8f96' }, o.face || {}, uid != null ? faceFor(uid) : look ? look.face : {}, X.face || {}, X.patch ? { patch: X.patch, patchCol: X.patchCol } : {});
+  if (look && look.age === 'kid') { f.eyeW += 3; f.eyeH += 3; }
+  if (f.eyeScale) { f.eyeW *= f.eyeScale; f.eyeH *= f.eyeScale; }
   const eyes = faceShell(hd, 0.425, faceTex(f, 'open'), 2.0, 0.95, 1.25);
   const mouth = faceShell(mz, 0.193, mouthTex(o.mouth || 'w', false), 1.7, 1.45, 0.9);
   makeFace(u, f, eyes, mouth, o.mouth || 'w');
@@ -2210,14 +2245,14 @@ const SPECIES = {
   goat: { sp: '염소', ear: 'floppy', furs: [0xf6f2ea, 0xd8d0c4], muzzles: [0xfffaf2, 0xf0e8dc], tail: 0.6, mouth: 'w', horn: 'goat', beard: true },
   monkey: { sp: '원숭이', ear: 'round', furs: [0x8a5a3a, 0x9a6a48], muzzles: [0xf3d9c0, 0xf0d0b4], tail: 1.2, mouth: 'w', patch: 'monkey', patchCol: '#f3d9c0' },
   hedgehog: { sp: '고슴도치', ear: 'small', furs: [0xd8c0a0, 0xe0ccb0], muzzles: [0xf6e8d4, 0xfff2e2], tail: 0, mouth: 'y', spikes: 0x6a4a32 },
-  mole: { sp: '두더지', ear: 'none', furs: [0x4a4044, 0x5a4e50], muzzles: [0x6a5e60, 0x766a6c], tail: 0.5, mouth: 'w', noseCol: 0xf29aa8, bigNose: true, face: { eyeW: 6, eyeH: 6 } },
+  mole: { sp: '두더지', ear: 'none', furs: [0x4a4044, 0x5a4e50], muzzles: [0x6a5e60, 0x766a6c], tail: 0.5, mouth: 'w', noseCol: 0xf29aa8, bigNose: true, face: { eyeScale: 0.45 } },
   // 새
   chicken: { sp: '닭', ear: 'none', furs: [0xfffaf2, 0xd88a4a], muzzles: [0xffffff, 0xf6e6d0], tail: 1.2, mouth: 'w', beak: 'cone', comb: true },
   duck: { sp: '오리', ear: 'none', furs: [0xfff6d0, 0xf6f2ea], muzzles: [0xffffff, 0xfffaf0], tail: 0.9, mouth: 'w', beak: 'duck' },
-  owl: { sp: '부엉이', ear: 'none', furs: [0x8a6a4a, 0x9a7a5a], muzzles: [0xe8d8c0, 0xf0e2cc], tail: 0.8, mouth: 'w', beak: 'cone', beakCol: 0x5a4a3a, tuft: true, face: { eyeW: 20, eyeH: 20, iris: '#d89a20' } },
+  owl: { sp: '부엉이', ear: 'none', furs: [0x8a6a4a, 0x9a7a5a], muzzles: [0xe8d8c0, 0xf0e2cc], tail: 0.8, mouth: 'w', beak: 'cone', beakCol: 0x5a4a3a, tuft: true, face: { eyeScale: 1.3, irisLight: '#e8b030' } },
   magpie: { sp: '까치', ear: 'none', furs: [0x22242a], muzzles: [0xffffff], tail: 1.6, mouth: 'w', beak: 'cone', beakCol: 0x22242a },
   sparrow: { sp: '참새', ear: 'none', furs: [0x9a6a48, 0x8a5e40], muzzles: [0xf3e6d6, 0xeeddca], tail: 1, mouth: 'w', beak: 'cone', beakCol: 0x3a3030 },
-  eagle: { sp: '수리', ear: 'none', furs: [0x5a3e2a, 0x6a4a32], muzzles: [0xf6f2ea, 0xfffaf2], tail: 1.2, mouth: 'w', beak: 'cone', beakCol: 0xf2c43a, face: { brow: '#2a1a10' } },
+  eagle: { sp: '수리', ear: 'none', furs: [0x5a3e2a, 0x6a4a32], muzzles: [0xf6f2ea, 0xfffaf2], tail: 1.2, mouth: 'w', beak: 'cone', beakCol: 0xf2c43a, face: { browW: 9 } },
 };
 SPEC_LIST = Object.values(SPECIES);
 const REGION_SP = { sudo: ['cat', 'rabbit', 'squirrel', 'fox', 'dog', 'hamster', 'mouse', 'panda', 'monkey', 'sparrow', 'magpie', 'chicken'],
