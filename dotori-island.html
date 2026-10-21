@@ -211,7 +211,6 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
   <button class="pill" id="btnMap">지도 <kbd>M</kbd></button>
   <button class="pill" id="btnNote">수첩 <kbd>N</kbd></button>
   <button class="pill" id="btnBag">가방 <kbd>I</kbd></button>
-  <button class="pill" id="btnDex">도감 <kbd>C</kbd></button>
   <button class="pill" id="btnSet" aria-label="설정">설정</button>
 </div>
 <button id="mini" class="hud" title="한반도 지도 열기 (M)" aria-label="한반도 지도 열기"><canvas id="miniC" width="240" height="240"></canvas><span id="miniName"></span></button>
@@ -269,7 +268,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pNote" hidden><div class="panel notep" role="dialog" aria-label="수첩">
   <header><div>수첩 <span class="sub" id="noteSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><div class="tabs"><button class="tab" data-note="quest">받은 부탁</button><button class="tab" data-note="people">만난 주민</button><button class="tab" data-note="go">빠른 이동</button><button class="tab" data-note="log">지난 알림</button></div><div class="rows" id="noteRows"></div></div>
+  <div class="body"><div class="tabs"><button class="tab" data-note="quest">받은 부탁</button><button class="tab" data-note="people">만난 주민</button><button class="tab" data-note="go">빠른 이동</button><button class="tab" data-note="log">지난 알림</button><button class="tab" data-note="dex">도감 ›</button></div><div class="rows" id="noteRows"></div></div>
 </div></div>
 
 <div class="wrap" id="pBox" hidden><div class="panel" role="dialog" aria-label="집 보관함">
@@ -310,28 +309,37 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 <div class="wrap" id="pHelp" hidden><div class="panel" role="dialog" aria-label="도토리섬에 오신 걸 환영해요">
   <header><div>도토리섬에 어서 와요</div></header>
   <div class="body">
-    <p class="lede">실제 한반도 지도(남·북 전체, 실제 고도와 강)를 줄여 만든 세상이에요. 충남 공주 근처 도토리 마을에서 시작해 서울, 부산, 제주, 평양, 백두산까지 걸어서, 배를 타고 여행해 보세요. 고장마다 산과 강, 명소, 사투리가 달라요. 그리고 느긋하게 지내 보세요. 나무를 흔들어 과일을 모으고, 물고기 그림자를 노려 낚싯대를 던지고, 땅의 X 표시를 삽으로 파 보세요. 모은 것은 상점에 팔아 도토리로 바꾸고, 주민들의 부탁도 들어줄 수 있어요. 섬의 시간은 실제 시계를 따라가요.</p>
-    <div class="help">
-      <kbd>WASD · 방향키</kbd><span>걷기 (Shift를 누르면 달리기)</span>
+    <p class="lede">실제 한반도(남·북, 실제 고도와 강)를 줄여 만든 세상이에요. 도토리 마을에서 시작해 고장마다 다른 산·강·명소·사투리·특산물을 만나 보세요. 과일 흔들기, 낚시, 곤충, 화석 파기로 도토리를 모으고, 마을을 키워 한반도를 놓고 다퉈요. 시간과 계절은 실제 달력을 따라가요.</p>
+    <div class="tabs" id="helpTabs"><button class="tab on" data-help="basic">기본</button><button class="tab" data-help="travel">여행</button><button class="tab" data-help="civ">마을 · 전쟁</button><button class="tab" data-help="dark">어두운 일</button></div>
+    <div class="help" data-hpage="basic">
+      <kbd>WASD · 방향키</kbd><span>걷기 (Shift를 누르면 달리기) · 모바일은 화면 왼쪽을 끌어서 이동, 초록 버튼으로 행동</span>
       <kbd>Space · E</kbd><span>행동: 줍기, 흔들기, 말 걸기, 던지기, 파기</span>
       <kbd>1 2 3 4</kbd><span>맨손 · 잠자리채 · 낚싯대 · 삽</span>
+      <kbd>I · N · C</kbd><span>가방 · 수첩(부탁·주민·빠른 이동·알림) · 도감</span>
+      <kbd>집 보관함</kbd><span>내 텐트(집) 앞에서 Space: 80칸 보관함. 동맹 도시가 보낸 특산물도 여기로 와요</span>
+      <kbd>텃밭</kbd><span>상점의 모종·씨앗을 풀밭에 심으면 1분 반마다 자라요. 다 크면 Space로 수확 (농업 기술이면 두 배 빨리, 하나 더)</span>
+      <kbd>농사철</kbd><span>고장마다 특산 작물이 실제 달력대로 심기고 자라고 익어요. 설정 '농사 계절 → 빠르게'면 1시간 = 한 달</span>
+      <kbd>Esc</kbd><span>창 닫기 · 낚싯대 거두기</span>
+    </div>
+    <div class="help" data-hpage="travel" hidden>
       <kbd>M</kbd><span>한반도 지도: 이름으로 찾기, 도시·명소를 눌러 📍 길 안내(미니맵 화살표와 남은 km)와 🚆 빠른 이동 (한 번 가 본 곳, 도토리를 내요)</span>
       <kbd>B</kbd><span>자전거 타기·내리기 (도토리 상점에서 사요. 걷기보다 두 배 넘게 빠르고, 길 위에선 더 빨라요)</span>
-      <kbd>농사철</kbd><span>고장마다 특산 작물(쌀·고추·배추·마늘·양파·참외·수박·딸기·옥수수·감자)이 실제 달력대로 심기고 자라고 익고 거둬져요. 설정 '농사 계절 → 빠르게'를 고르면 1시간 = 한 달</span>
-      <kbd>N</kbd><span>수첩: 받은 부탁 · 만난 주민 · 빠른 이동 · 지난 알림</span>
-      <kbd>집 보관함</kbd><span>내 텐트(집) 앞에서 Space: 가방 물건을 80칸 보관함에 맡겨 둬요</span>
-      <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술(농업·건축·항해)을 배우고, 영토 밖에 새 마을을 세워요</span>
-      <kbd>교류 · 동맹</kbd><span>도시 주민의 부탁을 들어주거나 선물을 보내 우호도를 올리면 동맹이 되어 특산물을 보내 줘요</span>
-      <kbd>전쟁</kbd><span>군사 기술 → 병영 → 병사 모집 → 적 요새로 진군. 수비대를 무찌르면 성문 앞 장수와 야차룰 대장전! 이기면 요새가 내 땅, 수도를 빼앗으면 왕국이 항복해요. 왕국들도 쳐들어오니 수비 병력을 남겨 두세요</span>
-      <kbd>진영 · AI 봇</kbd><span>남부 연합·북부 연합 중 하나로 시작해요. AI 봇들이 양쪽에서 마을을 키우고 영토를 넓히고 요새와 상대 마을을 쳐요. 같은 편이라도 배신자는 뒤통수를 쳐요. 봇 지도자에게 말을 걸어 선물·휴전·선전포고를 할 수 있고, 설정 › AI 봇에서 수·성향·난이도·속도를 정해요</span>
       <kbd>나무배</kbd><span>항해를 배우고 항구에서 배를 만들면, 맨손으로 물가를 보고 Space를 눌러 바다·강을 자유롭게 오가요</span>
-      <kbd>I · C</kbd><span>가방 · 도감</span>
-      <kbd>Esc</kbd><span>창 닫기 · 낚싯대 거두기</span>
-      <kbd>야차룰 맞짱</kbd><span>주민에게 말을 걸고 "야차룰로 한판 붙자!"를 고르세요. 주먹, 막기(F), 구르기(Shift), 가방 속 돌이나 과일 던지기(E)까지 전부 허용!</span>
-      <kbd>여객선</kbd><span>목포↔제주, 포항↔울릉도↔독도, 인천↔백령도. 부두에서 배를 타요.</span>
-      <kbd>모바일</kbd><span>화면 왼쪽을 끌어서 이동, 초록 버튼으로 행동</span>
+      <kbd>여객선</kbd><span>목포↔제주, 포항↔울릉도↔독도, 인천↔백령도. 부두에서 배를 타요</span>
     </div>
-    <p class="fine">낚시 팁: 찌가 몇 번 톡톡 흔들리다가 "풍덩" 하고 크게 잠기는 순간에 행동 키를 누르세요. 너무 일찍 누르면 물고기가 달아나요.</p>
+    <div class="help" data-hpage="civ" hidden>
+      <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술을 배우고, 영토 밖에 새 마을을 세워요</span>
+      <kbd>교류 · 동맹</kbd><span>도시 주민의 부탁을 들어주거나 선물을 보내 우호도를 올리면 동맹이 되어 특산물을 보내 줘요</span>
+      <kbd>전쟁</kbd><span>군사 기술 → 병영 → 병사 모집 → 적 요새로 진군. 수비대를 무찌르면 성문 앞 장수와 야차룰 대장전! 이기면 요새가 내 땅, 수도를 빼앗으면 왕국이 항복해요</span>
+      <kbd>진영 · AI 봇</kbd><span>남부 연합·북부 연합 중 하나로 시작해요. 봇들도 양쪽에서 마을을 키우고 싸워요. 같은 편이라도 배신자는 뒤통수를 쳐요. 설정에서 봇 수·성향·난이도를 정해요</span>
+    </div>
+    <div class="help" data-hpage="dark" hidden>
+      <kbd>야차룰 맞짱</kbd><span>주민에게 말을 걸고 "야차룰로 한판 붙자!"를 고르세요. 주먹, 막기(F), 구르기(Shift), 가방 속 물건 던지기(E)까지 전부 허용!</span>
+      <kbd>서리</kbd><span>고장 들판 작물이 익으면 '서리하기'로 몰래 거둘 수 있어요. 깨어 있는 주민 눈에 띄면 수배 지수가 오르고 우호도가 깎여요 (밤엔 덜 보여요)</span>
+      <kbd>술</kbd><span>상점에서 사서 마시거나 주민과 한잔. 취하면 비틀비틀, 맞짱에선 취권</span>
+      <kbd>소매치기 · 사기</kbd><span>주민 주머니를 털거나 싸구려를 비싸게 팔 수 있어요. 들키면 수배 지수가 오르고 밤에 순찰이 잡으러 와요</span>
+    </div>
+    <p class="fine">낚시 팁: 찌가 몇 번 톡톡 흔들리다가 "풍덩" 하고 크게 잠기는 순간에 행동 키를 누르세요.</p>
     <div id="sidePick" hidden style="display:flex;flex-direction:column;gap:8px">
       <p class="lede" style="font-family:var(--f-display)">어느 진영으로 시작할까요?</p>
       <button class="btn" data-side="south" style="font-size:17px;padding:12px">🌸 남부 연합 · 충남 공주 도토리 마을</button>
@@ -402,11 +410,17 @@ for (const [k, f] of Object.entries(FLOWERS)) {
 defItem('sapling_apple', { n: '사과 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'apple' });
 defItem('sapling_orange', { n: '오렌지 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'orange' });
 defItem('sapling_peach', { n: '복숭아 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'peach' });
+// 농작물: 고장 들판 서리나 내 텃밭에서 얻는다
+for (const [id, n, i, v] of [['rice', '햅쌀', '🌾', 180], ['cabbage', '배추', '🥬', 220], ['pepper', '고추', '🌶️', 160], ['garlic', '마늘', '🧄', 150], ['onion', '양파', '🧅', 110],
+  ['melon', '참외', '🍈', 260], ['watermelon', '수박', '🍉', 420], ['strawberry', '딸기', '🍓', 240], ['corn', '옥수수', '🌽', 130], ['potato', '감자', '🥔', 100]]) defItem('crop_' + id, { n, i, v, stack: 10, cat: '농작물' });
+// 텃밭 모종: 풀밭에 심으면 몇 분마다 자라고, 다 크면 수확한다
+for (const [id, n, buy] of [['potato', '씨감자', 200], ['corn', '옥수수 씨', 200], ['pepper', '고추 모종', 260], ['cabbage', '배추 모종', 300], ['strawberry', '딸기 모종', 420], ['watermelon', '수박 모종', 500]])
+  defItem('seed_' + id, { n, i: '🌱', v: Math.round(buy / 4), buy, stack: 10, cat: '모종', place: 'plot', crop: id });
 defItem('bike', { n: '자전거', i: '🚲', v: 1500, buy: 6000, cat: '탈것' });
 defItem('lamp', { n: '정원 램프', i: '🏮', v: 300, buy: 1200, cat: '가구', place: 'lamp' });
 defItem('bench', { n: '통나무 벤치', i: '🪑', v: 375, buy: 1500, cat: '가구', place: 'bench' });
 defItem('wood', { n: '목재', i: '🪵', v: 60, buy: 300, stack: 30, cat: '재료' });
-const SHOP_STOCK = ['seed_tulip', 'seed_cosmos', 'seed_daisy', 'sapling_apple', 'sapling_orange', 'lamp', 'bench', 'makgeolli', 'soju', 'bike'];
+const SHOP_STOCK = ['seed_tulip', 'seed_cosmos', 'seed_daisy', 'sapling_apple', 'sapling_orange', 'seed_potato', 'seed_corn', 'seed_pepper', 'seed_cabbage', 'seed_strawberry', 'seed_watermelon', 'lamp', 'bench', 'makgeolli', 'soju', 'bike'];
 // 상점을 넓히면 별관에서 더 판다
 const SHOP_STOCK2 = ['wood', 'sapling_peach'];
 // 동맹 도시가 보내 주는 고장 특산물
@@ -1509,7 +1523,8 @@ function buildCrops(cx, cz) {
   }
   for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) {
     if (!ok(x, z)) continue;
-    const i = idx(x, z), k = cropAt(x, z), L = cropLook(k, prov[i] >= 18 ? 12 : 0);
+    const i = idx(x, z), k = cropAt(x, z), sh = prov[i] >= 18 ? 12 : 0, L = cropLook(k, sh);
+    if (S.taken && S.taken[tk(x, z)] === gameNow().getFullYear() + cropStage(CROP_INFO[k].id, sh).st) continue;
     if (L.over === 'water' || L.over === 'green' || L.over === 'gold') {   // 논 물, 우거진 벼 잎층, 익은 벼 잎층
       const lx = (x & 3) === 0 ? 0.1 : 0, rx = (x & 3) === 3 ? 0.1 : 0, tz0 = (z & 3) === 0 ? 0.1 : 0, bz1 = (z & 3) === 3 ? 0.1 : 0, [qr, qg, qb] = L.over === 'water' ? [0.5, 0.68, 0.74] : L.over === 'green' ? [0.3, 0.52, 0.2] : [0.72, 0.6, 0.26];
       quad(x + lx, z + tz0, x + 1 - rx, z + 1 - bz1, y0 + (L.over === 'water' ? 0.015 : 0.12), qr, qg, qb);
@@ -2079,17 +2094,12 @@ function makeGinseng() {
   for (let k = 0; k < 4; k++) { const l = mesh(accGeo('gleaf', () => new THREE.SphereGeometry(0.09, 8, 6)), M(0x3f8a3a), -0.3 + k * 0.2, 0.1, 0); l.scale.set(1, 0.6, 1); g.add(l); }
   return g;
 }
-function makeVeg() {
-  const g = new THREE.Group();
-  for (let k = 0; k < 3; k++) { const c = mesh(accGeo('cabb', () => new THREE.SphereGeometry(0.16, 10, 8)), M(k % 2 ? 0xa8d880 : 0x90c86a), -0.3 + k * 0.3, 0.12, (k % 2 ? 0.08 : -0.06)); c.scale.set(1, 0.8, 1); g.add(c); }
-  return g;
-}
 function makeReed() {
   const g = new THREE.Group();
   for (let k = 0; k < 9; k++) { const a = k * 2.2, r = 0.08 + (k % 3) * 0.12, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 0.7 + (k % 4) * 0.12; const s = mesh(accGeo('reed', () => new THREE.CylinderGeometry(0.012, 0.018, 1, 4)), M(0xc8b080), x, h / 2, z); s.scale.y = h; s.rotation.z = Math.sin(a) * 0.12; g.add(s); const tuft = mesh(accGeo('rtuft', () => new THREE.SphereGeometry(0.06, 6, 5)), M(0xe8dcc0), x, h, z); tuft.scale.set(0.7, 1.6, 0.7); g.add(tuft); }
   return g;
 }
-const FIELD_MAKE = { canola: makeCanola, stonewall: makeStoneWall, ginseng: makeGinseng, veg: makeVeg, reed: makeReed };
+const FIELD_MAKE = { canola: makeCanola, stonewall: makeStoneWall, ginseng: makeGinseng, reed: makeReed };
 /* --- 마을 발전 건물 --- */
 // 마을 게시판: 통나무 기둥 두 개에 판자, 알록달록한 쪽지
 function makeBoard() {
@@ -2753,7 +2763,7 @@ function makePlayer() {
 const ents = new Set();
 const chunkEnts = Array.from({ length: NCX * NCZ }, () => []);
 const loadedCh = new Set();
-const BLOCK = { stonewall: 1, ginseng: 1, pagoda: 1, pavilion: 1, skyscraper: 1, tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1, bothall: 1 };
+const BLOCK = { plot: 1, stonewall: 1, ginseng: 1, pagoda: 1, pavilion: 1, skyscraper: 1, tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1, bothall: 1 };
 const KEEP = { house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, barracks: 1, bothall: 1 };
 const inWindow = e => Math.abs(e.cx - camPos.x) < 32 && e.cz - camPos.z > -38 && e.cz - camPos.z < 15;
 function showEnt(e) {
@@ -3273,7 +3283,6 @@ function fieldAt(p, x, z, c) {
     if (s.kind === 'reed') return c < 0.5 ? 'reed' : null;
     if (s.kind === 'bamboo') return c < 0.14 ? 'bambooTree' : null;
   }
-  if (p === PV.GW && z % 2 === 0 && c < 0.4) { const h = eg(x >> 2, z >> 2); if (h > 650 && h < 1300) return 'veg'; }
   return null;
 }
 const natOn = new Map();      // 구역 → 그 구역에 만든 자연물
@@ -3330,6 +3339,7 @@ function spawnPlaced(rec) {
   if (rec.k === 'lamp') return addEnt({ type: 'lamp', rec, make: makeLamp, x: rec.x, z: rec.z }, rec.x, rec.z);
   if (rec.k === 'bench') return addEnt({ type: 'bench', rec, make: makeBench, x: rec.x, z: rec.z }, rec.x, rec.z);
   if (rec.k === 'tree') { const e = addTree(rec.x, rec.z, rec.fruit, false); e.rec = rec; return e; }
+  if (rec.k === 'plot') { const st = plotStage(rec); return addEnt({ type: 'plot', rec, stage: st, make: () => makePlot(rec.crop, st), x: rec.x, z: rec.z }, rec.x, rec.z); }
   if (rec.k === 'sapling') { const st = saplingStage(rec); return addEnt({ type: 'sapling', rec, stage: st, make: () => makeSapling(st, rec.fruit), x: rec.x, z: rec.z }, rec.x, rec.z); }
 }
 const STAGE_MS = 60000;
@@ -3645,15 +3655,9 @@ function tributeTick() {
   for (const c of Object.keys(S.civ.ally)) {
     if (S.civ.play - (S.civ.sent[c] ?? -1e9) < TRIBUTE_SEC) continue;
     S.civ.sent[c] = S.civ.play; const [id, q0] = CITY_GOODS[c] || ['apple', 1], q = q0 * ((cityPersona(c) || { m: {} }).m.tribute || 1);
-    S.civ.store[id] = Math.min(30, (S.civ.store[id] || 0) + q); got.push(c);
+    if (putIn(boxArr(), id, q)) got.push(c);
   }
-  if (got.length) { dirty(); SFX.coin(); toast(`📦 ${got.join('·')}에서 특산물이 도착했어요! 마을 발전(V) › 교류에서 받으세요.`); if (!$('#pCiv').hidden) renderCiv(); }
-}
-function collectStore() {
-  let got = 0, left = 0;
-  for (const id of Object.keys(S.civ.store)) { while (S.civ.store[id] > 0 && addItem(id)) { S.civ.store[id]--; got++; } left += S.civ.store[id]; if (!S.civ.store[id]) delete S.civ.store[id]; }
-  if (got) { SFX.pickup(); toast(left ? `특산물 ${got}개를 받았어요. 가방이 가득 차서 ${left}개는 창고에 남겼어요.` : `특산물 ${got}개를 가방에 넣었어요!`); } else toast('가방이 가득 찼어요.');
-  dirty(); renderCiv();
+  if (got.length) { dirty(); SFX.coin(); toast(`📦 ${got.join('·')}에서 특산물이 집 보관함에 도착했어요!`); if (!$('#pCiv').hidden) renderCiv(); }
 }
 /* --- 나무배: 바다·강·다리 밑으로 다닌다 --- */
 const WATER_T = t => t === T.SEA || t === T.RIVER || t === T.BRIDGE;
@@ -3695,6 +3699,67 @@ function setBike(on, quiet) {
     const u = P.mesh.userData; u.lL.rotation.x = u.lR.rotation.x = 0;
     if (!quiet) { P.hop = 0.3; SFX.pickup(); }
   }
+  dirty();
+}
+/* --- 내 텃밭: 모종을 심은 칸. 몇 분마다 한 단계씩 자라 4단계(다 큼)에서 수확한다 (농업 기술이면 두 배 빨리) --- */
+const PLOT_MS = 90000;
+const plotStage = rec => Math.min(3, Math.floor((Date.now() - rec.t) / (S.civ.tech.farm ? PLOT_MS / 2 : PLOT_MS)));
+const PLOT_LOOK = { cabbage: [['young', 0.2], ['young', 0.9], ['heading', 0.5], ['mature', 0.5]], pepper: [['seedling', 0.3], ['grow', 0.2], ['grow', 0.9], ['mature', 0.5]],
+  potato: [['sprout', 0.3], ['grow', 0.5], ['flower', 0.5], ['harvest', 0.5]], corn: [['sprout', 0.5], ['grow', 0.3], ['grow', 0.9], ['mature', 0.5]],
+  watermelon: [['seedling', 0.5], ['grow', 0.4], ['grow', 0.9], ['mature', 0.5]], strawberry: [['young', 0.2], ['young', 0.6], ['young', 0.95], ['fruit', 0.5]] };
+const plotCache = {};
+function plotGeo(crop, st) {
+  const key = crop + st; if (plotCache[key]) return plotCache[key];
+  const [sn, p] = PLOT_LOOK[crop][st], L = CROP_LOOK[crop](sn, p), pos = [], nor = [], col = [];
+  if (L.over === 'mulch') for (const rz of [-0.25, 0.25]) for (const [x, z] of [[-0.46, rz - 0.16], [-0.46, rz + 0.16], [0.46, rz + 0.16], [-0.46, rz - 0.16], [0.46, rz + 0.16], [0.46, rz - 0.16]]) { pos.push(x, 0.065, z); nor.push(0, 1, 0); col.push(0.17, 0.17, 0.19); }
+  for (const pl of L.plants) {
+    if (pl.prob) continue;
+    const g = bakePlant(pl.parts);
+    for (const oz of pl.zs) for (const ox of pl.xs) for (let j = 0; j < g.pos.length; j += 3) { pos.push(g.pos[j] + ox - 0.5, g.pos[j + 1] + 0.06, g.pos[j + 2] + oz - 0.5); nor.push(g.nor[j], g.nor[j + 1], g.nor[j + 2]); col.push(g.col[j], g.col[j + 1], g.col[j + 2]); }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeBoundingSphere(); return plotCache[key] = geo;
+}
+function makePlot(crop, st) {
+  const g = new THREE.Group();
+  put(g, mesh(G.box, M(0x8a6846), 0, 0.03, 0)).scale.set(0.94, 0.06, 0.94);
+  const m = new THREE.Mesh(plotGeo(crop, st), cropMat); m.castShadow = true; m.receiveShadow = true; g.add(m);
+  return g;
+}
+function harvestPlot(e) {
+  const id = 'crop_' + e.rec.crop, it = ITEMS[id], n = 3 + (S.civ.tech.farm ? 1 : 0);
+  let got = 0; for (let k = 0; k < n; k++) if (addItem(id)) got++;
+  if (!got) { toast('가방이 가득 찼어요.'); SFX.miss(); return; }
+  S.placed = S.placed.filter(r => r !== e.rec); removeEnt(e);
+  burst(e.rec.x + 0.5, 0.3, e.rec.z + 0.5, 0x8a6a44, 8, 1, 0.6); P.crouch = 0.3; SFX.pickup();
+  toast(`${it.i} ${it.n} ${got}개를 거뒀어요!${got < n ? ' (가방이 가득 차서 나머지는 두고 왔어요)' : ''}`); dirty();
+}
+/* --- 서리: 고장 들판의 작물이 익으면 몰래 거둘 수 있다. 근처 주민 눈에 띄면 수배 지수가 오르고 우호도가 깎인다 --- */
+const RIPE = { rice: ['ripe'], cabbage: ['mature'], pepper: ['mature'], garlic: ['harvest'], onion: ['mature', 'harvest'], melon: ['mature'], watermelon: ['mature'], strawberry: ['fruit'], corn: ['mature'], potato: ['flower', 'yellow', 'harvest'] };
+function ripeField(x, z) {
+  const i = idx(x, z); if (tiles[i] !== T.PADDY || road[i] || resv[i]) return null;
+  const k = cropAt(x, z), c = CROP_INFO[k], st = cropStage(c.id, prov[i] >= 18 ? 12 : 0).st;
+  if (!RIPE[c.id].includes(st)) return null;
+  const mark = gameNow().getFullYear() + st; if ((S.taken || {})[tk(x, z)] === mark) return null;
+  return { k, c, mark };
+}
+function stealCrop(x, z) {
+  const f = ripeField(x, z); if (!f) return;
+  const id = 'crop_' + f.c.id, n = 1 + (GR() < 0.4 ? 1 : 0);
+  let got = 0; for (let k = 0; k < n; k++) if (addItem(id)) got++;
+  if (!got) { toast('가방이 가득 찼어요.'); SFX.miss(); return; }
+  const T0 = S.taken || (S.taken = {}); if (Object.keys(T0).length > 3000) S.taken = {}; (S.taken)[tk(x, z)] = f.mark;
+  farmQ.add(Math.floor(z / CH) * NCX + Math.floor(x / CH));   // 거둔 칸은 비워서 다시 그린다
+  P.crouch = 0.3; burst(x + 0.5, 0.2, z + 0.5, 0x8a6a44, 5, 0.8, 0.5);
+  // 보는 눈: 깨어 있는 주민이 9칸 안에 있으면 들킨다 (밤엔 덜 보인다)
+  const h = hour(), night = h >= 21 || h < 5;
+  const eye = villagers.find(v => v.vis && !v.def.boss && !v.def.botLeader && Math.hypot(v.x - P.x, v.z - P.z) < (night ? 5 : 9));
+  if (eye) {
+    const st = VS(eye.id); st.fr = Math.max(0, st.fr - 2); townRelDrop(eye, 2); heatAdd(12); SFX.miss();
+    say(eye, `${SHOUT[eye.def.region] || '도둑이야!'} 남의 ${f.c.n}을 왜 따!`);
+    toast(`🚨 ${eye.def.name}에게 들켰어요! ${ITEMS[id].n} ${got}개를 챙기긴 했지만…`);
+  } else { SFX.pickup(); toast(`🤫 ${ITEMS[id].i} ${ITEMS[id].n} ${got}개를 몰래 서리했어요.`); }
   dirty();
 }
 // 마을 발전 건물 앞에서 할 수 있는 일
@@ -3775,13 +3840,7 @@ function renderCiv() {
     }
     note('영토(지도의 주황 테두리) 밖, 도시에서 떨어진 빈 풀밭에 서서 세워요. 마을끼리는 흙길로 이어지고, 길 위에서는 조금 더 빨리 걸어요.');
   } else if (civTab === 'ally') {
-    const st = Object.entries(S.civ.store).filter(([, q]) => q > 0);
-    if (st.length) {
-      const r = civRow('📦', '도착한 특산물', '동맹 도시가 보내 온 선물이에요.', null, cbtn('받기', collectStore));
-      const box = document.createElement('div'); box.className = 'cost';
-      for (const [id, q] of st) { const i = document.createElement('i'); i.textContent = `${ITEMS[id].i} ${ITEMS[id].n} ×${q}`; box.append(i); }
-      r.querySelector('.nm').append(box);
-    }
+    note('동맹 도시가 보내는 특산물은 집 보관함(텐트·내 집 앞에서 Space)으로 바로 들어와요.');
     const list = CITIES.filter(c => S.found[c.name] || S.civ.rel[c.name]).sort((a, b) => (S.civ.ally[b.name] ? 1 : 0) - (S.civ.ally[a.name] ? 1 : 0) || (S.civ.rel[b.name] || 0) - (S.civ.rel[a.name] || 0));
     if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = '아직 가 본 도시가 없어요. 도시에 가서 주민과 친해져 보세요.'; rows.append(e); }
     for (const c of list) {
@@ -4074,7 +4133,7 @@ function arrive(m) {
 }
 function captureFort(f) {
   const st = fortSt(f), k = f.k; st.own = 'me'; st.g = 0; refreshFort(f); wmAdd(REP.wmKing);
-  const loot = f.cap ? 15000 : 6000; S.coins += loot; S.civ.store.iron = Math.min(30, (S.civ.store.iron || 0) + 8); updateHUD();
+  const loot = f.cap ? 15000 : 6000; S.coins += loot; putIn(boxArr(), 'iron', 8); updateHUD();
   reveal(f.cx, f.cz, 24); warLog(`🏯 ${f.n} 점령! (전리품 도토리 ${fmt(loot)} · 철광석 8은 마을 창고로)`);
   let fell = false;
   if (f.cap || k.forts.every(o => fortSt(o).own === 'me')) {
@@ -4730,7 +4789,7 @@ const VS = id => S.vill[id] || (S.vill[id] = { fr: 0, quest: null });
 const vSpeaker = v => ({ name: v.def.name, sub: v.def.role ? `${v.def.sp} · ${v.def.role}` : v.def.region ? `${v.def.sp} · ${PERSONA[v.def.region].n}` : v.def.sp, color: v.def.color, pitch: v.def.pitch, fr: VS(v.id).fr });
 function greetFor(v, h) { const g = v.def.greet; return h < 11 ? g.m : h < 17 ? g.d : h < 20 ? g.e : g.n; }
 function makeQuest(v, h) {
-  const pool = ['apple', 'orange', 'peach', 'shell', 'stone', 'weed', 'crucian', 'horsemack', 'coconut'];
+  const pool = ['apple', 'orange', 'peach', 'shell', 'stone', 'weed', 'crucian', 'horsemack', 'coconut', 'crop_potato', 'crop_corn', 'crop_pepper'];
   if (inHours(h, [4, 19])) pool.push('cabbage');
   const item = pick(pool), it = ITEMS[item], PS = personaOf(v);
   const reward = Math.max(300, Math.round(it.v * 3 / 10 * (PS ? PS.m.reward : 1)) * 10);
@@ -5276,6 +5335,8 @@ function currentAction() {
   if (frontOcc(o => o.type === 'shop')) return { l: '말 걸기', f: talkShop };
   const po = frontOcc(o => o.type === 'pier'); if (po) return { l: '배 타기', f: () => rideFerry(po.pier) };
   const co = frontOcc(o => CIV_ACT[o.type]); if (co) return CIV_ACT[co.type](co);
+  const pl = frontOcc(o => o.type === 'plot'); if (pl) return pl.stage >= 3 ? { l: '수확', f: () => harvestPlot(pl) } : { l: '살펴보기', f: () => toast(['갓 심은 모종이다.', '쑥쑥 자라는 중.', '거의 다 자랐다! 조금만 더.'][pl.stage]) };
+  for (const t of [{ x: Math.floor(P.x), z: Math.floor(P.z) }, ...frontTiles()]) if (ripeField(t.x, t.z)) return { l: '서리하기', f: () => stealCrop(t.x, t.z) };
   const ls = launchSpot(); if (ls) return { l: '배 띄우기', f: () => launch(ls) };
   const pt = { x: Math.floor(P.x), z: Math.floor(P.z) }; pt.k = tk(pt.x, pt.z);
   for (const t of [pt, ...frontTiles()]) if (groundMap.has(t.k)) return { l: '줍기', f: () => pickup(t.k) };
@@ -5426,9 +5487,10 @@ function placeFromSlot(i) {
   const rec = { k: it.place, x: ft.x, z: ft.z, t: Date.now() };
   if (it.place === 'flower') rec.f = it.flower;
   if (it.place === 'sapling') rec.fruit = it.fruit;
+  if (it.place === 'plot') rec.crop = it.crop;
   S.placed.push(rec); spawnPlaced(rec); removeItem(s.id, 1);
   SFX.dig(); burst(ft.x + 0.5, 0.1, ft.z + 0.5, 0x8a6a44, 6, 1, 0.5); P.crouch = 0.3;
-  closePanels(); toast(it.place === 'flower' || it.place === 'sapling' ? `${josa(it.n, '을', '를')} 심었다!` : `${josa(it.n, '을', '를')} 놓았다!`); dirty();
+  closePanels(); toast(it.place === 'flower' || it.place === 'sapling' || it.place === 'plot' ? `${josa(it.n, '을', '를')} 심었다!` : `${josa(it.n, '을', '를')} 놓았다!`); dirty();
 }
 function dropFromSlot(i) {
   const s = S.inv[i]; if (!s) return;
@@ -5512,6 +5574,7 @@ const panelOpen = () => panels.some(p => !$(p).hidden);
 function closePanels() { if (!started) return; for (const p of panels) $(p).hidden = true; canvas.focus(); }
 function openPanel(id, force) { if (!started || FT || (D.open && !force)) return; for (const p of panels) $(p).hidden = p !== id; SFX.ui(); }
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
+document.querySelectorAll('[data-help]').forEach(b => b.addEventListener('click', () => { SFX.ui(); document.querySelectorAll('[data-help]').forEach(o => o.classList.toggle('on', o === b)); document.querySelectorAll('[data-hpage]').forEach(p => p.hidden = p.dataset.hpage !== b.dataset.help); }));
 document.querySelectorAll('.wrap').forEach(w => w.addEventListener('pointerdown', e => { if (e.target === w) closePanels(); }));
 // 가방
 let bagSel = -1;
@@ -5534,7 +5597,7 @@ function renderBag() {
   const acts = det.querySelector('.acts');
   if (s.id === 'bike') { const b = document.createElement('button'); b.className = 'btn'; b.textContent = P.bike ? '내리기' : '타기'; b.onclick = () => { closePanels(); setBike(!P.bike); }; acts.append(b); }
   if (it.drink) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = '마시기'; b.onclick = () => drinkFromSlot(bagSel); acts.append(b); }
-  if (it.place) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = it.place === 'flower' || it.place === 'sapling' ? '앞에 심기' : '앞에 놓기'; b.onclick = () => { placeFromSlot(bagSel); bagSel = -1; }; acts.append(b); }
+  if (it.place) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = it.place === 'flower' || it.place === 'sapling' || it.place === 'plot' ? '앞에 심기' : '앞에 놓기'; b.onclick = () => { placeFromSlot(bagSel); bagSel = -1; }; acts.append(b); }
   const d = document.createElement('button'); d.className = 'btn alt'; d.textContent = '내려놓기'; d.onclick = () => { dropFromSlot(bagSel); bagSel = -1; }; acts.append(d);
 }
 // 상점
@@ -5565,7 +5628,7 @@ function renderShop() {
   } else {
     for (const id of [...SHOP_STOCK, ...(S.civ.built.annex ? SHOP_STOCK2 : [])]) {
       const it = ITEMS[id];
-      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : it.place ? '섬 어디든 놓을 수 있어요' : it.drink ? '가방에서 마시거나 주민과 한잔해요 (취하면 비틀비틀)' : id === 'bike' ? '가방에 넣고 B로 타요. 걷기보다 두 배 넘게 빨라요' : '마을 발전에 쓰는 재료예요 (별관)', fmt(it.buy), [btn('사기', () => {
+      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : it.place === 'plot' ? '풀밭에 심으면 1분 반마다 자라요. 다 크면 Space로 수확 (3개)' : it.place ? '섬 어디든 놓을 수 있어요' : it.drink ? '가방에서 마시거나 주민과 한잔해요 (취하면 비틀비틀)' : id === 'bike' ? '가방에 넣고 B로 타요. 걷기보다 두 배 넘게 빨라요' : '마을 발전에 쓰는 재료예요 (별관)', fmt(it.buy), [btn('사기', () => {
         if (S.coins < it.buy) { toast('도토리가 부족해요.'); SFX.miss(); return; }
         if (!addItem(id)) { toast('가방이 가득 찼어요.'); SFX.miss(); return; }
         S.coins -= it.buy; SFX.coin(); updateHUD(); toast(`${josa(it.n, '을', '를')} 샀어요!`); renderShop();
@@ -5635,7 +5698,6 @@ const openDex = () => { renderDex(); openPanel('#pDex'); };
 const openSet = () => { renderSettings(); openPanel('#pSet'); };
 $('#btnBag').addEventListener('click', openBag);
 $('#btnCiv').addEventListener('click', () => openCiv());
-$('#btnDex').addEventListener('click', openDex);
 $('#btnSet').addEventListener('click', openSet);
 $('#clock').addEventListener('click', openSet);
 document.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => { if (!started) return; setTool(b.dataset.tool); SFX.ui(); canvas.focus(); }));
@@ -5790,12 +5852,6 @@ function drawMarks(ctx, k, ox, oz, big) {
   const vis = (x, z) => X(x) > -40 && X(x) < W + 40 && Z(z) > -20 && Z(z) < H + 20;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
   const label = (x, z, s, size, col) => { ctx.font = `${size}px Jua, "Gowun Dodum", sans-serif`; ctx.lineWidth = Math.max(2, size / 5); ctx.strokeStyle = 'rgba(255,251,235,.92)'; ctx.strokeText(s, x, z); ctx.fillStyle = col; ctx.fillText(s, x, z); };
-  if (false) for (const p of KR_PROV) if (seenAt(p.x, p.z) && vis(p.x, p.z) && !['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '평양', '남포'].includes(p.s)) label(X(p.x), Z(p.z), p.n, 15, 'rgba(90,70,40,.55)');
-  if (false) { // 여객선 항로 (큰 지도는 drawGeo)
-    ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2;
-    for (const p of PIERS) for (const id of p.to) { const q = PIERS.find(o => o.id === id); if (!q || p.id > q.id || p.x == null || q.x == null || !S.found['pier:' + p.id] || !S.found['pier:' + q.id]) continue; ctx.beginPath(); ctx.moveTo(X(p.x), Z(p.z)); ctx.lineTo(X(q.x), Z(q.z)); ctx.stroke(); }
-    ctx.setLineDash([]);
-  }
   if (!big) for (const p of PIERS) if (p.x != null && S.found['pier:' + p.id] && vis(p.x, p.z)) label(X(p.x + 0.5), Z(p.z + 0.5), '⚓', big ? 14 : 12, '#2f6fa8');
   if (!big) for (const l of LANDMARKS) if (S.found['lm:' + l.name] && vis(l.x, l.z)) { label(X(l.x), Z(l.z), '★', big ? 14 : 12, '#e0453c'); if (big && k > 0.6) label(X(l.x), Z(l.z) + 13, l.name, 11, '#7a3a2a'); }
   if (!big) for (const c of CITIES) if (S.found[c.name] && vis(c.x, c.z)) {
@@ -5991,8 +6047,7 @@ function drawWorldMap() {
   }
   const full = mapV.span >= NX * 0.98;
   document.querySelectorAll('#segZoom button').forEach(b => b.classList.toggle('on', (b.dataset.z === '0') === full));
-  let got = 0; for (let i = 0; i < CX * CZ; i++) if (seen[i] && LANDC[i]) got++;
-  $('#mapSub').textContent = `${placeName()} · 탐험 ${Math.round(got / LAND_C * 1000) / 10}%${full ? '' : ` · ${Math.round(NX / mapV.span * 10) / 10}배`}`;
+  $('#mapSub').textContent = `${placeName()} · 가 본 도시 ${CITIES.filter(c => S.found[c.name]).length}/${CITIES.length}${full ? '' : ` · ${Math.round(NX / mapV.span * 10) / 10}배`}`;
 }
 const mapRedraw = () => { if (mapDrawQ) return; mapDrawQ = true; requestAnimationFrame(() => { mapDrawQ = false; if (!$('#pMap').hidden) drawWorldMap(); }); };
 function mapView(span, cx, cz) { mapV.span = clamp(span, MAP_MIN, NX); mapV.cx = cx; mapV.cz = cz; mapRedraw(); }
@@ -6319,7 +6374,7 @@ function renderNote() {
     const c = uiBtn('알림 지우기', () => { S.log = []; dirty(); renderNote(); }, true); c.style.alignSelf = 'flex-end'; rows.append(c);
   }
 }
-document.querySelectorAll('[data-note]').forEach(b => b.addEventListener('click', () => { noteTab = b.dataset.note; SFX.ui(); renderNote(); }));
+document.querySelectorAll('[data-note]').forEach(b => b.addEventListener('click', () => { if (b.dataset.note === 'dex') { openDex(); return; } noteTab = b.dataset.note; SFX.ui(); renderNote(); }));
 $('#btnNote').addEventListener('click', () => openNote());
 // 알림 기록 (최근 60개, 세이브에 남는다)
 function logNote(msg) {   // 부팅 중 일찍 불려도 되도록 함수 속성에 마지막 알림을 둔다
@@ -6358,6 +6413,7 @@ function renderBox() {
   fill($('#boxGrid'), box, S.inv); fill($('#boxBag'), S.inv, box);
   $('#boxCount').textContent = `${box.filter(Boolean).length} / ${BOX_N}칸`;
 }
+if (S.civ.store && Object.keys(S.civ.store).length) { for (const [id, q] of Object.entries(S.civ.store)) if (ITEMS[id] && q > 0) putIn(boxArr(), id, q); S.civ.store = {}; dirty(); }
 $('#boxAllIn').addEventListener('click', () => { let left = 0; S.inv.forEach((s, i) => { if (!s) return; const n = putIn(boxArr(), s.id, s.q); s.q -= n; if (!s.q) S.inv[i] = null; else left++; }); SFX.pickup(); if (left) toast('보관함이 가득 차서 다 못 넣었어요.'); dirty(); renderBox(); });
 $('#boxSort').addEventListener('click', () => {
   const tot = {}; for (const s of boxArr()) if (s) tot[s.id] = (tot[s.id] || 0) + s.q;
@@ -7052,6 +7108,8 @@ function slowTick() {
   const d = gameNow(), key = dayKey(d);
   if (key !== curDay) { curDay = key; setupDaily(); }
   for (const e of allTrees) refreshFruit(e);
+  const plots = []; for (const e of ents) if (e.type === 'plot') plots.push(e);
+  for (const e of plots) { const st = plotStage(e.rec); if (st !== e.stage) { removeEnt(e); e.stage = st; e.mesh = null; e.keep = false; e.make = () => makePlot(e.rec.crop, st); addEnt(e, e.rec.x, e.rec.z); if (st >= 3) burst(e.rec.x + 0.5, 0.5, e.rec.z + 0.5, 0xfff2a0, 6, 1, 0.6); } }
   const saps = []; for (const e of ents) if (e.type === 'sapling') saps.push(e);
   for (const e of saps) {
     const st = saplingStage(e.rec);
