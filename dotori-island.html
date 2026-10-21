@@ -120,7 +120,8 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 #miniC{width:100%;height:100%;display:block}
 #miniName{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-family:var(--f-display);font-size:12px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.75);pointer-events:none;white-space:nowrap}
 .mapp{width:min(100%,820px)}
-#mapC{width:100%;height:auto;border-radius:16px;display:block;background:#d8c9a0}
+#mapC{width:auto;height:auto;max-width:100%;max-height:calc(100vh - 230px);margin:0 auto;border-radius:16px;display:block;background:#d8c9a0;touch-action:none;cursor:grab}
+#mapC:active{cursor:grabbing}
 @media (max-width:520px){#mini{width:96px;height:96px;top:calc(var(--gt) + 64px)}}
 /* 마을 발전 (문명식 발전) */
 .civp{width:min(100%,640px)}
@@ -243,7 +244,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 
 <div class="wrap" id="pMap" hidden><div class="panel mapp" role="dialog" aria-label="한반도 지도">
   <header><div>한반도 지도 <span class="sub" id="mapSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><canvas id="mapC" width="1098" height="1734"></canvas><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">가 본 곳만 지도에 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
+  <div class="body"><canvas id="mapC" width="1098" height="1734"></canvas><div class="setrow"><span>보기</span><div class="seg" id="segZoom"><button data-z="0">전국</button><button data-z="1">내 주변 확대</button></div></div><p class="fine">마우스 휠(휴대폰은 두 손가락)로 확대·축소, 끌어서 이동, 누르면 그 자리 확대 ↔ 전국. 가 본 곳만 지도에 나타나요. ▲ 내 위치 · 🏠 도토리 마을 · 🏡 내가 세운 마을 · 주황 테두리 = 내 영토 · 갈색 선 = 길 · ● 도시 (초록 고리 = 동맹) · ★ 명소 · ⚓ 여객선 부두</p></div>
 </div></div>
 
 <div class="wrap" id="pCiv" hidden><div class="panel civp" role="dialog" aria-label="마을 발전">
@@ -3587,7 +3588,7 @@ if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
 if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, tp: (x, z) => { P.x = x; P.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
-  shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
+  map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
 /* --- 봇의 기억과 평판 ---
    문명 5의 외교 AI처럼 봇은 플레이어가 한 일(선물·선전포고·약속 위반·같은 편 공격·정복)을 기억하고, 그 기억으로 태도를 정한다.
@@ -4989,32 +4990,76 @@ function drawMini() {
   renderTiles(miniCtx, ox, oz, MINI, MINI, W, W);
   drawMarks(miniCtx, k, ox, oz, false);
 }
-let mapZoom = false;
-const MAPZ = 300;
+// 지도 보기: 가운데 칸과 가로 폭(칸 수). 마우스 휠(휴대폰은 두 손가락)로 확대·축소하고, 끌어서 옮긴다. 폭 NX = 전국.
+// 가까이 볼 때(폭 520칸 이하)는 칸 하나하나를, 멀리 볼 때는 미리 그려 둔 전국 지도를 잘라서 그린다.
+const MAP_MIN = 60, MAP_NEAR = 300, MAP_FINE = 520;
+const mapV = { span: NX, cx: NX / 2, cz: NZ / 2 };
+let mapDrawQ = false;
+function mapRect(W, H) {
+  const sx = mapV.span, sz = sx * H / W, ox = clamp(mapV.cx - sx / 2, 0, NX - sx), oz = clamp(mapV.cz - sz / 2, 0, NZ - sz);
+  mapV.cx = ox + sx / 2; mapV.cz = oz + sz / 2;
+  return { sx, sz, ox, oz, k: W / sx };
+}
 function drawWorldMap() {
   flushFog();
-  // 전국 보기 또는 내 주변 확대 보기 (지도를 누르거나 아래 버튼으로 바꾼다)
   const cv = $('#mapC'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
   ctx.imageSmoothingEnabled = false; ctx.fillStyle = `rgb(${FOGC})`; ctx.fillRect(0, 0, W, H);
-  if (mapZoom) {
-    const sx = MAPZ, sz = Math.round(MAPZ * H / W), k = W / sx;
-    const ox = Math.floor(clamp(P.x - sx / 2, 0, NX - sx)), oz = Math.floor(clamp(P.z - sz / 2, 0, NZ - sz));
-    renderTiles(ctx, ox, oz, sx, sz, W, H);
+  const { sx, sz, k } = mapRect(W, H);
+  if (sx <= MAP_FINE) {
+    const ox = Math.floor(mapV.cx - sx / 2), oz = Math.floor(mapV.cz - sz / 2), w = Math.ceil(sx) + 1, h = Math.ceil(sz) + 1;
+    renderTiles(ctx, ox, oz, w, h, w * k, h * k);
     drawMarks(ctx, k, ox, oz, true);
   } else {
     if (terrDirty) drawTerr();
-    for (const c of [fogCv, terrCv]) ctx.drawImage(c, 0, 0, CX, CZ, 0, 0, W, H);
-    drawMarks(ctx, W / NX, 0, 0, true);
+    const ox = mapV.cx - sx / 2, oz = mapV.cz - sz / 2;
+    for (const c of [fogCv, terrCv]) ctx.drawImage(c, ox / CS, oz / CS, sx / CS, sz / CS, 0, 0, W, H);
+    drawMarks(ctx, k, ox, oz, true);
   }
-  document.querySelectorAll('#segZoom button').forEach(b => b.classList.toggle('on', (b.dataset.z === '1') === mapZoom));
+  const full = mapV.span >= NX * 0.98;
+  document.querySelectorAll('#segZoom button').forEach(b => b.classList.toggle('on', (b.dataset.z === '0') === full));
   let got = 0; for (let i = 0; i < CX * CZ; i++) if (seen[i] && LANDC[i]) got++;
-  $('#mapSub').textContent = `${placeName()} · 탐험 ${Math.round(got / LAND_C * 1000) / 10}%`;
+  $('#mapSub').textContent = `${placeName()} · 탐험 ${Math.round(got / LAND_C * 1000) / 10}%${full ? '' : ` · ${Math.round(NX / mapV.span * 10) / 10}배`}`;
+}
+const mapRedraw = () => { if (mapDrawQ) return; mapDrawQ = true; requestAnimationFrame(() => { mapDrawQ = false; if (!$('#pMap').hidden) drawWorldMap(); }); };
+function mapView(span, cx, cz) { mapV.span = clamp(span, MAP_MIN, NX); mapV.cx = cx; mapV.cz = cz; mapRedraw(); }
+// 화면의 한 점(px, pz: 캔버스 픽셀)을 그대로 둔 채 폭을 바꾼다
+function mapZoomAt(px, pz, span) {
+  const cv = $('#mapC'), W = cv.width, H = cv.height, { ox, oz, k } = mapRect(W, H);
+  const tx = ox + px / k, tz = oz + pz / k, s = clamp(span, MAP_MIN, NX), k2 = W / s;
+  mapView(s, tx - px / k2 + s / 2, tz - pz / k2 + s * H / W / 2);
 }
 const LANDC = new Uint8Array(CX * CZ); let LAND_C = 0;
 for (let cz = 0; cz < CZ; cz++) for (let cx = 0; cx < CX; cx++) { const p = prov[(cz * CS + 2) * NX + cx * CS + 2]; if (p && p < 30) { LANDC[cz * CX + cx] = 1; LAND_C++; } }
-function openMap() { openPanel('#pMap'); drawWorldMap(); }
-document.querySelectorAll('#segZoom button').forEach(b => b.addEventListener('click', () => { mapZoom = b.dataset.z === '1'; SFX.ui(); drawWorldMap(); }));
-$('#mapC').addEventListener('click', () => { mapZoom = !mapZoom; SFX.ui(); drawWorldMap(); });
+// 지도를 열면 확대해 둔 상태는 그대로, 가운데만 내 위치로
+function openMap() { if (mapV.span < NX * 0.98) { mapV.cx = P.x; mapV.cz = P.z; } openPanel('#pMap'); drawWorldMap(); }
+document.querySelectorAll('#segZoom button').forEach(b => b.addEventListener('click', () => { SFX.ui(); if (b.dataset.z === '1') mapView(MAP_NEAR, P.x, P.z); else mapView(NX, NX / 2, NZ / 2); }));
+{
+  const cv = $('#mapC'), pts = new Map(); let dragged = false, pinch0 = null;
+  const canvasXY = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+  cv.addEventListener('wheel', e => { e.preventDefault(); const [px, pz] = canvasXY(e); mapZoomAt(px, pz, mapV.span * Math.exp(e.deltaY * 0.0015)); }, { passive: false });
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, canvasXY(e)); dragged = false; pinch0 = null; });
+  cv.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId), cur = canvasXY(e); pts.set(e.pointerId, cur);
+    const { k } = mapRect(cv.width, cv.height);
+    if (pts.size === 2) {
+      // 두 손가락: 벌리면 확대, 오므리면 축소
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (pinch0) mapZoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, mapV.span * pinch0 / Math.max(1, d));
+      pinch0 = d; dragged = true; return;
+    }
+    const dx = cur[0] - prev[0], dz = cur[1] - prev[1];
+    if (Math.abs(dx) + Math.abs(dz) > 0.5) { if (Math.hypot(dx, dz) > 2) dragged = true; mapView(mapV.span, mapV.cx - dx / k, mapV.cz - dz / k); }
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch0 = null; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  // 끌지 않고 누르기만 하면 전국 ↔ 그 자리 확대
+  cv.addEventListener('click', e => {
+    if (dragged) { dragged = false; return; }
+    SFX.ui(); const [px, pz] = canvasXY(e);
+    if (mapV.span >= NX * 0.98) mapZoomAt(px, pz, MAP_NEAR); else mapView(NX, NX / 2, NZ / 2);
+  });
+}
 // 지금 있는 곳의 이름: 가까운 도시 → 시·도
 function placeName() {
   const near = CITIES.filter(c => Math.hypot(c.x - P.x, c.z - P.z) < (c.size === 3 ? 52 : 32)).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
