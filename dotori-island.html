@@ -305,6 +305,13 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 'use strict';
+// 시작하다 멈추면 화면에 까닭을 보여 준다 (빈 화면만 보이지 않게)
+{
+  const show = msg => { let el = document.getElementById('bootErr'); if (!el) { el = document.createElement('div'); el.id = 'bootErr'; el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#fff3f0;color:#8a2a1a;border:2px solid #e0645a;border-radius:12px;padding:10px 14px;font:13px/1.5 sans-serif;white-space:pre-wrap;max-height:40vh;overflow:auto'; document.body.appendChild(el); } el.textContent = '⚠️ 게임을 시작하다 문제가 생겼어요. 이 글을 그대로 알려 주세요.\n' + msg; };
+  window.addEventListener('error', e => show(`${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+  window.addEventListener('unhandledrejection', e => show(String(e.reason && (e.reason.stack || e.reason))));
+  if (typeof THREE === 'undefined') show('three.js를 불러오지 못했어요. 인터넷 연결을 확인해 주세요 (cdnjs.cloudflare.com).');
+}
 (async () => {
 const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
