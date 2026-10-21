@@ -346,6 +346,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
     </div>
     <div class="help" data-hpage="travel" hidden>
       <kbd>M</kbd><span>한반도 지도: 이름으로 찾기, 도시·명소를 눌러 📍 길 안내(미니맵 화살표와 남은 km)와 🚆 빠른 이동 (한 번 가 본 곳, 도토리를 내요)</span>
+      <kbd>F · Space</kbd><span>차 타기·내리기. 도시엔 세워진 차와 달리는 차가 있어요. 방향키로 그쪽으로 핸들을 꺾고 밟아요(Shift 가속). 길·도시에선 빠르고 풀밭·모래에선 느려요. 마지막에 탄 차는 내 차로 그 자리에 남아요</span>
       <kbd>B</kbd><span>자전거 타기·내리기 (도토리 상점에서 사요. 걷기보다 두 배 넘게 빠르고, 길 위에선 더 빨라요)</span>
       <kbd>나무배</kbd><span>상점에서 사서 가방에 두면, 맨손으로 물가를 보고 Space를 눌러 바다·강을 자유롭게 오가요</span>
       <kbd>여객선</kbd><span>목포↔제주, 포항↔울릉도↔독도, 인천↔백령도. 부두에서 배를 타요</span>
@@ -363,6 +364,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>급전</kbd><span>친한 주민이 돈을 빌려 달라고 해요. 이자 쳐서 갚는 사람도, 떼먹고 뒤통수치는 사람도 있어요. 떼이면 야차룰로 받아 내세요</span>
       <kbd>멧돼지 · 엽총</kbd><span>밤엔 멧돼지가 밭을 파헤쳐요. 상점의 엽총(공포탄)으로 쏘면 달아나고 사례금을 받아요. 가까이 가면 받혀요</span>
       <kbd>수배 ★ · 경찰</kbd><span>죄를 지으면 수배 별이 붙고, 별 수만큼 경찰(북쪽은 보안원)이 쫓아와요. 눈에 안 띄게 숨어 있으면 별이 하나씩 줄고, 잡히면 체포(BUSTED)되어 벌금을 내요. 가까이 온 경찰은 '밀치기'로 잠깐 기절시킬 수 있지만 별이 올라요</span>
+      <kbd>차 도둑</kbd><span>세워진 차는 보는 눈이 있으면 수배, 달리는 차를 빼앗으면 무조건 수배. 사람을 치면 넘어지고(만화식) 수배가 올라요. 수배 중 운전하면 경찰차가 쫓아와 붙어서 세우면 체포!</span>
       <kbd>술</kbd><span>상점에서 사서 마시거나 주민과 한잔. 취하면 비틀비틀, 맞짱에선 취권</span>
       <kbd>소매치기 · 사기</kbd><span>주민 주머니를 털거나 싸구려를 비싸게 팔 수 있어요. 들키면 수배 지수가 오르고 밤에 순찰이 잡으러 와요</span>
     </div>
@@ -3656,7 +3658,7 @@ function disembark(p) { P.sail = false; S.civ.sail = false; P.x = p[0]; P.z = p[
 let bikeMesh = null;
 function setBike(on, quiet) {
   if (on) {
-    if (P.sail) { toast('배 위에선 자전거를 못 타요.'); return; }
+    if (P.sail || P.car) { toast(P.car ? '차에서 먼저 내려요.' : '배 위에선 자전거를 못 타요.'); return; }
     if (FT) return;
     if (!countItem('bike')) { toast('자전거가 없어요. 도토리 상점에서 팔아요.'); SFX.miss(); return; }
     if (FS) endFishing();
@@ -3913,9 +3915,11 @@ function copTick(dt) {
     c.mesh.position.set(c.x, groundY(c.x, c.z) + (moved ? Math.abs(Math.sin(c.walk)) * 0.05 : 0), c.z); c.mesh.rotation.y = c.rot;
     if (d < 0.8 && !D.open && !FT) { busted(); return; }
   }
+  const chase = cars.filter(c => c.mode === 'chase');
+  if (chase.some(c => Math.hypot(c.x - P.x, c.z - P.z) < 16)) seen = true;
   copSeen = seen;
   if (n > 0) {
-    if (seen || !cops.length) copLostT = 0;   // 경찰이 아직 안 왔으면 숨은 걸로 치지 않는다
+    if (seen || !(cops.length + chase.length)) copLostT = 0;   // 경찰이 아직 안 왔으면 숨은 걸로 치지 않는다
     else if ((copLostT += Math.min(dt, 0.2)) > 6 + n * 2) {   // 숨어 있으면 별이 하나씩 준다
       copLostT = 0; S.heat = Math.max(0, (n - 1) * 20 - 0.5); dirty();
       toast(n > 1 ? `🚔 경찰을 따돌렸어요. 수배 ${'★'.repeat(n - 1)}` : '🚔 완전히 따돌렸어요! 수배가 풀렸어요.');
@@ -3930,6 +3934,8 @@ function busted() {
   S.coins -= fine; S.heat = 0; updateHUD();
   let lost = ''; if (n >= 3 && countItem('rifle')) { removeItem('rifle', 1); lost = ' · 엽총 압수'; }
   for (const c of cops.slice()) dropCop(c);
+  for (const c of cars.slice()) if (c.mode === 'chase') dropCar(c);
+  if (P.car) exitCar(true);
   if (P.bike) setBike(false, true);
   P.busy = 1.6; SFX.miss(); bigNote('🚔 체포!', 'BUSTED', `벌금 도토리 ${fmt(fine)}개${lost}. 수배가 풀렸어요.`); dirty();
 }
@@ -3942,6 +3948,190 @@ let bigNoteT = null;
 function bigNote(title, sub, text) {
   const el = $('#bust'); el.querySelector('b').textContent = title; el.querySelector('i').textContent = sub; el.querySelector('span').textContent = text; el.hidden = false;
   clearTimeout(bigNoteT); bigNoteT = setTimeout(() => { el.hidden = true; }, 2800);
+}
+/* ================= 차: 세워진 차·달리는 차·경찰차, 훔쳐 타고 운전하기 =================
+   도시(포장된 칸)에는 세워진 차와 달리는 차가 있다. 다가가서 Space(또는 F)로 타고, 다시 누르면 내린다.
+   남의 차를 타면 차 도둑: 보는 눈이 있으면 수배, 달리는 차를 빼앗으면 무조건 수배. 사람을 치면 넘어지고(만화식) 수배가 오른다.
+   마지막으로 탄 차는 '내 차'로 그 자리에 남는다. 수배 중 운전하면 경찰차가 쫓아온다. */
+const CAR_KINDS = {
+  compact: { n: '경차', max: 12, acc: 1.9, len: 1.5, cols: [0xf2b8c6, 0x9fd4e8, 0xf6e08a, 0xb8e0a8, 0xffffff, 0xd8c8f0] },
+  sedan: { n: '승용차', max: 13.5, acc: 1.7, len: 1.75, cols: [0xe6e6ea, 0x3a3e48, 0xc8302c, 0x2f5fa8, 0x8a8f99] },
+  truck: { n: '1톤 트럭', max: 10.5, acc: 1.4, len: 1.9, cols: [0x6aa0d8, 0xf2f2f2] },
+  taxi: { n: '택시', max: 13, acc: 1.8, len: 1.75, cols: [0xf09a3a] },
+  scooter: { n: '배달 오토바이', max: 11.5, acc: 2.6, len: 1.0, cols: [0xd8302c, 0xf2f2f2, 0x2f5fa8] },
+  police: { n: '경찰차', max: 15, acc: 2.1, len: 1.75, cols: [0xf4f4f6] },
+};
+function makeCar(kind, col) {
+  const K = CAR_KINDS[kind], g = new THREE.Group(), body = M(col), dark = M(0x2a2e36), glass = M(0x4a5a6e), L = K.len;
+  g.add(blob(kind === 'scooter' ? 0.6 : 1.1));
+  const wheel = (x, z, r = 0.17) => { const w = mesh(new THREE.CylinderGeometry(r, r, 0.12, 14), dark, x, r, z); w.rotation.z = Math.PI / 2; g.add(w); return w; };
+  const wheels = [];
+  if (kind === 'scooter') {
+    wheels.push(wheel(0, 0.36, 0.15), wheel(0, -0.36, 0.15));
+    put(g, mesh(G.box, body, 0, 0.32, 0.05)).scale.set(0.26, 0.14, 0.7);
+    put(g, mesh(G.box, dark, 0, 0.44, -0.12)).scale.set(0.22, 0.06, 0.32);
+    put(g, mesh(G.box, M(0xd8302c), 0, 0.62, -0.32)).scale.set(0.36, 0.3, 0.3);
+    put(g, mesh(G.box, M(0xffffff), 0, 0.63, -0.32)).scale.set(0.37, 0.06, 0.31);
+    const st = mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.45, 8), dark, 0, 0.55, 0.36); st.rotation.x = -0.3; g.add(st);
+    put(g, mesh(G.box, dark, 0, 0.76, 0.42)).scale.set(0.42, 0.04, 0.04);
+    put(g, mesh(PG.sph, M(0xfff2b0), 0, 0.5, 0.5)).scale.setScalar(0.06);
+  } else {
+    const W = 0.9, hz = L / 2 - 0.32;
+    for (const x of [-0.46, 0.46]) for (const z of [hz, -hz]) wheels.push(wheel(x, z));
+    put(g, mesh(G.box, body, 0, 0.36, 0)).scale.set(W, 0.3, L);
+    put(g, mesh(G.box, M(0xdedede), 0, 0.26, L / 2 + 0.02)).scale.set(W * 0.96, 0.1, 0.06);
+    put(g, mesh(G.box, M(0xdedede), 0, 0.26, -L / 2 - 0.02)).scale.set(W * 0.96, 0.1, 0.06);
+    for (const x of [-0.3, 0.3]) { put(g, mesh(G.box, M(0xfff2b0), x, 0.4, L / 2 + 0.01)).scale.set(0.16, 0.08, 0.02); put(g, mesh(G.box, M(0xd83a32), x, 0.4, -L / 2 - 0.01)).scale.set(0.16, 0.08, 0.02); }
+    if (kind === 'truck') {
+      put(g, mesh(G.box, glass, 0, 0.7, L / 2 - 0.33)).scale.set(W * 0.92, 0.4, 0.5);
+      put(g, mesh(G.box, body, 0, 0.92, L / 2 - 0.33)).scale.set(W * 0.96, 0.06, 0.54);
+      put(g, mesh(G.box, M(0x9a9aa0), 0, 0.56, -0.25)).scale.set(W, 0.06, L * 0.62);
+      for (const x of [-0.44, 0.44]) put(g, mesh(G.box, M(0x9a9aa0), x, 0.66, -0.25)).scale.set(0.04, 0.2, L * 0.62);
+    } else {
+      put(g, mesh(G.box, glass, 0, 0.66, -0.08)).scale.set(W * 0.86, 0.32, L * 0.5);
+      put(g, mesh(G.box, body, 0, 0.84, -0.08)).scale.set(W * 0.9, 0.06, L * 0.52);
+      if (kind === 'taxi') { put(g, mesh(G.box, M(0xffffff), 0, 0.93, -0.08)).scale.set(0.34, 0.1, 0.16); }
+      if (kind === 'police') {
+        for (const x of [-0.5, 0.5]) put(g, mesh(G.box, M(0x23395d), x * 0.9, 0.38, 0)).scale.set(0.02, 0.12, L * 0.7);
+        const r = mesh(G.box, new THREE.MeshBasicMaterial({ color: 0xe0302c }), -0.14, 0.93, -0.08), b = mesh(G.box, new THREE.MeshBasicMaterial({ color: 0x2a6ae0 }), 0.14, 0.93, -0.08);
+        r.scale.set(0.24, 0.08, 0.14); b.scale.set(0.24, 0.08, 0.14); g.add(r, b); g.userData.lights = [r, b];
+      }
+    }
+  }
+  g.userData.wheels = wheels; return castAll(g);
+}
+const cars = [];   // { kind, col, x, z, rot, v, mesh, mode: 'park'|'drive'|'chase'|'mine', hp }
+const driveT = t => t === T.CITY || t === T.BRIDGE;
+function carFree(x, z, r = 0.45) {
+  for (const [a, b] of [[-r, -r], [r, -r], [-r, r], [r, r], [0, 0]]) { const tx = Math.floor(x + a), tz = Math.floor(z + b); if (!canWalkTile(tx, tz)) return false; }
+  return true;
+}
+const carSpeedCap = (x, z) => { const i = idx(Math.floor(x), Math.floor(z)), t = tiles[i]; return road[i] || driveT(t) ? 1 : t === T.GRASS ? 0.6 : 0.4; };
+function addCar(kind, x, z, rot, mode, col) {
+  const K = CAR_KINDS[kind], c = { kind, col: col ?? pick(K.cols), x, z, rot, v: 0, mode, hp: 100, honkT: 0 };
+  c.mesh = makeCar(kind, c.col); scene.add(c.mesh); cars.push(c); placeCar(c); return c;
+}
+function dropCar(c) { scene.remove(c.mesh); cars.splice(cars.indexOf(c), 1); }
+function placeCar(c) { c.mesh.position.set(c.x, groundY(c.x, c.z), c.z); c.mesh.rotation.y = c.rot; }
+// 도시 가까이: 세워진 차 8대·달리는 차 5대를 플레이어 둘레에 유지한다
+let carSpawnT = 0;
+function carSpawn() {
+  const park = cars.filter(c => c.mode === 'park').length, drive = cars.filter(c => c.mode === 'drive').length;
+  for (let k = 0; k < 12 && (park < 8 || drive < 5); k++) {
+    const a = R() * 6.283, d = rand(15, 30), x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d);
+    if (!driveT(tget(x, z)) || !carFree(x + 0.5, z + 0.5)) continue;
+    const kind = pick(['compact', 'compact', 'sedan', 'sedan', 'taxi', 'truck', 'scooter']), rot = pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]);
+    if (park < 8) { addCar(kind, x + 0.5, z + 0.5, rot, 'park'); return; }
+    addCar(kind, x + 0.5, z + 0.5, rot, 'drive'); return;
+  }
+}
+// 내 차: 마지막으로 내린 차를 그 자리에 둔다 (세이브)
+function myCarSpawn() {
+  const m = S.myCar; if (!m || cars.some(c => c.mode === 'mine') || P.car) return;
+  if (Math.hypot(m.x - P.x, m.z - P.z) > 40 || !genC[chunkOf(Math.floor(m.x), Math.floor(m.z))]) return;
+  addCar(m.kind, m.x, m.z, m.rot, 'mine', m.col);
+}
+function carTick(dt) {
+  if ((carSpawnT -= dt) <= 0) { carSpawnT = 1.2; if (tget(Math.floor(P.x), Math.floor(P.z)) === T.CITY || cars.some(c => c.mode !== 'mine')) carSpawn(); myCarSpawn(); }
+  const n = stars();
+  // 수배 중 운전하면 경찰차가 별 수만큼 쫓아온다
+  if (P.car && n > 0 && cars.filter(c => c.mode === 'chase').length < Math.min(4, n) && R() < dt * 0.6) {
+    for (let k = 0; k < 16; k++) { const a = R() * 6.283, d = rand(18, 26), x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d; if (carFree(x, z)) { addCar('police', x, z, Math.atan2(P.x - x, P.z - z), 'chase'); break; } }
+  }
+  for (const c of cars.slice()) {
+    if (c === P.car) continue;
+    const d = Math.hypot(c.x - P.x, c.z - P.z);
+    if (c.mode !== 'mine' && (d > 50 || (c.mode === 'chase' && n === 0 && d > 20))) { dropCar(c); continue; }
+    if (c.mode === 'drive') {
+      // 도시 길을 따라 네 방향으로 달리다가 막히면 방향을 바꾼다. 앞에 사람이 있으면 서서 빵!
+      const fx = Math.sin(c.rot), fz = Math.cos(c.rot), ahead = Math.hypot(P.x - (c.x + fx * 1.6), P.z - (c.z + fz * 1.6)) < 1.1;
+      if (ahead) { c.v = Math.max(0, c.v - dt * 12); if ((c.honkT -= dt) <= 0) { c.honkT = 2.5; tone(340, 0.25, { type: 'square', vol: 0.04 }); tone(410, 0.25, { type: 'square', vol: 0.04 }); } }
+      else c.v = Math.min(5, c.v + dt * 3);
+      const nx = c.x + fx * c.v * dt, nz = c.z + fz * c.v * dt, lx = Math.floor(c.x + fx * 1.2), lz = Math.floor(c.z + fz * 1.2);
+      if (driveT(tget(lx, lz)) && carFree(nx, nz)) { c.x = nx; c.z = nz; }
+      else { const opts = [Math.PI / 2, -Math.PI / 2, Math.PI].map(o => c.rot + o).filter(r => driveT(tget(Math.floor(c.x + Math.sin(r) * 1.2), Math.floor(c.z + Math.cos(r) * 1.2)))); c.rot = opts.length ? pick(opts) : c.rot + Math.PI; c.v = 0; }
+    } else if (c.mode === 'chase') {
+      const tx = P.x, tz = P.z, want = Math.atan2(tx - c.x, tz - c.z), diff = Math.atan2(Math.sin(want - c.rot), Math.cos(want - c.rot));
+      c.rot += clamp(diff, -dt * 2.6, dt * 2.6);
+      const cap = carSpeedCap(c.x, c.z), top = (11 + n * 0.6) * cap;
+      c.v += (top - c.v) * (1 - Math.exp(-dt * 1.5));
+      const nx = c.x + Math.sin(c.rot) * c.v * dt, nz = c.z + Math.cos(c.rot) * c.v * dt;
+      if (carFree(nx, nz)) { c.x = nx; c.z = nz; } else { c.rot += (R() < 0.5 ? 1 : -1) * 0.9; c.v *= 0.3; }
+      if (d < 16) copSeen = true;
+      // 붙어서 내 차가 느려지면 끌어내 체포
+      if (d < 1.6 && (!P.car || Math.abs(P.car.v) < 2.5)) { c.bustT = (c.bustT || 0) + dt; if (c.bustT > 1.1) { if (P.car) exitCar(true); busted(); return; } } else c.bustT = 0;
+      if (c.mesh.userData.lights) { const on = Math.floor(performance.now() / 220) % 2; c.mesh.userData.lights[0].visible = !!on; c.mesh.userData.lights[1].visible = !on; }
+    }
+    if (c.v) c.mesh.userData.wheels.forEach(w => w.rotation.x += c.v * dt * 5);
+    placeCar(c);
+  }
+}
+/* --- 운전 --- */
+function enterCar(c) {
+  if (P.sail || FT) return;
+  if (P.bike) setBike(false, true);
+  if (FS) endFishing();
+  const stolen = c.mode === 'park' || c.mode === 'drive', moving = c.mode === 'drive';
+  if (c.mode === 'chase') { toast('경찰차는 못 타요!'); return; }
+  P.car = c; c.mode = 'mine'; c.v = moving ? 0 : c.v; P.mesh.visible = false; SFX.pickup();
+  if (stolen) {
+    const eye = villagers.find(v => v.vis && !v.def.boss && !v.def.botLeader && Math.hypot(v.x - c.x, v.z - c.z) < 9);
+    if (moving) { heatAdd(18); toast(`🚗 ${CAR_KINDS[c.kind].n}을 빼앗았어요! "야! 내 차!"`); }
+    else if (eye) { heatAdd(12); say(eye, `${SHOUT[eye.def.region] || '도둑이야!'} 차 도둑이야!`); }
+    else toast(`🤫 ${CAR_KINDS[c.kind].n}을 슬쩍 몰고 나왔어요. 방향키로 운전, Space·F로 내려요.`);
+  }
+  dirty();
+}
+function exitCar(quiet) {
+  const c = P.car; if (!c) return;
+  const sx = Math.cos(c.rot), sz = -Math.sin(c.rot);
+  let spot = null; for (const s of [1, -1]) for (const d of [0.9, 1.3]) if (!spot && canStand(c.x + sx * s * d, c.z + sz * s * d)) spot = [c.x + sx * s * d, c.z + sz * s * d];
+  if (!spot) spot = standNear(c.x, c.z, 3) || [c.x, c.z];
+  P.car = null; c.v = 0; P.x = spot[0]; P.z = spot[1]; P.mesh.visible = true; P.hop = 0.3;
+  S.myCar = { kind: c.kind, col: c.col, x: Math.round(c.x * 10) / 10, z: Math.round(c.z * 10) / 10, rot: c.rot };
+  for (const o of cars) if (o !== c && o.mode === 'mine') dropCar(o);
+  if (!quiet) SFX.pickup(); dirty();
+}
+function driveTick(dt) {
+  const c = P.car, K = CAR_KINDS[c.kind];
+  let mx = 0, mz = 0;
+  const free = started && !D.open && !panelOpen() && P.busy <= 0 && $('#banner').hidden;
+  if (free) {
+    if (keys['w'] || keys['arrowup']) mz -= 1; if (keys['s'] || keys['arrowdown']) mz += 1;
+    if (keys['a'] || keys['arrowleft']) mx -= 1; if (keys['d'] || keys['arrowright']) mx += 1;
+    if (joy.id !== null && joy.mag > 0.15) { mx += joy.x; mz += joy.y; }
+  }
+  const len = Math.min(1, Math.hypot(mx, mz));
+  // 가고 싶은 쪽으로 핸들을 꺾는다: 앞쪽이면 밟고, 뒤쪽이면 브레이크 뒤 후진
+  let throttle = 0;
+  if (len > 0.1) {
+    const want = Math.atan2(mx, mz), diff = Math.atan2(Math.sin(want - c.rot), Math.cos(want - c.rot));
+    // 핸들은 늘 가고 싶은 쪽으로. 반대쪽이면 천천히 돌아 나간다
+    c.rot += clamp(diff, -1, 1) * dt * 3.4 * Math.min(1, Math.abs(c.v) / 3 + 0.45);
+    throttle = len * Math.max(0.3, Math.cos(diff));
+  }
+  const cap = carSpeedCap(c.x, c.z), top = K.max * cap * (keys['shift'] ? 1.2 : 1) * (c.hp > 0 ? 1 : 0);
+  const target = throttle >= 0 ? throttle * top : throttle * 5;
+  c.v += (target - c.v) * (1 - Math.exp(-dt * (target === 0 ? 1.2 : K.acc)));
+  const nx = c.x + Math.sin(c.rot) * c.v * dt, nz = c.z + Math.cos(c.rot) * c.v * dt;
+  if (carFree(nx, nz)) { c.x = nx; c.z = nz; }
+  else {
+    if (Math.abs(c.v) > 5) { SFX.rock(); camShake = 0.35; c.hp = Math.max(0, c.hp - Math.abs(c.v) * 2.5); burst(c.x + Math.sin(c.rot) * 0.9, 0.5, c.z + Math.cos(c.rot) * 0.9, 0xdddddd, 6, 1, 0.5); if (c.hp <= 0) toast('💨 차가 퍼졌어요! 내려서 다른 차를 구해요.'); }
+    c.v = -c.v * 0.25;
+  }
+  // 사람·경찰을 치면: 넘어지고(만화식) 수배
+  if (Math.abs(c.v) > 4) for (const v of villagers) if (v.vis && !(v.knock > 0) && Math.hypot(v.x - c.x, v.z - c.z) < 0.85) {
+    v.knock = 2.5; v.target = null; v.wait = 3; burst(v.x, 1, v.z, 0xfff2a0, 8, 1.2, 0.5); SFX.bite();
+    if (!v.def.boss && !v.def.botLeader) { heatAdd(8); say(v, `${curse(v)} 사람 치고 어딜 가!`); }
+  }
+  for (const k of cops) if (k.stun <= 0 && Math.abs(c.v) > 4 && Math.hypot(k.x - c.x, k.z - c.z) < 0.85) { k.stun = 6; heatAdd(15); floatText(k.x, 2.1, k.z, '💫', 'miss'); }
+  // 다른 차와 부딪치면 튕긴다
+  for (const o of cars) if (o !== c && Math.hypot(o.x - c.x, o.z - c.z) < 1.2 && Math.abs(c.v) > 2) { SFX.rock(); camShake = 0.25; c.v = -c.v * 0.3; o.v = 0; if (o.mode === 'chase') heatAdd(5); break; }
+  c.mesh.userData.wheels.forEach(w => w.rotation.x += c.v * dt * 5);
+  if (c.hp < 30 && R() < dt * 6) burst(c.x, 0.9, c.z, 0x8a8a8a, 1, 0.5, 0.9);
+  placeCar(c);
+  P.x = c.x; P.z = c.z; P.rot = c.rot; P.moving = Math.abs(c.v) > 0.3;
+  P.mesh.position.set(c.x, groundY(c.x, c.z), c.z);
 }
 // 마을 발전 건물 앞에서 할 수 있는 일
 const CIV_ACT = {
@@ -4494,7 +4684,7 @@ function removeBotWorld(b) {
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
-if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ cops, stars, boars, sutdaRank, HWATU, sutdaSteps, loanAsk, loanDue, talkVillager, villagers, WX, weather: k => { WX.kind = k; updateClock(); }, tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ cars, enterCar, exitCar, cops, stars, boars, sutdaRank, HWATU, sutdaSteps, loanAsk, loanDue, talkVillager, villagers, WX, weather: k => { WX.kind = k; updateClock(); }, tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
   fish: () => ({ makeFish3D, makeFishShadow, showCatch3D, FISH_LOOK }), map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
@@ -5174,6 +5364,7 @@ function updateVillagers(dt, h) {
     u.head.rotation.z = v.talking ? Math.sin(performance.now() / 180) * 0.06 : 0;
     u.head.rotation.x = v.def.role === '별 보는 사람' && !moving && !v.talking ? lerp(u.head.rotation.x, -0.55, 1 - Math.exp(-dt * 3)) : lerp(u.head.rotation.x, 0, 1 - Math.exp(-dt * 6));
     v.mesh.position.set(v.x, groundY(v.x, v.z), v.z); v.mesh.rotation.y = v.rot;
+    if (v.knock > 0) { v.knock -= dt; v.mesh.rotation.z = v.knock > 0.4 ? 1.4 : 0; v.mesh.position.y += v.knock > 0.4 ? 0.25 : 0; } else if (v.mesh.rotation.z) v.mesh.rotation.z = 0;
     if (v.def.alien) alienIdle(v, dt, moving);
     else {
       const sw = moving ? Math.sin(v.walk) * 0.5 : 0; u.aL.rotation.x = sw; u.aR.rotation.x = -sw;
@@ -5516,7 +5707,9 @@ function nearestInFront(list, maxD, minDot) {
 function currentAction() {
   if (FS) return FS.state === 'bite' ? { l: '낚아채기!', f: reelCatch } : { l: '건지기', f: reelCancel };
   if (P.sail) { const l = landSpot(); return l ? { l: '배에서 내리기', f: () => disembark(l) } : null; }
+  if (P.car) return { l: '🚪 내리기', f: () => exitCar() };
   { const cp = nearestInFront(cops.filter(c => c.stun <= 0), 1.7, 0.3); if (cp) return { l: '👊 밀치기', f: () => shove(cp) }; }
+  { const cr = nearestInFront(cars.filter(c => c.mode !== 'chase'), 1.9, 0.2); if (cr) return { l: cr.mode === 'mine' ? '🚗 타기' : cr.mode === 'drive' ? '🚗 차 빼앗기' : '🚗 차 훔치기', f: () => enterCar(cr) }; }
   if (boars.length && countItem('rifle')) { const b = nearestInFront(boars.filter(o => o.st !== 'flee'), 9, 0.55); if (b) return { l: '🔫 엽총 쏘기', f: () => shootBoar(b) }; }
   const v = nearestInFront(villagers.filter(v => v.vis), 2.0, 0.15); if (v) return { l: '말 걸기', f: () => talkVillager(v) };
   if (frontOcc(o => o.type === 'shop')) return { l: '말 걸기', f: talkShop };
@@ -6066,6 +6259,7 @@ function drawMarks(ctx, k, ox, oz, big) {
   }
   for (const t of S.civ.towns) if (vis(t.x + 1, t.z + 1)) { label(X(t.x + 1), Z(t.z + 1), '🏡', big ? 15 : 12, '#000'); if (big) label(X(t.x + 1), Z(t.z + 1) + 14, t.name, 11, '#2f7a35'); }
   if (vis(HX, HZ)) { label(X(HX + 0.5), Z(HZ + 3), '🏠', big ? 16 : 13, '#000'); if (big) label(X(HX + 0.5), Z(HZ + 3) + 15, HOME, 12, '#2f7a35'); }
+  if (S.myCar && !P.car && vis(S.myCar.x, S.myCar.z)) label(X(S.myCar.x), Z(S.myCar.z), '🚗', big ? 15 : 12, '#000');
   ctx.save(); ctx.translate(X(P.x), Z(P.z)); ctx.rotate(Math.PI - P.rot);
   ctx.fillStyle = '#e0453c'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(7, 7); ctx.lineTo(0, 3); ctx.lineTo(-7, 7); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
 }
@@ -6510,6 +6704,7 @@ function fastTravel(p) {
   if (w.no) { toast(w.no); SFX.miss(); return; }
   if (FT) return;
   if (P.sail) { toast('배에서 먼저 내려야 해요.'); SFX.miss(); return; }
+  if (P.car) exitCar(true);
   if ((S.heat || 0) >= WARP_HEAT) { toast(`🚨 수배 중이라 ${w.air ? '공항' : '역·터미널'} 검문에 걸려요. 수배 지수가 ${WARP_HEAT} 밑으로 식으면 타요.`); SFX.miss(); return; }
   if (S.coins < w.fare) { toast(`도토리가 모자라요. ${fmt(w.fare)}개가 필요해요.`); SFX.miss(); return; }
   const spot = standNear(p.x, p.z, 14); if (!spot) { toast('내릴 자리를 못 찾았어요.'); SFX.miss(); return; }
@@ -6642,6 +6837,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'm') { if (!$('#pMap').hidden) closePanels(); else openMap(); }
   else if (k === 'v') { if (!$('#pCiv').hidden) closePanels(); else openCiv(); }
   else if (k === 'n') { if (!$('#pNote').hidden) closePanels(); else openNote(); }
+  else if (k === 'f' && !D.open && !panelOpen()) { if (P.car) exitCar(); else { const cr = nearestInFront(cars.filter(c => c.mode !== 'chase'), 2.2, 0); if (cr) enterCar(cr); } }
   else if (k === 'b' && !D.open && !panelOpen()) setBike(!P.bike);
   else if (TOOLKEYS[k] && !D.open && !panelOpen()) setTool(TOOLKEYS[k]);
 });
@@ -7271,6 +7467,7 @@ const camPos = { x: P.x, z: P.z };
 let cullT = 0, hintT = 0, saveT = 0, slowT = 0, curDay = '', miniT = 0;
 function updatePlayer(dt) {
   if (FT) return;
+  if (P.car) { driveTick(dt); return; }
   const u = P.mesh.userData;
   let mx = 0, mz = 0;
   const free = started && !D.open && !panelOpen() && P.busy <= 0 && $('#banner').hidden;
@@ -7407,7 +7604,7 @@ function frame(now) {
   camPos.x = lerp(camPos.x, fx, 1 - Math.exp(-rdt * 5)); camPos.z = lerp(camPos.z, fz, 1 - Math.exp(-rdt * 5));
   let shx = 0, shz = 0;
   if (camShake > 0) { camShake = Math.max(0, camShake - rdt); shx = (R() - 0.5) * camShake * 1.2; shz = (R() - 0.5) * camShake * 1.2; }
-  const zoom = FT ? 0.85 : 1;
+  const zoom = FT ? 0.85 : P.car ? 1 + Math.min(0.4, Math.abs(P.car.v) / 30) : 1;
   camera.position.set(camPos.x + shx, 15 * zoom, camPos.z + 13.5 * zoom + shz); camera.lookAt(camPos.x + shx, 0, camPos.z - 0.8 + shz);
   if (P.drunk > 0) camera.rotation.z += Math.sin(now / 700) * 0.06 * Math.min(1, P.drunk / 50);
   // 그림자 영역은 카메라를 따라가되, 반 칸 단위로 움직여 그림자가 떨리지 않게 한다
@@ -7416,7 +7613,7 @@ function frame(now) {
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
   miniT -= rdt; if (miniT <= 0) { miniT = 0.25; pinTick(0.25); drawMini(); $('#miniName').textContent = placeName(); }
-  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt);
+  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt); carTick(dt);
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
   hintT -= dt; if (hintT <= 0) { hintT = 0.1; updateHint(); }
