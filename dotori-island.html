@@ -282,9 +282,20 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
   </div>
 </div></div>
 
+<div class="wrap" id="pEnd" hidden><div class="panel endp" role="dialog" aria-label="엔딩">
+  <header><div>도토리섬 이야기</div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
+  <div class="body" style="align-items:center;text-align:center">
+    <div id="endIc" style="font-size:72px;animation:pop .5s cubic-bezier(.3,1.6,.5,1)"></div>
+    <b id="endTitle" style="font-family:var(--f-display);font-weight:400;font-size:28px"></b>
+    <p class="lede" id="endText"></p>
+    <div id="endStats" style="display:grid;grid-template-columns:auto auto;gap:6px 16px;text-align:left;background:var(--paper-2);border-radius:18px;padding:12px 16px;font-size:14px"></div>
+    <button class="btn startbtn" data-close>계속 놀기</button>
+  </div>
+</div></div>
+
 <div class="wrap" id="pCiv" hidden><div class="panel civp" role="dialog" aria-label="마을 발전">
   <header><div>마을 발전 <span class="sub" id="civSub"></span></div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
-  <div class="body"><div class="res" id="civRes"></div><div class="tabs"><button class="tab" data-civ="build">건물</button><button class="tab" data-civ="tech">기술</button><button class="tab" data-civ="town">새 마을</button><button class="tab" data-civ="ally">교류</button><button class="tab" data-civ="craft">공방</button><button class="tab" data-civ="war">전쟁</button><button class="tab" data-civ="side">진영</button></div><div class="rows" id="civRows"></div></div>
+  <div class="body"><div class="res" id="civRes"></div><div class="tabs"><button class="tab" data-civ="build">건물</button><button class="tab" data-civ="tech">기술</button><button class="tab" data-civ="town">새 마을</button><button class="tab" data-civ="ally">교류</button><button class="tab" data-civ="craft">공방</button><button class="tab" data-civ="war">전쟁</button><button class="tab" data-civ="side">진영</button><button class="tab" data-civ="goal">목표</button></div><div class="rows" id="civRows"></div></div>
 </div></div>
 
 <div class="wrap" id="pSet" hidden><div class="panel" role="dialog" aria-label="설정">
@@ -332,6 +343,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술을 배우고, 영토 밖에 새 마을을 세워요</span>
       <kbd>교류 · 동맹</kbd><span>도시 주민의 부탁을 들어주거나 선물을 보내 우호도를 올리면 동맹이 되어 특산물을 보내 줘요</span>
       <kbd>전쟁</kbd><span>군사 기술 → 병영 → 병사 모집 → 적 요새로 진군. 수비대를 무찌르면 성문 앞 장수와 야차룰 대장전! 이기면 요새가 내 땅, 수도를 빼앗으면 왕국이 항복해요</span>
+      <kbd>목표 · 엔딩</kbd><span>마을 발전(V) › 목표: 👑 한반도 통일 · 💰 한반도 갑부 · 📖 한반도 박물학자. 하나를 이루면 엔딩, 그 뒤로도 계속 놀 수 있어요</span>
       <kbd>진영 · AI 봇</kbd><span>남부 연합·북부 연합 중 하나로 시작해요. 봇들도 양쪽에서 마을을 키우고 싸워요. 같은 편이라도 배신자는 뒤통수를 쳐요. 설정에서 봇 수·성향·난이도를 정해요</span>
     </div>
     <div class="help" data-hpage="dark" hidden>
@@ -3871,6 +3883,7 @@ function renderCiv() {
     note(`도시 주민의 부탁을 들어주면 +3(제주 +4), 하루 첫인사 +1, "교류하기"로 선물을 보내면 +1~3(서울·충청 +1, 경상 +3)${S.civ.built.school ? ' (학교 덕분에 매번 +1 더)' : ''}. 우호도가 ${ALLY_AT}이 되면 그 고장 주민에게 동맹을 제안해요.`);
   } else if (civTab === 'war') renderWar(rows, note);
   else if (civTab === 'side') renderSides(rows, note);
+  else if (civTab === 'goal') renderGoals(rows, note);
   else {
     const ws = S.civ.built.workshop;
     for (const cr of CRAFTS) {
@@ -4725,6 +4738,57 @@ function sideScore() {
   for (const b of S.ai.bots || []) if (b.alive) for (const t of botTerr(b)) sc[b.side] += t.r * t.r;
   for (const f of FORTS) { const o = fortSt(f).own; if (o.startsWith('b:')) { const b = BOT_BY()[o.slice(2)]; if (b) sc[b.side] += KR * KR; } }
   return sc;
+}
+/* ================= 목표와 엔딩: 세 갈래 승리 =================
+   통일(문명의 정복), 갑부(경제), 박물학자(동물의 숲: 도감·여행·이웃). 하나를 이루면 엔딩을 보여 주고, 그 뒤로도 계속 놀 수 있다. */
+const friendsN = () => Object.values(S.vill).filter(st => st.fr >= 12).length;
+const dexAll = () => [...FISH, ...BUGS, ...FOSSILS];
+const WINS = [
+  { id: 'unify', e: '👑', n: '한반도 통일', d: '동물 왕국을 모두 항복시키고, 상대 진영 봇을 모두 무너뜨리거나 한반도 땅의 80%를 내 진영이 차지해요.',
+    parts: () => { const sc = sideScore(), tot = sc.south + sc.north || 1, mine = Math.round(sc[MY_SIDE] / tot * 100), foes = (S.ai.bots || []).filter(b => b.alive && b.side !== MY_SIDE).length;
+      return [['항복한 동물 왕국', KINGDOMS.filter(k => S.war.fallen[k.id]).length, KINGDOMS.length], [foes ? `내 진영 땅 (상대 봇 ${foes}명 남음)` : '상대 진영 봇 모두 무너짐', foes ? mine : 80, 80, '%']]; },
+    end: () => `${SIDES[MY_SIDE].e} ${SIDES[MY_SIDE].n}의 깃발이 백두에서 한라까지 펄럭여요. ${HOME}의 작은 텐트에서 시작한 이야기가 한반도를 하나로 묶었어요. 전쟁은 끝났지만, 섬의 하루는 오늘도 이어져요.` },
+  { id: 'rich', e: '💰', n: '한반도 갑부', d: '도토리 100만 개를 모으고, 동맹 도시 15곳과 손잡아요.',
+    parts: () => [['가진 도토리', S.coins, 1000000], ['동맹 도시', Object.keys(S.civ.ally).length, 15]],
+    end: () => `도토리 100만 개! 전국 장터마다 ${HOME} 이야기가 돌아요. 동맹 도시의 특산물이 끊이지 않고 들어오고, 이제 다들 당신을 '도토리 회장님'이라고 불러요.` },
+  { id: 'nature', e: '📖', n: '한반도 박물학자', d: '도감(물고기·곤충·화석)을 모두 채우고, 도시 80곳을 가 보고, 친한 주민(♥4 이상) 20명을 사귀어요.',
+    parts: () => [['도감', dexAll().filter(x => S.dex[x.id]).length, dexAll().length], ['가 본 도시', CITIES.filter(c => S.found[c.name]).length, 80], ['친한 주민', friendsN(), 20]],
+    end: () => `강과 바다의 물고기, 들판의 곤충, 땅속의 화석까지. 고장마다 친구가 생겼고, 한반도 구석구석에 당신의 발자국이 남았어요. 이제 도감은 한 권의 여행기가 되었어요.` },
+];
+const winDone = w => w.parts().every(([, cur, goal]) => cur >= goal);
+function checkWins() {
+  const W = S.wins || (S.wins = {});
+  for (const w of WINS) if (!W[w.id] && winDone(w)) { const d = gameNow(); W[w.id] = `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`; dirty(); showEnding(w); return; }
+}
+function showEnding(w) {
+  closePanels(); SFX.fanfare();
+  const t = Math.floor((S.civ.play || 0) / 60), sc = sideScore(), tot = sc.south + sc.north || 1;
+  $('#endIc').textContent = w.e; $('#endTitle').textContent = `${w.n} 달성!`; $('#endText').textContent = w.end();
+  const st = $('#endStats'); st.innerHTML = '';
+  for (const [k, v] of [['함께한 시간', `${Math.floor(t / 60)}시간 ${t % 60}분`], ['마을 레벨', `Lv.${S.civ.lv || 0} · 세운 마을 ${S.civ.towns.length}곳`], ['내 진영 땅', `${Math.round(sc[MY_SIDE] / tot * 100)}%`],
+    ['도토리', fmt(S.coins)], ['도감', `${dexAll().filter(x => S.dex[x.id]).length} / ${dexAll().length}`], ['가 본 도시', `${CITIES.filter(c => S.found[c.name]).length}곳`], ['친한 주민', `${friendsN()}명`]]) {
+    const a = document.createElement('span'), b = document.createElement('b'); a.textContent = k; b.textContent = v; st.append(a, b);
+  }
+  openPanel('#pEnd', true);
+}
+function renderGoals(rows, note) {
+  const W = S.wins || {};
+  for (const w of WINS) {
+    const box = document.createElement('div'); box.className = 'lvl'; box.style.flexDirection = 'column'; box.style.alignItems = 'stretch';
+    const hd = document.createElement('div'); hd.style.cssText = 'display:flex;gap:10px;align-items:center';
+    hd.innerHTML = '<div class="ic"></div><div style="flex:1;min-width:0"><b></b><span></span></div>';
+    hd.querySelector('.ic').textContent = w.e; hd.querySelector('b').textContent = w.n + (W[w.id] ? ` · 🏆 ${W[w.id]} 달성` : ''); hd.querySelector('span').textContent = w.d;
+    if (W[w.id]) { const again = cbtn('엔딩 다시 보기', () => showEnding(w)); hd.append(again); }
+    box.append(hd);
+    for (const [k, cur, goal, unit = ''] of w.parts()) {
+      const r = document.createElement('div'); r.style.cssText = 'font-size:13px;color:var(--ink-soft)';
+      r.textContent = `${k}: ${fmt(Math.min(cur, goal))}${unit} / ${fmt(goal)}${unit}`;
+      const m = document.createElement('div'); m.className = 'meter'; const i = document.createElement('i'); i.style.width = Math.min(100, cur / goal * 100) + '%'; if (cur >= goal) i.style.background = '#e0a82e'; m.append(i);
+      box.append(r, m);
+    }
+    rows.append(box);
+  }
+  note('셋 중 하나를 이루면 엔딩을 볼 수 있어요. 엔딩 뒤에도 계속 놀 수 있고, 다른 목표에 또 도전할 수 있어요.');
 }
 function renderSides(rows, note) {
   const sc = sideScore(), tot = sc.south + sc.north || 1;
@@ -5595,7 +5659,7 @@ function updateClock() {
   $('#clkTime').textContent = `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`;
   $('#clkDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일${wxIcon()}${S.timeMode === 'fast' ? ' · 빠른 시간' : ''}`;
 }
-const panels = ['#pBag', '#pShop', '#pDex', '#pSet', '#pHelp', '#pMap', '#pCiv', '#pNote', '#pBox'];
+const panels = ['#pBag', '#pShop', '#pDex', '#pSet', '#pHelp', '#pMap', '#pCiv', '#pNote', '#pBox', '#pEnd'];
 const panelOpen = () => panels.some(p => !$(p).hidden);
 function closePanels() { if (!started) return; for (const p of panels) $(p).hidden = true; canvas.focus(); }
 function openPanel(id, force) { if (!started || FT || (D.open && !force)) return; for (const p of panels) $(p).hidden = p !== id; SFX.ui(); }
@@ -7212,7 +7276,7 @@ function slowTick() {
       dirty();
     }
   }
-  civTick();
+  civTick(); checkWins();
   updateClock();
 }
 let last = performance.now();
