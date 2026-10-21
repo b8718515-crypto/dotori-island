@@ -4944,7 +4944,7 @@ function renderTiles(ctx, ox, oz, W, H, DW, DH) {
 }
 // 지도 위 표시: 도시(●), 명소(★), 여객선 부두(⚓), 도토리 마을, 요새, 행군, 내 위치(▲)
 function drawMarks(ctx, k, ox, oz, big) {
-  const X = x => (x - ox) * k, Z = z => (z - oz) * k, W = ctx.canvas.width, H = ctx.canvas.height;
+  const X = x => (x - ox) * k, Z = z => (z - oz) * k, sc = ctx.getTransform().a || 1, W = ctx.canvas.width / sc, H = ctx.canvas.height / sc;
   const vis = (x, z) => X(x) > -40 && X(x) < W + 40 && Z(z) > -20 && Z(z) < H + 20;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
   const label = (x, z, s, size, col) => { ctx.font = `${size}px Jua, "Gowun Dodum", sans-serif`; ctx.lineWidth = Math.max(2, size / 5); ctx.strokeStyle = 'rgba(255,251,235,.92)'; ctx.strokeText(s, x, z); ctx.fillStyle = col; ctx.fillText(s, x, z); };
@@ -5000,20 +5000,31 @@ function mapRect(W, H) {
   mapV.cx = ox + sx / 2; mapV.cz = oz + sz / 2;
   return { sx, sz, ox, oz, k: W / sx };
 }
+function fitMapCanvas() {
+  const cv = $('#mapC'), dpr = Math.min(2, window.devicePixelRatio || 1), box = cv.parentElement;
+  const cs = getComputedStyle(box), maxW = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), maxH = window.innerHeight - 230;
+  let w = maxW, h = w * NZ / NX; if (h > maxH) { h = maxH; w = h * NX / NZ; }
+  w = Math.max(120, Math.round(w)); h = Math.max(190, Math.round(h));
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+  return dpr;
+}
+const MAP_UI = 1.2;   // 지도 위 글씨·아이콘 크기 배율 (화면 픽셀 기준)
 function drawWorldMap() {
   flushFog();
-  const cv = $('#mapC'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  const ui = fitMapCanvas() * MAP_UI, cv = $('#mapC'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
   ctx.imageSmoothingEnabled = false; ctx.fillStyle = `rgb(${FOGC})`; ctx.fillRect(0, 0, W, H);
   const { sx, sz, k } = mapRect(W, H);
   if (sx <= MAP_FINE) {
     const ox = Math.floor(mapV.cx - sx / 2), oz = Math.floor(mapV.cz - sz / 2), w = Math.ceil(sx) + 1, h = Math.ceil(sz) + 1;
     renderTiles(ctx, ox, oz, w, h, w * k, h * k);
-    drawMarks(ctx, k, ox, oz, true);
+    ctx.save(); ctx.scale(ui, ui); drawMarks(ctx, k / ui, ox, oz, true); ctx.restore();
   } else {
     if (terrDirty) drawTerr();
     const ox = mapV.cx - sx / 2, oz = mapV.cz - sz / 2;
     for (const c of [fogCv, terrCv]) ctx.drawImage(c, ox / CS, oz / CS, sx / CS, sz / CS, 0, 0, W, H);
-    drawMarks(ctx, k, ox, oz, true);
+    ctx.save(); ctx.scale(ui, ui); drawMarks(ctx, k / ui, ox, oz, true); ctx.restore();
   }
   const full = mapV.span >= NX * 0.98;
   document.querySelectorAll('#segZoom button').forEach(b => b.classList.toggle('on', (b.dataset.z === '0') === full));
@@ -5031,6 +5042,7 @@ function mapZoomAt(px, pz, span) {
 const LANDC = new Uint8Array(CX * CZ); let LAND_C = 0;
 for (let cz = 0; cz < CZ; cz++) for (let cx = 0; cx < CX; cx++) { const p = prov[(cz * CS + 2) * NX + cx * CS + 2]; if (p && p < 30) { LANDC[cz * CX + cx] = 1; LAND_C++; } }
 // 지도를 열면 확대해 둔 상태는 그대로, 가운데만 내 위치로
+window.addEventListener('resize', () => { if (!$('#pMap').hidden) mapRedraw(); });
 function openMap() { if (mapV.span < NX * 0.98) { mapV.cx = P.x; mapV.cz = P.z; } openPanel('#pMap'); drawWorldMap(); }
 document.querySelectorAll('#segZoom button').forEach(b => b.addEventListener('click', () => { SFX.ui(); if (b.dataset.z === '1') mapView(MAP_NEAR, P.x, P.z); else mapView(NX, NX / 2, NZ / 2); }));
 {
