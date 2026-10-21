@@ -4543,7 +4543,7 @@ function removeBotWorld(b) {
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
-if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ boars, sutdaRank, HWATU, WX, weather: k => { WX.kind = k; updateClock(); }, tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ boars, sutdaRank, HWATU, sutdaSteps, loanAsk, loanDue, talkVillager, villagers, WX, weather: k => { WX.kind = k; updateClock(); }, tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
   fish: () => ({ makeFish3D, makeFishShadow, showCatch3D, FISH_LOOK }), map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
@@ -6588,6 +6588,11 @@ function renderNote() {
   const qs = Object.entries(S.vill).filter(([id, st]) => st.quest && vById.has(id));
   $('#noteSub').textContent = `부탁 ${qs.length}개`;
   if (noteTab === 'quest') {
+    for (const [id, st] of Object.entries(S.vill)) {   // 빌려준 돈 · 떼인 돈
+      const v = vById.get(id); if (!v || !(st.loan || st.debt)) continue;
+      if (st.loan) { const d = new Date(st.loan.due); row('💸', `${v.def.name}에게 빌려준 돈`, `${who(v)} · ${d.getMonth() + 1}월 ${d.getDate()}일까지 갚기로 함${st.loan.ex ? ` · 핑계 ${st.loan.ex}번` : ''}`, `🌰 ${fmt(st.loan.n)}`, [goV(v)]); }
+      else row('😤', `${v.def.name}에게 떼인 돈`, `${who(v)} · 야차룰로 이기면 받아 낼 수 있어요`, `🌰 ${fmt(st.debt)}`, [goV(v)]);
+    }
     if (!qs.length) return empty('받은 부탁이 없어요. 주민에게 말을 걸면 가끔 부탁을 해요.');
     for (const [id, st] of qs) {
       const v = vById.get(id), it = ITEMS[st.quest.item], have = countItem(st.quest.item);
