@@ -1763,6 +1763,8 @@ function faceTex(f, state) {
       x.strokeStyle = f.brow; x.lineWidth = f.browW || 6; const bx = 128 + s * gap, by = ey - (f.eyeH || 19) - 13;
       x.beginPath(); x.moveTo(bx - 11, by + 2); x.quadraticCurveTo(bx, by - 4, bx + 11, by + 2); x.stroke();
     }
+    if (f.patch === 'panda') { x.fillStyle = '#2a2a30'; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(128 + s * gap, ey + 4, 30, 36, s * 0.5, 0, Math.PI * 2); x.fill(); } }
+    if (f.patch === 'mask') { x.fillStyle = 'rgba(58,46,40,0.85)'; x.beginPath(); x.ellipse(128, ey + 2, gap + 42, 30, 0, 0, Math.PI * 2); x.fill(); }
     for (const s of [-1, 1]) drawEye(x, 128 + s * gap, ey, f, state, s);
   });
 }
@@ -1827,6 +1829,8 @@ function patternTex(c, kind) {
     if (kind === 'stripe') for (let y = 6; y < h; y += 22) x.fillRect(0, y, w, 8);
     if (kind === 'dot') for (let y = 8, r = 0; y < h; y += 20, r++) for (let i = (r % 2) * 16; i < w; i += 32) { x.beginPath(); x.arc(i, y, 5.5, 0, Math.PI * 2); x.fill(); }
     if (kind === 'check') { x.fillStyle = 'rgba(255,255,255,0.28)'; for (let i = 0; i < w; i += 32) x.fillRect(i, 0, 14, h); for (let y = 0; y < h; y += 24) x.fillRect(0, y, w, 11); }
+    if (kind === 'vstripe') for (let i = 6; i < w; i += 26) x.fillRect(i, 0, 9, h);
+    if (kind === 'heart' || kind === 'star') { x.font = '18px sans-serif'; x.textAlign = 'center'; for (let y = 22, r = 0; y < h + 10; y += 28, r++) for (let i = (r % 2) * 22 + 12; i < w; i += 44) x.fillText(kind === 'heart' ? '♥' : '★', i, y); }
   });
 }
 function makeBody(g, o) {
@@ -1864,24 +1868,113 @@ const playerHairGeo = (() => {
   }
   g.computeVertexNormals(); return g;
 })();
+// 다양한 생김새: 나이(아이·어르신)·키, 소품(모자·안경·리본·목도리 등), 눈 색과 모양, 볼터치.
+// 같은 사람은 언제 봐도 같은 모습이 되도록 id로 정한다. 하는 일이 있으면 그 일에 맞는 소품을 든다.
+const ROLE_ACC = { '농부': 'straw', '등산객': 'cap', '어부': 'beanie', '야간 순찰': 'police', '한잔한 사람': 'tie', '나그네': 'straw', '별 보는 사람': 'beanie', '나물 캐는 사람': 'scarf' };
+function varyLook(id, role) {
+  const r = mulberry32(hashStr('look' + id)), roll = r(), o = {};
+  o.age = roll < 0.14 ? 'kid' : roll > 0.88 ? 'elder' : null;
+  o.size = o.age === 'kid' ? 0.8 : 0.92 + r() * 0.18;
+  o.acc = ROLE_ACC[role] || pick([null, null, null, 'cap', 'beanie', 'ribbon', 'glasses', 'scarf', 'headband', 'flower', 'straw'], r);
+  if (o.age === 'elder' && (!o.acc || o.acc === 'ribbon')) o.acc = 'glasses';
+  o.accCol = pick([0xe0645a, 0x4f8fd8, 0xf2a94a, 0x6aa36f, 0x8e7cc3, 0xf39bb5, 0x3a3a46, 0xfff8ec, 0x5ab0a8], r);
+  o.face = { iris: pick(['#24160e', '#2f6b4a', '#2a3f7a', '#5a2a1a', '#3b2238', '#4a4a52'], r), tilt: (r() - 0.5) * 0.5, eyeW: 11 + Math.floor(r() * 7), eyeH: 13 + Math.floor(r() * 7) };
+  if (r() < 0.35) o.face.brow = pick(['#3a2416', '#6b4528', '#2a2a30'], r);
+  const bl = pick(['#ff8f96', '#ff9f6a', '#f6a6d8', null], r); if (bl) o.face.blush = bl;
+  if (o.age === 'kid') { o.face.eyeW += 3; o.face.eyeH += 3; }
+  return o;
+}
+const ACCG = {};
+let SPEC_LIST = [];   // 동물 표(SPECIES)가 만들어지면 채운다 (상점 주인처럼 그 전에 만드는 캐릭터도 있다)
+const accGeo = (k, f) => ACCG[k] || (ACCG[k] = f());
+function addLook(u, o, look) {
+  const head = u.head, add = (geo, col, x, y, z) => { const m = mesh(geo, M(col), x, y, z); head.add(m); return m; };
+  const dome = accGeo('dome', () => new THREE.SphereGeometry(0.44, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2));
+  const c = look.accCol;
+  switch (look.acc) {
+    case 'cap': case 'police': {
+      const col = look.acc === 'police' ? 0x2a3a6a : c;
+      add(dome, col, 0, 0.06, 0).scale.set(1, 0.75, 1);
+      add(accGeo('brim', () => new THREE.CylinderGeometry(0.26, 0.26, 0.03, 20)), col, 0, 0.1, 0.36).scale.set(1, 1, 0.75);
+      if (look.acc === 'police') add(accGeo('badge', () => new THREE.SphereGeometry(0.045, 10, 8)), 0xf2c94a, 0, 0.26, 0.37);
+      break;
+    }
+    case 'beanie':
+      add(dome, c, 0, 0.0, 0).scale.set(1.02, 0.92, 1.02);
+      add(accGeo('pom', () => new THREE.SphereGeometry(0.09, 12, 8)), 0xfff8ec, 0, 0.43, 0);
+      break;
+    case 'straw':
+      add(accGeo('crown', () => new THREE.CylinderGeometry(0.3, 0.34, 0.2, 20)), 0xe8c872, 0, 0.38, 0);
+      add(accGeo('sbrim', () => new THREE.CylinderGeometry(0.68, 0.68, 0.03, 28)), 0xe8c872, 0, 0.29, 0);
+      add(accGeo('sband', () => new THREE.CylinderGeometry(0.315, 0.335, 0.05, 20)), 0xc8553d, 0, 0.32, 0);
+      break;
+    case 'ribbon':
+      for (const s of [-1, 1]) { const b = add(accGeo('bow', () => new THREE.ConeGeometry(0.08, 0.16, 12)), c, 0.2 + s * 0.08, 0.36, 0.06); b.rotation.z = s * Math.PI / 2; }
+      add(accGeo('knot', () => new THREE.SphereGeometry(0.04, 10, 8)), c, 0.2, 0.36, 0.07);
+      break;
+    case 'glasses': {
+      const ring = accGeo('ring', () => new THREE.TorusGeometry(0.075, 0.012, 8, 20));
+      for (const s of [-1, 1]) add(ring, 0x2a2a30, s * 0.13, 0.08, 0.41);
+      const br = add(accGeo('bridge', () => new THREE.CylinderGeometry(0.01, 0.01, 0.1, 6)), 0x2a2a30, 0, 0.09, 0.43); br.rotation.z = Math.PI / 2;
+      break;
+    }
+    case 'headband': case 'tie': {
+      const band = add(accGeo('band', () => new THREE.TorusGeometry(0.43, 0.028, 8, 32)), look.acc === 'tie' ? 0xc8303a : c, 0, 0.2, 0); band.rotation.x = Math.PI / 2;
+      if (look.acc === 'tie') for (const s of [-1, 1]) { const t = add(accGeo('tail', () => new THREE.BoxGeometry(0.05, 0.22, 0.02)), 0xc8303a, 0.36, 0.1, -0.14 + s * 0.05); t.rotation.z = 0.5 + s * 0.25; }
+      break;
+    }
+    case 'flower':
+      for (let k = 0; k < 5; k++) add(accGeo('petal', () => new THREE.SphereGeometry(0.045, 8, 6)), c, 0.24 + Math.cos(k * 1.257) * 0.055, 0.33 + Math.sin(k * 1.257) * 0.055, 0.14);
+      add(accGeo('knot', () => new THREE.SphereGeometry(0.04, 10, 8)), 0xf2d24a, 0.24, 0.33, 0.16);
+      break;
+    case 'scarf': {
+      const sc = mesh(accGeo('scarf', () => new THREE.TorusGeometry(0.14, 0.05, 8, 20)), M(c), 0, 0.66, 0); sc.rotation.x = Math.PI / 2; u.body.add(sc);
+      u.body.add(mesh(accGeo('stail', () => new THREE.BoxGeometry(0.07, 0.2, 0.04)), M(c), 0.08, 0.55, 0.15));
+      break;
+    }
+  }
+  // 어르신: 등이 살짝 굽고 지팡이를 짚는다
+  if (look.age === 'elder') { u.body.rotation.x = 0.12; u.aR.add(mesh(accGeo('cane', () => new THREE.CylinderGeometry(0.018, 0.018, 0.55, 6)), M(0x7a5536), 0, -0.4, 0.02)); }
+}
 function makeAnimal(o) {
+  const X = SPEC_LIST.find(s => s.sp === o.sp) || {};
+  // 고장 주민·행인은 사람마다 생김새를 조금씩 다르게 (주인공 친구들·장수는 그대로)
+  const look = (o.region || o.role) && !o.boss ? varyLook(o.id, o.role) : null;
+  const furCol = look && look.age === 'elder' ? new THREE.Color(o.fur).lerp(new THREE.Color(0xd8d4cc), 0.35).getHex() : o.fur;
   const g = new THREE.Group(); g.add(blob(0.9));
-  const u = makeBody(g, { skin: o.fur, shirt: o.shirt, pants: o.pants, pattern: o.pattern }), head = u.head;
-  const fur = M(o.fur);
+  const u = makeBody(g, { skin: furCol, shirt: o.shirt, pants: o.pants, pattern: o.pattern }), head = u.head;
+  const fur = M(furCol), earM = X.earCol ? M(X.earCol) : fur;
   const hd = put(head, mesh(CG.head, fur)); hd.scale.set(1, 0.92, 0.95);
   const mz = put(head, mesh(CG.muzzle, M(o.muzzle), 0, -0.13, 0.29)); mz.scale.set(1.18, 0.8, 0.82);
-  put(head, mesh(CG.nose, M(0x2b1d14), 0, -0.075, 0.44)).scale.set(1.25, 0.85, 0.85);
+  if (X.nose === 'snout') {
+    put(head, mesh(CG.muzzle, M(X.snoutCol || 0xf29a9a), 0, -0.08, 0.4)).scale.set(0.55, 0.42, 0.3);
+    for (const sx of [-1, 1]) put(head, mesh(CG.nose, M(0x6a3a3a), sx * 0.035, -0.08, 0.457)).scale.setScalar(0.32);
+  } else put(head, mesh(CG.nose, M(X.noseCol || 0x2b1d14), 0, -0.075, 0.44)).scale.set(1.25, 0.85, 0.85).multiplyScalar(X.bigNose ? 1.6 : 1);
   for (const sx of [-1, 1]) {
-    if (o.ear === 'round') { head.add(mesh(CG.ear, fur, sx * 0.27, 0.29, -0.02)); put(head, mesh(CG.ear, M(o.muzzle), sx * 0.27, 0.29, 0.06)).scale.set(0.6, 0.6, 0.35); }
+    if (o.ear === 'round') { head.add(mesh(CG.ear, earM, sx * 0.27, 0.29, -0.02)); put(head, mesh(CG.ear, X.earCol ? earM : M(o.muzzle), sx * 0.27, 0.29, 0.06)).scale.set(0.6, 0.6, 0.35); }
     if (o.ear === 'long') { const e = mesh(CG.earLong, fur, sx * 0.13, 0.55, -0.03); e.scale.set(1, 2.9, 0.7); e.rotation.z = -sx * 0.14; head.add(e); const ei = mesh(CG.earLong, M(o.earIn), sx * 0.13, 0.55, 0.025); ei.scale.set(0.55, 2.4, 0.4); ei.rotation.z = -sx * 0.14; head.add(ei); }
     if (o.ear === 'cat') { const e = mesh(CG.earCat, fur, sx * 0.24, 0.35, -0.02); e.rotation.set(-0.1, 0, -sx * 0.38); head.add(e); const ei = mesh(CG.earCat, M(o.earIn || o.muzzle), sx * 0.235, 0.34, 0.035); ei.scale.set(0.62, 0.7, 0.4); ei.rotation.set(-0.1, 0, -sx * 0.38); head.add(ei); }
+    // 강아지: 축 늘어진 귀
+    if (o.ear === 'floppy') { const e = mesh(CG.ear, M(X.earCol || new THREE.Color(furCol).multiplyScalar(0.8).getHex()), sx * 0.36, 0.1, -0.02); e.scale.set(0.62, 1.5, 0.42); e.rotation.z = sx * 0.3; head.add(e); }
+    // 생쥐·코알라: 크고 얇은 동그란 귀
+    if (o.ear === 'mouse') { const e = mesh(CG.ear, fur, sx * 0.31, 0.32, -0.06); e.scale.set(1.45, 1.45, 0.4); head.add(e); const ei = mesh(CG.ear, M(o.earIn || o.muzzle), sx * 0.31, 0.32, -0.02); ei.scale.set(0.95, 0.95, 0.25); head.add(ei); }
+    // 햄스터: 작고 동그란 귀
+    if (o.ear === 'small') { const e = mesh(CG.ear, fur, sx * 0.25, 0.33, 0); e.scale.setScalar(0.55); head.add(e); }
+    // 돼지: 앞으로 접힌 작은 세모 귀
+    if (o.ear === 'pig') { const e = mesh(CG.earCat, fur, sx * 0.24, 0.33, 0.05); e.scale.set(0.7, 0.6, 0.6); e.rotation.set(0.7, 0, -sx * 0.45); head.add(e); }
+  }
+  // 사슴: 사람에 따라 작은 뿔
+  if (X.antler && hashStr(o.id || o.name || '') % 2) for (const sx of [-1, 1]) {
+    const a = mesh(accGeo('antler', () => new THREE.CylinderGeometry(0.02, 0.028, 0.26, 6)), M(0x8a6a4a), sx * 0.13, 0.48, -0.02); a.rotation.z = -sx * 0.3; head.add(a);
+    const b = mesh(accGeo('antler', () => new THREE.CylinderGeometry(0.02, 0.028, 0.26, 6)), M(0x8a6a4a), sx * 0.2, 0.55, -0.02); b.scale.y = 0.55; b.rotation.z = -sx * 1.0; head.add(b);
   }
   if (o.tail) { const t = mesh(CG.hand, fur, 0, 0.3, -0.2); t.scale.setScalar(o.tail * 0.9); u.body.add(t); }
   // 눈은 주둥이 위쪽, 입은 주둥이 아래쪽에 그린다
-  const f = Object.assign({ eyeY: 50, gap: 44, blush: '#ff8f96' }, o.face || {});
+  const f = Object.assign({ eyeY: 50, gap: 44, blush: '#ff8f96' }, o.face || {}, look ? look.face : {}, X.patch ? { patch: X.patch } : {});
   const eyes = faceShell(hd, 0.425, faceTex(f, 'open'), 2.0, 0.95, 1.25);
   const mouth = faceShell(mz, 0.193, mouthTex(o.mouth || 'w', false), 1.7, 1.45, 0.9);
   makeFace(u, f, eyes, mouth, o.mouth || 'w');
+  if (look) { addLook(u, o, look); g.scale.setScalar(look.size); }
   g.userData = u;
   return g;
 }
@@ -2064,8 +2157,18 @@ const SPECIES = {
   squirrel: { sp: '다람쥐', ear: 'round', furs: [0xb5733d, 0x8f6a4a], muzzles: [0xf6dfc0, 0xeed8c0], tail: 2.4, mouth: 'y' },
   sheep: { sp: '양', ear: 'round', furs: [0xfdfbf5, 0xe9e3d8], muzzles: [0xf1d9c6, 0x5a4a44], tail: 1, mouth: 'w' },
   otter: { sp: '수달', ear: 'round', furs: [0x8a5f3c, 0x9a7050], muzzles: [0xe8d2b5, 0xf0dcc0], tail: 1.4, mouth: 'w' },
+  dog: { sp: '강아지', ear: 'floppy', furs: [0xc8955a, 0xf4ede2, 0x5a4636, 0xe6c79a], muzzles: [0xf6e8d2, 0xffffff, 0xd9c2a0, 0xfff4e6], tail: 1.3, mouth: 'w' },
+  pig: { sp: '돼지', ear: 'pig', furs: [0xf6c4c0, 0xefb2ae], muzzles: [0xfbd9d6, 0xf6cfcb], tail: 0.8, mouth: 'w', nose: 'snout' },
+  blackpig: { sp: '흑돼지', ear: 'pig', furs: [0x3a3036, 0x463a40], muzzles: [0x5a4a50, 0x62525a], tail: 0.8, mouth: 'w', nose: 'snout', snoutCol: 0x8a6a72 },
+  deer: { sp: '사슴', ear: 'cat', furs: [0xc08a55, 0xb07a48], muzzles: [0xf6e6d0, 0xeedcc0], earIn: 0xf3d2c0, tail: 0.9, mouth: 'w', antler: true },
+  panda: { sp: '판다', ear: 'round', furs: [0xf8f6f0], muzzles: [0xffffff], earCol: 0x2a2a30, tail: 0.8, mouth: 'w', patch: 'panda' },
+  mouse: { sp: '생쥐', ear: 'mouse', furs: [0xb8b4b0, 0xe8e0d4, 0x8a7a6a], muzzles: [0xf3e3d6, 0xfff6ee, 0xe6d6c6], earIn: 0xf6b3c4, tail: 0.6, mouth: 'y' },
+  hamster: { sp: '햄스터', ear: 'small', furs: [0xf0b878, 0xf6e2c4, 0xd9a066], muzzles: [0xffffff, 0xfff6e8, 0xfff0dc], tail: 0.5, mouth: 'y' },
+  raccoon: { sp: '너구리', ear: 'round', furs: [0x8a7a68, 0x7a6a5a], muzzles: [0xf0e8dc, 0xe8dccc], tail: 1.8, mouth: 'w', patch: 'mask' },
+  koala: { sp: '코알라', ear: 'mouse', furs: [0xa8a8b0, 0x9a9aa4], muzzles: [0xd8d8de, 0xcfcfd6], earIn: 0xf0f0f4, tail: 0.4, mouth: 'w', noseCol: 0x3a3a40, bigNose: true },
 };
-const REGION_SP = { sudo: ['cat', 'rabbit', 'squirrel', 'fox'], gangwon: ['bear', 'sheep', 'squirrel'], chung: ['sheep', 'bear', 'rabbit'], jeolla: ['rabbit', 'squirrel', 'cat', 'otter'], gyeong: ['cat', 'fox', 'otter', 'bear'], jeju: ['cat', 'otter', 'rabbit'], seobuk: ['bear', 'rabbit', 'squirrel', 'sheep'], dongbuk: ['bear', 'fox', 'sheep', 'otter'] };
+SPEC_LIST = Object.values(SPECIES);
+const REGION_SP = { sudo: ['cat', 'rabbit', 'squirrel', 'fox', 'dog', 'hamster', 'mouse', 'panda'], gangwon: ['bear', 'sheep', 'squirrel', 'deer', 'raccoon', 'koala'], chung: ['sheep', 'bear', 'rabbit', 'pig', 'dog', 'hamster'], jeolla: ['rabbit', 'squirrel', 'cat', 'otter', 'raccoon', 'dog', 'pig'], gyeong: ['cat', 'fox', 'otter', 'bear', 'dog', 'deer', 'pig'], jeju: ['cat', 'otter', 'rabbit', 'blackpig', 'dog'], seobuk: ['bear', 'rabbit', 'squirrel', 'sheep', 'deer', 'mouse'], dongbuk: ['bear', 'fox', 'sheep', 'otter', 'deer', 'raccoon'] };
 // 사투리: 인사·말 걸기·잡담·야차룰 대사와 싸움 스타일
 const DIALECT = {
   seobuk: { cp: ['기래', '일없어', '알갔디?'], greet: { m: '날래 일어났구만. 좋은 아침이야요.', d: '어서 오라우. 반갑습네다.', e: '해가 지누만. 저녁은 먹었습네까?', n: '밤이 깊었는데 와 안 자구 기래?' },
@@ -2213,7 +2316,8 @@ const CITY_LINES = {
   백령: ['백령도는 서해 맨 끝 섬이야. 물범이 산대.', '인천 가는 배는 부두에서 타면 돼.'],
 };
 const NAME_POOL = ['도담', '나리', '콩이', '두부', '단비', '바람', '모모', '라떼', '초코', '호두', '밤톨', '쿠키', '보라', '아라', '유자', '자두', '망고', '구름', '별이', '솔이', '다온', '루루', '포포', '깨비', '하루', '누리', '가온', '찹쌀', '인절미', '꿀떡', '송편', '감자', '고구마', '보리차', '수정', '노을', '해솔', '미르', '달래', '냉이', '머루', '다래', '오디', '앵두', '살구', '모래', '파도', '여울'];
-const SHIRTS = [0x6aa36f, 0xf39bb5, 0x8e7cc3, 0x4f8fd8, 0xf2a94a, 0xe0645a, 0x5ab0a8, 0xd8c24a, 0x9a6a4a, 0x7a8ad8];
+const SHIRTS = [0x6aa36f, 0xf39bb5, 0x8e7cc3, 0x4f8fd8, 0xf2a94a, 0xe0645a, 0x5ab0a8, 0xd8c24a, 0x9a6a4a, 0x7a8ad8, 0x2f4a6a, 0xfff8ec, 0x3a3a46, 0xc8303a, 0x9ad0e8, 0xf6d6a0];
+const PATTERNS = [null, 'stripe', 'dot', 'check', 'vstripe', 'heart', 'star'];
 const ROOFS = [0x4f7fbf, 0xe5738f, 0x8a6fb8, 0xd29a2e, 0x4fa06a, 0xc8553d, 0x5a7a9a, 0x9a5a8a];
 const OPENERS_X = {};
 const FDEF_X = {}, FLINES_X = {};
@@ -2229,7 +2333,7 @@ const FDEF_X = {}, FLINES_X = {};
       const own = (CITY_LINES[c.name] || []).map(s => s);
       VDEF.push({
         id, name, sp: S0.sp, cp, pitch: 150 + Math.floor(r() * 200), fur: S0.furs[fi], muzzle: S0.muzzles[fi % S0.muzzles.length], ear: S0.ear, earIn: S0.earIn, tail: S0.tail, mouth: S0.mouth,
-        shirt: pick(SHIRTS, r), pants: pick([0x5a4030, 0x34476e, 0x7a5536, 0x4a4a52], r), pattern: pick([null, 'stripe', 'dot', 'check'], r),
+        shirt: pick(SHIRTS, r), pants: pick([0x5a4030, 0x34476e, 0x7a5536, 0x4a4a52], r), pattern: pick(PATTERNS, r),
         face: { iris: '#24160e', eyeW: 12 + Math.floor(r() * 5), eyeH: 14 + Math.floor(r() * 5), lash: r() < 0.4 }, roof, color: '#' + new THREE.Color(roof).multiplyScalar(0.85).getHexString(),
         pref: [c.x + (k ? 4 : -4), c.z + (c.size === 3 ? 6 : 3)], town: c.name,
         chat: [...own, ...D.chat.map(s => s.replace('{c}', sub)), ...PERSONA[c.region].chat.map(s => s.replace('{c}', sub))], greet: D.greet, region: c.region,
@@ -4978,7 +5082,7 @@ const ROLES = {
 function personDef(r, o) {
   const sk = pick(REGION_SP[o.region], r), S0 = SPECIES[sk], fi = Math.floor(r() * S0.furs.length), roof = pick(ROOFS, r), D = DIALECT[o.region];
   return Object.assign({ name: makeName(r), sp: S0.sp, cp: pick(D.cp, r), pitch: 150 + Math.floor(r() * 200), fur: S0.furs[fi], muzzle: S0.muzzles[fi % S0.muzzles.length], ear: S0.ear, earIn: S0.earIn, tail: S0.tail, mouth: S0.mouth,
-    shirt: pick(SHIRTS, r), pants: pick([0x5a4030, 0x34476e, 0x7a5536, 0x4a4a52], r), pattern: pick([null, 'stripe', 'dot', 'check'], r),
+    shirt: pick(SHIRTS, r), pants: pick([0x5a4030, 0x34476e, 0x7a5536, 0x4a4a52, 0x2a2a30, 0x6a8ab0, 0x8a3a3a], r), pattern: pick(PATTERNS, r),
     face: { iris: '#24160e', eyeW: 12 + Math.floor(r() * 5), eyeH: 14 + Math.floor(r() * 5), lash: r() < 0.4 }, roof, color: '#' + new THREE.Color(roof).multiplyScalar(0.85).getHexString(), greet: D.greet }, o);
 }
 function addPerson(def, extra) {
