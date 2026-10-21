@@ -2290,9 +2290,10 @@ for (const v of VDEF) {
     const sg = findSpot(c.x, c.z, 1, 1, 0, 5); if (sg) { reserve(sg[0], sg[1], 1, 1); addEnt({ type: 'sign', name: c.name, make: () => makeSign(c.name) }, sg[0], sg[1]); }
     const big = c.name === '서울' || c.name === '평양', apts = c.size === 3 ? (big ? 90 : 48) : c.size === 2 ? 20 : 0, rad = c.size === 3 ? (big ? 42 : 30) : 16;
     let placed = 0;
+    const onAvenue = (x, z) => (x + 2 >= c.x - 2 && x - 1 <= c.x + 2) || (z + 2 >= c.z - 2 && z - 1 <= c.z + 2) || (c.size === 3 && Math.abs(Math.hypot(x + 1 - c.x, z + 1 - c.z) - rad * 0.55) < 2.5);
     for (let k = 0; k < apts * 6 && placed < apts; k++) {
       const a = r() * Math.PI * 2, d = 2.5 + r() * rad, x = Math.round(c.x + Math.cos(a) * d), z = Math.round(c.z + Math.sin(a) * d);
-      if (!areaOK(x, z, 2, 2, 1)) continue;
+      if (onAvenue(x, z) || !areaOK(x, z, 2, 2, 1)) continue;
       reserve(x - 1, z - 1, 4, 4); placed++;
       const floors = c.size === 3 ? 6 + Math.floor(r() * 9) : 4 + Math.floor(r() * 4), col = pick([0xfff8ec, 0xf3efe6, 0xf6eee0, 0xeaf0f4], r), num = 100 + placed;
       addEnt({ type: 'apt', make: () => makeApt(floors, col, num) }, x, z, 2, 2);
@@ -3379,7 +3380,7 @@ function removeBotWorld(b) {
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
-if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, tp: (x, z) => { P.x = x; P.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal }), route: (a, b) => marchRoute(a, b), BAL, PERF,
   talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
@@ -3834,6 +3835,7 @@ function updateVillagers(dt, h) {
     if (!v.vis) { v.x = v.def.home.x; v.z = v.def.home.z; continue; }
     const u = v.mesh.userData; let moving = false;
     if (v.talking) { v.rot = lerpAngle(v.rot, Math.atan2(P.x - v.x, P.z - v.z), 1 - Math.exp(-dt * 10)); }
+    else if (!P.sail && Math.hypot(P.x - v.x, P.z - v.z) < 2.2) { v.wait = Math.max(v.wait, 0.8); v.rot = lerpAngle(v.rot, Math.atan2(P.x - v.x, P.z - v.z), 1 - Math.exp(-dt * 6)); }
     else if (v.wait > 0) v.wait -= dt;
     else {
       if (!v.target) {
@@ -4086,7 +4088,7 @@ function nearestInFront(list, maxD, minDot) {
 function currentAction() {
   if (FS) return FS.state === 'bite' ? { l: '낚아채기!', f: reelCatch } : { l: '건지기', f: reelCancel };
   if (P.sail) { const l = landSpot(); return l ? { l: '배에서 내리기', f: () => disembark(l) } : null; }
-  const v = nearestInFront(villagers.filter(v => v.vis), 1.6, 0.3); if (v) return { l: '말 걸기', f: () => talkVillager(v) };
+  const v = nearestInFront(villagers.filter(v => v.vis), 2.0, 0.15); if (v) return { l: '말 걸기', f: () => talkVillager(v) };
   if (frontOcc(o => o.type === 'shop')) return { l: '말 걸기', f: talkShop };
   const po = frontOcc(o => o.type === 'pier'); if (po) return { l: '배 타기', f: () => rideFerry(po.pier) };
   const co = frontOcc(o => CIV_ACT[o.type]); if (co) return CIV_ACT[co.type](co);
@@ -4734,6 +4736,7 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (D.open && !D.typing) { if (k === 'arrowup' || k === 'w') { dlgMove(-1); return; } if (k === 'arrowdown' || k === 's') { dlgMove(1); return; } }
+  if ((k === ' ' || k === 'e' || k === 'enter') && performance.now() < inputHold) return;
   if (k === ' ' || k === 'e' || k === 'enter') pressA();
   else if (k === 'escape' || k === 'q' || k === 'backspace') pressB();
   else if (k === 'i' || k === 'tab') { if (!$('#pBag').hidden) closePanels(); else openBag(); }
@@ -4900,7 +4903,7 @@ function placeLazy(v) {
 // 던질 수 있는 물건과 위력
 const THROWABLE = { iron: 20, coconut: 18, stone: 16, clay: 12, apple: 10, orange: 10, peach: 10, starfish: 8, shell: 8, weed: 4 };
 const THROWCOL = { stone: 0x9e978f, iron: 0x8a8f99, clay: 0xc08a5a, shell: 0xf7d2c6, starfish: 0xf08a4b, weed: 0x7fae45, fish: 0x7fb6d6 };
-let FT = null, camShake = 0;
+let FT = null, camShake = 0, inputHold = 0;
 const fightBtn = { block: false };
 const FX = {
   whoosh() { noise(0.1, 0.16, 2600, { type: 'highpass' }); },
@@ -5045,7 +5048,7 @@ function resetPose(u) {
 function closeFight() {
   const { v, result } = FT; const L = FLINES[v.id], cp = v.def.cp;
   if (FT.stars) FT.stars.parent.remove(FT.stars);
-  FT = null; v.fighting = false; v.talking = true; v.target = null;
+  FT = null; v.fighting = false; v.talking = true; v.target = null; inputHold = performance.now() + 1200;
   resetPose(P.mesh.userData); resetPose(v.mesh.userData);
   for (const id of ['#fightHud', '#fightCall', '#fightKeys', '#fBtns']) $(id).hidden = true;
   $('#toolbar').hidden = false; fightBtn.block = false;
@@ -5063,6 +5066,7 @@ function closeFight() {
   } else if (result === 'lose') { rec.l++; SFX.miss(); steps.push(L.lose, `그래도 재밌었어. 언제든 다시 덤벼. ${cp}`); }
   else steps.push(L.draw);
   dirty();
+  toast(`${result === 'win' ? '🏆 야차룰 승리!' : result === 'lose' ? '💥 야차룰 패배…' : '🤝 무승부'} ${josa(v.def.name, '과', '와')}의 전적 ${rec.w}승 ${rec.l}패`);
   openDialog(vSpeaker(v), steps, () => { v.talking = false; v.wait = rand(1, 3); });
 }
 function fightHUD() {
