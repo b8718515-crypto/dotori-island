@@ -339,6 +339,8 @@ defItem('amethyst', { n: '자수정', i: '💎', v: 1500, stack: 10, cat: '보�
 defItem('shell', { n: '조개껍데기', i: '🐚', v: 100, stack: 10, cat: '해변' });
 defItem('starfish', { n: '불가사리', i: '⭐', v: 150, stack: 10, cat: '해변' });
 defItem('acornbag', { n: '도토리 자루', i: '💰', v: 0, coins: 1000, cat: '도토리' });
+defItem('makgeolli', { n: '막걸리', i: '🍶', v: 100, buy: 400, stack: 10, cat: '술', drink: 25 });
+defItem('soju', { n: '소주', i: '🍾', v: 80, buy: 300, stack: 10, cat: '술', drink: 35 });
 const FLOWERS = {
   tulip: { n: '튤립', i: '🌷', col: 0xe8484a },
   cosmos: { n: '코스모스', i: '🌸', col: 0xf29ac2 },
@@ -354,7 +356,7 @@ defItem('sapling_peach', { n: '복숭아 묘목', i: '🌳', v: 160, buy: 640, s
 defItem('lamp', { n: '정원 램프', i: '🏮', v: 300, buy: 1200, cat: '가구', place: 'lamp' });
 defItem('bench', { n: '통나무 벤치', i: '🪑', v: 375, buy: 1500, cat: '가구', place: 'bench' });
 defItem('wood', { n: '목재', i: '🪵', v: 60, buy: 300, stack: 30, cat: '재료' });
-const SHOP_STOCK = ['seed_tulip', 'seed_cosmos', 'seed_daisy', 'sapling_apple', 'sapling_orange', 'lamp', 'bench'];
+const SHOP_STOCK = ['seed_tulip', 'seed_cosmos', 'seed_daisy', 'sapling_apple', 'sapling_orange', 'lamp', 'bench', 'makgeolli', 'soju'];
 // 상점을 넓히면 별관에서 더 판다
 const SHOP_STOCK2 = ['wood', 'sapling_peach'];
 // 동맹 도시가 보내 주는 고장 특산물
@@ -2472,6 +2474,7 @@ const TECHS = [
   { id: 'build', n: '건축', i: '🧱', lv: 2, need: 'farm', cost: { stone: 10, clay: 10, coins: 5000 }, d: '영토 밖에 새 마을을 세울 수 있어요. 건물 짓는 비용이 20% 줄어요.' },
   { id: 'sail', n: '항해', i: '⛵', lv: 3, need: 'build', cost: { wood: 15, iron: 5, coins: 8000 }, d: '항구를 짓고 나무배를 만들어 바다와 강을 자유롭게 오가요.' },
   { id: 'war', n: '군사', i: '⚔️', lv: 2, need: 'build', cost: { iron: 8, stone: 10, coins: 5000 }, d: '병영을 짓고 병사를 모아 동물 왕국과 싸워요. (배우면 왕국들도 쳐들어오기 시작해요)' },
+  { id: 'gun', n: '화약', i: '🔫', lv: 4, need: 'war', cost: { iron: 15, stone: 10, coins: 15000 }, d: '병사들이 화승총을 들어요. 공격·수비 힘 +25%. (봇도 Lv.4가 되면 총을 들어요)' },
 ];
 const TECH_BY = Object.fromEntries(TECHS.map(t => [t.id, t]));
 const CRAFTS = [
@@ -2837,7 +2840,7 @@ function renderCiv() {
       const why = lv < t.lv ? `마을 Lv.${t.lv}부터 배울 수 있어요.` : t.need && !S.civ.tech[t.need] ? `${josa(TECH_BY[t.need].n, '을', '를')} 먼저 배워야 해요.` : '';
       civRow(t.i, t.n, why ? `${why} ${t.d}` : t.d, t.cost, cbtn('배우기', () => learnTech(t), !!why || !hasCost(t.cost)), why ? 'lock' : '');
     });
-    note('기술 트리: 농업 → 건축 → 항해 / 건축 → 군사. 항해를 배우면 항구를 짓고 나무배를 만들어 울릉도·제주도 같은 섬까지 직접 노 저어 갈 수 있어요.');
+    note('기술 트리: 농업 → 건축 → 항해 / 건축 → 군사 → 화약. 항해를 배우면 항구를 짓고 나무배를 만들어 울릉도·제주도 같은 섬까지 직접 노 저어 갈 수 있어요.');
   } else if (civTab === 'town') {
     const ck = settleCheck(), nm = TOWN_NAMES[S.civ.towns.length] || '';
     civRow('🏡', '지금 이 자리에 새 마을 세우기', ck.ok ? `「${nm}」이 생겨요. 반경 ${TOWN_R}칸이 새 영토가 되고, 가까운 내 마을까지 길을 닦아요.` : ck.why, ck.cost || townCost(), cbtn('세우기', foundTown, !ck.ok || !hasCost(ck.cost)), ck.ok ? '' : 'lock');
@@ -2937,9 +2940,10 @@ function battleOdds(a, d, tries = 160) {
 }
 const oddsTxt = o => `승산 ${Math.round(o.p * 100)}%${o.p > 0 ? ` (이기면 약 ${o.loss}명 잃음)` : ''}`;
 // 배율: 내 공격(학교 +15%), 요새 수비(수도 요새가 더 단단하고, 동물 왕국 요새는 봇에게 더 버겁다), 봇 마을 수비(민병대 포함)
-const myAtkM = () => 1 + (S.civ.built.school ? 0.15 : 0);
+const gunM = () => S.civ.tech.gun ? 1.25 : 1, botGunM = b => b && b.lv >= 4 ? 1.2 : 1;
+const myAtkM = () => (1 + (S.civ.built.school ? 0.15 : 0)) * gunM();
 const fortM = (f, st, byBot) => byBot && st.own === 'k' ? (f.cap ? 1.9 : 1.5) : (f.cap ? 1.4 : 1.15);
-const townSide = (o, cap) => ({ n: o.troops + BAL.battle.militia, m: cap ? 1.4 : 1.1 });
+const townSide = (o, cap) => ({ n: o.troops + BAL.battle.militia, m: (cap ? 1.4 : 1.1) * botGunM(o) });
 // 마을 전투 뒤 봇 병사 수: 민병대와 같은 비율로 잃는다
 const townLeft = (o, res) => Math.max(0, Math.round(o.troops * res.d / (o.troops + BAL.battle.militia)));
 const myForts = () => FORTS.filter(f => fortSt(f).own === 'me');
@@ -3110,7 +3114,7 @@ function defend(m) {
   if (kk && S.war.fallen[kk.id]) { warLog(`🏳️ 항복한 ${kk.n} 군대가 그냥 돌아갔어요.`); return; }
   if (bot && (!bot.alive || S.ai.truce[bot.id] > S.civ.play)) { if (bot.alive) bot.troops += m.n; warLog(`🕊️ 휴전 중이라 ${bot.name} 군대가 돌아갔어요.`); return; }
   const W = BAL.war, near = Math.hypot(P.x - m.to[0], P.z - m.to[1]) < W.cmdR, n0 = S.war.troops;
-  const res = resolveBattle({ n: m.n, m: 1 }, { n: n0, m: (m.tkind === 'home' ? W.home : 1) * (near ? W.cmd : 1) }, GR), back = Math.round(res.a);
+  const res = resolveBattle({ n: m.n, m: botGunM(bot) }, { n: n0, m: (m.tkind === 'home' ? W.home : 1) * (near ? W.cmd : 1) * gunM() }, GR), back = Math.round(res.a);
   S.war.troops = Math.round(res.d);
   if (bot && bot.alive && back > 0) bot.troops += back;   // 살아남은 봇 병사는 돌아간다
   if (!res.win) {
@@ -3384,7 +3388,7 @@ if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
 if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, tp: (x, z) => { P.x = x; P.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal }), route: (a, b) => marchRoute(a, b), BAL, PERF,
-  talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
+  shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
 /* --- 봇의 기억과 평판 ---
    문명 5의 외교 AI처럼 봇은 플레이어가 한 일(선물·선전포고·약속 위반·같은 편 공격·정복)을 기억하고, 그 기억으로 태도를 정한다.
@@ -3532,7 +3536,7 @@ function botArrive(m) {
     // 가는 동안 같은 편이 먼저 차지했으면 그냥 돌아온다
     if (st.own === 'b:' + b.id || (ob && ob.side === b.side && b.style !== 'traitor')) { back(m.n); return; }
     if (st.own === 'me') { m.bname = b.name; m.tkind = 'fort'; m.tid = f.id; defend(m); return; }
-    const res = resolveBattle({ n: m.n, m: 1 }, { n: st.g, m: fortM(f, st, true) }, GR);
+    const res = resolveBattle({ n: m.n, m: botGunM(b) }, { n: st.g, m: fortM(f, st, true) }, GR);
     if (res.win) {
       const left = Math.max(1, Math.round(res.a)); st.own = 'b:' + b.id; st.g = Math.max(1, Math.round(left / 2)); st.siege = 0; back(left - st.g); refreshFort(f); terrDirty = true;
       let fell = false; const k = f.k;
@@ -3543,7 +3547,7 @@ function botArrive(m) {
   }
   // 다른 봇 마을
   const o = BB[t.bot]; if (!o || !o.alive) { back(m.n); return; }
-  const res = resolveBattle({ n: m.n, m: 1 }, townSide(o, t.cap), GR);
+  const res = resolveBattle({ n: m.n, m: botGunM(b) }, townSide(o, t.cap), GR);
   o.troops = townLeft(o, res); back(res.a);
   if (res.win) {
     if (t.cap) { botFall(o, b); }
@@ -3585,6 +3589,7 @@ function resetBots() {
 function botTick() {
   const dt = S.civ.play - (S.ai.at ?? S.civ.play); S.ai.at = S.civ.play;
   if (S.ai.wm) S.ai.wm = Math.max(0, S.ai.wm - dt * REP.wmDecay);
+  if (S.heat) S.heat = Math.max(0, S.heat - dt * HEAT_DECAY);
   if (!S.ai.on || !S.ai.bots) return;
   const sp = BOT_SPEED[S.ai.speed] || 1;
   for (const b of S.ai.bots) if (b.alive && S.civ.play >= b.next) { b.next = S.civ.play + Math.round(BOT_TICK * sp * grand(0.7, 1.3)); botAct(b); }
@@ -3762,6 +3767,83 @@ const OPENERS = {
   norang: ['…무슨 일이지. 음.', '또 왔군. 음.'],
 };
 Object.assign(OPENERS, OPENERS_X);
+/* ================= 어두운 일: 술 · 소매치기 · 사기 · 수배 ================= */
+// 술은 상점에서 산다. 마시면 비틀거리고 화면이 흔들리지만, 맞짱에선 취권(주먹 +25%)이 되고 주민과 한잔하면 속마음을 털어놓는다.
+// 소매치기·사기는 들키면 우호도가 깎이고 수배 지수가 오른다. 수배 지수가 높으면 야간 순찰이 붙잡아 벌금을 물린다. 시간이 지나면 식는다.
+const HEAT_DECAY = 1 / 60;   // 1초에 1/60 (1분에 1)
+const SHOUT = { sudo: '야! 도둑이야!', gangwon: '도둑놈이래요! 거기 서요!', chung: '아이구, 도둑이유! 도둑!', jeolla: '오메, 도둑놈이여!', gyeong: '마! 니 지금 뭐 하노!', jeju: '도독놈이우다! 잡읍서!', seobuk: '이 간나, 도적질이네!', dongbuk: '도적놈이지비! 거기 서오!' };
+const SCAM_P = { sudo: 0.25, gangwon: 0.55, chung: 0.5, jeolla: 0.4, gyeong: 0.6, jeju: 0.45, seobuk: 0.35, dongbuk: 0.5 };
+const FAKES = ['백두산 산삼', '고려청자 조각', '공룡알 화석', '한정판 금두꺼비', '임금님 옥새'];
+const drinkSlot = () => S.inv.findIndex(s => s && ITEMS[s.id].drink);
+const scamItem = () => S.inv.find(s => s && ITEMS[s.id].v <= 200 && !ITEMS[s.id].drink);
+function heatAdd(n) { S.heat = clamp((S.heat || 0) + n, 0, 100); dirty(); toast(`🚨 수배 지수 ${Math.round(S.heat)}${S.heat >= 30 ? ' · 순찰이 나를 찾고 있어요' : ''}`); }
+function townRelDrop(v, n) { if (v.def.town && !S.civ.ally[v.def.town]) S.civ.rel[v.def.town] = Math.max(0, (S.civ.rel[v.def.town] || 0) - n); }
+function drinkFromSlot(i) {
+  const s = S.inv[i]; if (!s) return; const it = ITEMS[s.id];
+  removeItem(it.id, 1); P.drunk = Math.min(100, (P.drunk || 0) + it.drink); SFX.pickup(); dirty();
+  toast(P.drunk < 30 ? `캬~ ${it.n} 한잔! 기분 좋다.` : P.drunk < 60 ? '어질어질… 세상이 빙글빙글 돈다. (취권 상태)' : '딸꾹! 여기가 어디더라… (만취)');
+  bagSel = -1; renderBag();
+}
+// 주민과 한잔: 친해지고, 취하면 속마음(숨기던 우호도)도 털어놓는다
+function drinkWith(v) {
+  const i = drinkSlot(); if (i < 0) return ['…술이 없잖아.'];
+  const it = ITEMS[S.inv[i].id], town = v.def.town, PS = personaOf(v);
+  removeItem(it.id, 1); P.drunk = Math.min(100, (P.drunk || 0) + it.drink * 0.6); VS(v.id).fr += 2; dirty(); SFX.pickup();
+  if (town) relAdd(town, PS && PS.m.treat ? 3 : 2, true);
+  const out = [`(${josa(v.def.name, '과', '와')} ${josa(it.n, '을', '를')} 한잔 나눴다)`, ROLES.drunk.lines[v.def.region] || '캬~ 좋다!'];
+  if (town && relHidden(town)) out.push(`…사실 말이여, ${town} 사람들은 자네를 ${Math.min(S.civ.rel[town] || 0, ALLY_AT)} / ${ALLY_AT}만큼은 좋아한당께. 딸꾹. (취중진담)`);
+  else out.push(pick(v.def.chat || ['좋다!']));
+  return out;
+}
+function pickpocket(v) {
+  (S.daily.stole || (S.daily.stole = {}))[v.id] = true; dirty();
+  const h = hour(), night = h >= 21 || h < 5, tipsy = v.def.role === '한잔한 사람', st = VS(v.id);
+  const p = clamp(0.45 + (night ? 0.15 : 0) + (tipsy ? 0.3 : 0) - ((P.drunk || 0) > 30 ? 0.15 : 0) + Math.min(0.1, st.fr * 0.01), 0.05, 0.92);
+  if (GR() < p) {
+    let got = null;
+    if (GR() < 0.3) { const id = GR() < 0.08 ? 'amethyst' : pick(['apple', 'shell', 'iron', 'clay', 'stone'], GR); if (addItem(id)) got = ITEMS[id].n; }
+    if (!got) { const c = 150 + Math.floor(GR() * 550); S.coins += c; updateHUD(); got = `도토리 ${fmt(c)}개`; }
+    SFX.pickup();
+    return [`(${v.def.name}의 주머니에서 ${josa(got, '을', '를')} 슬쩍했다… 눈치채지 못한 것 같다)`, pick(v.def.chat || ['…?'])];
+  }
+  st.fr = Math.max(0, st.fr - 3); townRelDrop(v, 3); heatAdd(20); SFX.miss();
+  const shout = SHOUT[v.def.region] || '도둑이야!';
+  if (GR() < 0.5) { pendingFight = v; return [shout, FLINES[v.id] ? FLINES[v.id].accept : '덤벼!']; }
+  return [shout, `(${josa(v.def.name, '이', '가')} 소리를 질러 사람들이 쳐다본다${v.def.town ? ` · ${v.def.town} 우호도 -3` : ''})`];
+}
+function scam(v) {
+  const s = scamItem(); if (!s) return ['…팔 만한 게 없다.'];
+  const it = ITEMS[s.id], fake = pick(FAKES), price = Math.max(600, it.v * 8), cp = v.def.cp, st = VS(v.id);
+  const p = clamp((SCAM_P[v.def.region] ?? 0.45) + (v.def.role === '한잔한 사람' ? 0.25 : 0) - ((P.drunk || 0) > 30 ? 0.1 : 0), 0.05, 0.9);
+  const pitch = `나: (${josa(it.n, '을', '를')} 슬쩍 내밀며) 이거 아주 귀한 ${fake}인데, 특별히 도토리 ${fmt(price)}개에 줄게.`;
+  if (GR() < p) {
+    removeItem(it.id, 1); S.coins += price; updateHUD(); st.scam = { day: dayKey(gameNow()), fake }; dirty(); SFX.coin();
+    return [pitch, `${fake}?! 이런 귀한 걸… 살게! ${cp}`, `(${it.n} 하나로 도토리 ${fmt(price)}개를 벌었다. 언젠가 들통날지도…)`];
+  }
+  st.fr = Math.max(0, st.fr - 2); townRelDrop(v, 2); heatAdd(10); SFX.miss();
+  return [pitch, `어디서 사기를 치려고! 그거 그냥 ${it.n}이잖아. ${cp}`];
+}
+// 말 걸 때: 사기를 알아챈 사람, 수배 중인 나를 붙잡는 순찰
+function shadyCheck(v) {
+  const st = VS(v.id), cp = v.def.cp;
+  if (st.scam && st.scam.day !== dayKey(gameNow())) {
+    const f = st.scam.fake; delete st.scam; st.fr = Math.max(0, st.fr - 4); townRelDrop(v, 4); heatAdd(15);
+    const steps = [`너! 지난번에 판 ${f}, 가짜였지! ${cp}`];
+    if (GR() < 0.5) { pendingFight = v; steps.push(FLINES[v.id].accept); } else steps.push(`다시는 너랑 거래 안 해! ${cp}`);
+    return steps;
+  }
+  if (v.def.role === '야간 순찰' && (S.heat || 0) >= 30) {
+    const fine = Math.min(Math.round(S.coins * 0.4), Math.round(S.heat * 60));   // 가진 것의 40%까지만
+    return [{ t: `거기 서! 요즘 이 근처에서 도둑질하고 사기 친 게 너지? 벌금 도토리 ${fmt(fine)}개! ${cp}`, choices: [
+      { l: `벌금 내기 (${fmt(fine)})`, f: () => { S.coins -= fine; updateHUD(); S.heat = Math.max(0, S.heat - 40); dirty(); return [`알았으면 됐다. 착하게 살아라. ${cp}`]; } },
+      { l: '야차룰로 덤벼!', f: () => { pendingFight = v; return [FLINES[v.id].accept]; } },
+      { l: '도망치기', f: () => {
+        if (GR() < 0.5) { heatAdd(10); return ['(냅다 뛰었다! …겨우 따돌렸다)']; }
+        S.coins -= Math.min(S.coins, fine * 2); updateHUD(); S.heat = Math.max(0, S.heat - 30); dirty(); return [`도망쳐 봤자다! 벌금 두 배! ${cp}`];
+      } }] }];
+  }
+  return null;
+}
 let pendingFight = null;
 function talkVillager(v) {
   if (v.def.boss) { bossTalk(v); return; }
@@ -3772,9 +3854,14 @@ function talkVillager(v) {
   let opener = first ? greetFor(v, h) : pick(OPENERS[v.id]);
   const PS = personaOf(v);
   if (first && PS && PS.m.treat && R() < PS.m.treat) { const it = pick(PS.treatItems); if (addItem(it)) { opener += ' ' + PS.treat(ITEMS[it].n); SFX.pickup(); } }
+  const shady = shadyCheck(v);
+  if (shady) { openDialog(vSpeaker(v), shady, () => { v.talking = false; v.wait = rand(1, 3); if (pendingFight === v) { pendingFight = null; startFight(v); } }); return; }
+  const sneaky = [...(!(S.daily.stole || {})[v.id] ? [{ l: '🤫 몰래 털기', f: () => pickpocket(v) }] : []), ...(scamItem() ? [{ l: '💰 좋은 물건 있는데… (사기)', f: () => scam(v) }] : []), { l: '관두자', f: () => ['(아무 일도 없었던 척했다)'] }];
   openDialog(vSpeaker(v), [{ t: opener, choices: [
     { l: '이야기하자', f: () => villagerTalkSteps(v) },
     ...(v.def.town ? [{ l: '교류하기', f: () => exchangeSteps(v) }] : []),
+    ...(drinkSlot() >= 0 ? [{ l: '🍶 한잔하자', f: () => drinkWith(v) }] : []),
+    ...(sneaky.length > 1 ? [{ l: '🕶️ 수상한 짓…', f: () => [{ t: '(주위를 슬쩍 둘러본다…)', choices: sneaky }] }] : []),
     { l: '야차룰로 한판 붙자!', f: () => challengeSteps(v) },
     { l: '그냥 인사했어', f: () => 'close' }] }], () => {
     v.talking = false; v.wait = rand(1, 3);
@@ -4359,6 +4446,7 @@ function renderBag() {
   det.querySelector('.ic').textContent = it.i; det.querySelector('b').textContent = `${it.n}${s.q > 1 ? ' ×' + s.q : ''}`;
   det.querySelector('span').textContent = `${it.cat} · 상점 판매가 도토리 ${fmt(it.v)}개`;
   const acts = det.querySelector('.acts');
+  if (it.drink) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = '마시기'; b.onclick = () => drinkFromSlot(bagSel); acts.append(b); }
   if (it.place) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = it.place === 'flower' || it.place === 'sapling' ? '앞에 심기' : '앞에 놓기'; b.onclick = () => { placeFromSlot(bagSel); bagSel = -1; }; acts.append(b); }
   const d = document.createElement('button'); d.className = 'btn alt'; d.textContent = '내려놓기'; d.onclick = () => { dropFromSlot(bagSel); bagSel = -1; }; acts.append(d);
 }
@@ -4390,7 +4478,7 @@ function renderShop() {
   } else {
     for (const id of [...SHOP_STOCK, ...(S.civ.built.annex ? SHOP_STOCK2 : [])]) {
       const it = ITEMS[id];
-      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : it.place ? '섬 어디든 놓을 수 있어요' : '마을 발전에 쓰는 재료예요 (별관)', fmt(it.buy), [btn('사기', () => {
+      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : it.place ? '섬 어디든 놓을 수 있어요' : it.drink ? '가방에서 마시거나 주민과 한잔해요 (취하면 비틀비틀)' : '마을 발전에 쓰는 재료예요 (별관)', fmt(it.buy), [btn('사기', () => {
         if (S.coins < it.buy) { toast('도토리가 부족해요.'); SFX.miss(); return; }
         if (!addItem(id)) { toast('가방이 가득 찼어요.'); SFX.miss(); return; }
         S.coins -= it.buy; SFX.coin(); updateHUD(); toast(`${josa(it.n, '을', '를')} 샀어요!`); renderShop();
@@ -5067,6 +5155,7 @@ function checkKO() {
 }
 function hitEnemy(dmg, knock, big, proj) {
   const { e, v } = FT; if (e.ko || FT.phase !== 'fight') return;
+  if ((P.drunk || 0) > 30 && !proj) dmg = Math.round(dmg * 1.25);   // 취권
   const sx = proj ? proj.dx : Math.sin(P.rot), sz = proj ? proj.dz : Math.cos(P.rot);
   if (e.roll > 0) { floatText(v.x, 1.7, v.z, '회피!', 'miss'); return; }
   if (e.st === 'block') {
@@ -5126,7 +5215,7 @@ function closeFight() {
   VS(v.id).fr += 1;
   const steps = [];
   if (result === 'win') {
-    rec.w++; const first = !S.daily.fightWon[v.id]; S.daily.fightWon[v.id] = true;
+    rec.w++; const first = !S.daily.fightWon[v.id]; S.daily.fightWon[v.id] = true; if (v.def.role === '야간 순찰') S.heat = Math.max(0, (S.heat || 0) - 30);
     const rw = first ? 500 : 50; S.coins += rw; SFX.fanfare(); updateHUD();
     steps.push(L.win, first ? `약속은 약속이지. 상금으로 도토리 ${fmt(rw)}개 가져가. ${cp}` : `오늘 상금은 벌써 줬으니까… 이건 수고비. 도토리 ${rw}개. ${cp}`);
   } else if (result === 'lose') { rec.l++; SFX.miss(); steps.push(L.lose, `그래도 재밌었어. 언제든 다시 덤벼. ${cp}`); }
@@ -5324,6 +5413,10 @@ function updatePlayer(dt) {
   }
   const len = Math.hypot(mx, mz);
   if (len > 1) { mx /= len; mz /= len; }
+  if (P.drunk > 0) {
+    P.drunk = Math.max(0, P.drunk - dt * 0.8);
+    if (len > 0.1) { const a = Math.sin(performance.now() / 480) * 0.75 * Math.min(1, P.drunk / 60), ca = Math.cos(a), sa = Math.sin(a); [mx, mz] = [mx * ca - mz * sa, mx * sa + mz * ca]; }
+  }
   P.moving = len > 0.1;
   if (P.moving && FS) reelCancel();
   P.running = P.moving && (keys['shift'] || joy.mag > 0.92);
@@ -5437,6 +5530,7 @@ function frame(now) {
   if (camShake > 0) { camShake = Math.max(0, camShake - rdt); shx = (R() - 0.5) * camShake * 1.2; shz = (R() - 0.5) * camShake * 1.2; }
   const zoom = FT ? 0.85 : 1;
   camera.position.set(camPos.x + shx, 15 * zoom, camPos.z + 13.5 * zoom + shz); camera.lookAt(camPos.x + shx, 0, camPos.z - 0.8 + shz);
+  if (P.drunk > 0) camera.rotation.z += Math.sin(now / 700) * 0.06 * Math.min(1, P.drunk / 50);
   // 그림자 영역은 카메라를 따라가되, 반 칸 단위로 움직여 그림자가 떨리지 않게 한다
   const sx0 = Math.round(camPos.x * 2) / 2, sz0 = Math.round(camPos.z * 2) / 2;
   sun.position.set(sx0 - 6, 14, sz0 + 4); sun.target.position.set(sx0, 0, sz0 - 2);
