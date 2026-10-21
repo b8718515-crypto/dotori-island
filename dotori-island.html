@@ -3588,7 +3588,7 @@ if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
 if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, tp: (x, z) => { P.x = x; P.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
-  map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
+  fish: () => ({ makeFish3D, makeFishShadow, showCatch3D, FISH_LOOK }), map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
 /* --- 봇의 기억과 평판 ---
    문명 5의 외교 AI처럼 봇은 플레이어가 한 일(선물·선전포고·약속 위반·같은 편 공격·정복)을 기억하고, 그 기억으로 태도를 정한다.
@@ -4224,6 +4224,112 @@ const fish = [];
 const waterType = (x, z) => { const t = tget(Math.floor(x), Math.floor(z)); return t === T.SEA ? 'sea' : t === T.RIVER ? 'river' : null; };
 const fishGeo = new THREE.CircleGeometry(1, 16); fishGeo.scale(0.42, 1, 1); fishGeo.rotateX(-Math.PI / 2);
 const fishMat = MB(0x0f2d3a, { transparent: true, opacity: 0.42, depthWrite: false });
+/* --- 물고기 모양: 종류마다 물속 그림자 모양과, 잡았을 때 머리 위로 들어 보이는 3D 모습이 다르다 --- */
+// W: 위에서 본 몸 너비, H: 옆에서 본 몸 높이(몸길이 1 기준), tail: 꼬리 모양, col·back: 배·등 색
+const FISH_LOOK = {
+  dace: { W: 0.2, H: 0.24, tail: 'fork', col: 0xd0dce4, back: 0x7a8aa0, stripe: 0xf08aa0 },
+  crucian: { W: 0.3, H: 0.44, tail: 'fork', col: 0xc8b070, back: 0x6a5a30 },
+  sweetfish: { W: 0.19, H: 0.23, tail: 'fork', col: 0xd0d4b8, back: 0x6a7050, spot: 0xf2d24a },
+  carp: { W: 0.28, H: 0.36, tail: 'fork', col: 0xe0a858, back: 0x8a6030, whisker: 0.12 },
+  trout: { W: 0.24, H: 0.3, tail: 'fan', col: 0xdcdcd0, back: 0x5a7a5a, stripe: 0xf07a9a, dots: 0x3a4a3a },
+  catfish: { W: 0.3, H: 0.22, tail: 'round', col: 0x6a6a58, back: 0x3a3a30, whisker: 0.35 },
+  horsemack: { W: 0.22, H: 0.3, tail: 'fork', col: 0xd0dce4, back: 0x4a7a90 },
+  mackerel: { W: 0.22, H: 0.26, tail: 'fork', col: 0xe6eef0, back: 0x2a6a8a, bars: 0x173a4a },
+  squid: { kind: 'squid', col: 0xf2dcd2, back: 0xd8a89a },
+  seabream: { W: 0.26, H: 0.5, tail: 'fork', col: 0xf6a0a0, back: 0xd84a5a, dots: 0x6ab0e8 },
+  puffer: { kind: 'puffer', W: 0.62, H: 0.66, tail: 'fan', col: 0xf0e4b8, back: 0x8a7a40, dots: 0x3a3020 },
+  shark: { kind: 'shark', W: 0.2, H: 0.26, tail: 'shark', col: 0xf2f2f2, back: 0x7a8a98 },
+};
+// 꼬리: 기준점(0,0)에서 +y 쪽으로 뻗는 모양
+function tailShape(kind) {
+  const s = new THREE.Shape(); s.moveTo(0, 0);
+  if (kind === 'fork') { s.lineTo(-0.2, 0.3); s.lineTo(0, 0.19); s.lineTo(0.2, 0.3); }
+  else if (kind === 'fan') { s.lineTo(-0.17, 0.26); s.quadraticCurveTo(0, 0.34, 0.17, 0.26); }
+  else if (kind === 'shark') { s.lineTo(-0.3, 0.36); s.lineTo(0, 0.18); s.lineTo(0.16, 0.26); }
+  else { s.absellipse(0, 0.14, 0.11, 0.15, 0, Math.PI * 2, false, 0); }
+  s.lineTo(0, 0); return s;
+}
+// 위에서 본 그림자: 몸(머리가 -y), 가슴지느러미, 수염·촉수·가시 같은 특징. 꼬리는 따로 흔든다
+const FSH = {};
+function fishShadowGeo(id) {
+  if (FSH[id]) return FSH[id];
+  const L = FISH_LOOK[id] || { W: 0.42, tail: 'fork' }, shapes = [], tailShapes = [];
+  const body = (w, taper) => { const s = new THREE.Shape(); for (let i = 0; i <= 28; i++) { const t = i / 28 * Math.PI * 2, y = -Math.cos(t) * 0.5, x = Math.sin(t) * w * 0.5 * (y > 0 ? 1 - y * taper : 1); i ? s.lineTo(x, y) : s.moveTo(x, y); } return s; };
+  const tri = (ax, ay, bx, by, cx, cy) => { const s = new THREE.Shape(); s.moveTo(ax, ay); s.lineTo(bx, by); s.lineTo(cx, cy); s.lineTo(ax, ay); return s; };
+  if (L.kind === 'squid') {
+    shapes.push(body(0.3, 0.2), tri(0, 0.5, -0.24, 0.32, 0.24, 0.32));
+    for (let k = 0; k < 8; k++) { const x = (k - 3.5) * 0.032, len = k === 2 || k === 5 ? 0.42 : 0.26, s = new THREE.Shape(); s.moveTo(x - 0.012, 0); s.lineTo(x + 0.012, 0); s.lineTo(x * 1.6 + 0.008, -len); s.lineTo(x * 1.6 - 0.008, -len); tailShapes.push(s); }
+  } else if (L.kind === 'puffer') {
+    shapes.push(body(L.W, 0.15));
+    for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2, r = 0.31, x = Math.sin(a) * r, y = -Math.cos(a) * r * 0.8; shapes.push(tri(x * 1.25, y * 1.25, x - Math.cos(a) * 0.035, y - Math.sin(a) * 0.035, x + Math.cos(a) * 0.035, y + Math.sin(a) * 0.035)); }
+    tailShapes.push(tailShape('fan'));
+  } else {
+    shapes.push(body(L.W, L.kind === 'shark' ? 0.75 : 0.6));
+    const fw = L.kind === 'shark' ? 0.28 : 0.12, fy = L.kind === 'shark' ? -0.08 : -0.18;
+    for (const s of [-1, 1]) shapes.push(tri(s * L.W * 0.42, fy - 0.04, s * (L.W * 0.5 + fw), fy + (L.kind === 'shark' ? 0.16 : 0.08), s * L.W * 0.42, fy + 0.06));
+    if (L.whisker) for (const s of [-1, 1]) shapes.push(tri(s * 0.04, -0.47, s * (0.06 + L.whisker * 0.6), -0.5 - L.whisker * 0.4, s * 0.05, -0.44));
+    tailShapes.push(tailShape(L.tail));
+  }
+  const flat = g => { g.rotateX(-Math.PI / 2); return g; };   // 모양의 -y(머리)가 +z(앞)로
+  return (FSH[id] = { body: flat(new THREE.ShapeGeometry(shapes, 6)), tail: flat(new THREE.ShapeGeometry(tailShapes, 6)), tailAt: L.kind === 'squid' ? -0.48 : 0.42 });
+}
+function makeFishShadow(id, len) {
+  const G = fishShadowGeo(id), m = new THREE.Group(), s = new THREE.Group(); s.scale.setScalar(len * 2); m.add(s);
+  const b = mesh(G.body, fishMat); b.renderOrder = 3; s.add(b);
+  const pv = new THREE.Group(); pv.position.z = -G.tailAt; s.add(pv);
+  const t = mesh(G.tail, fishMat); t.renderOrder = 3; pv.add(t);
+  // 상어는 등지느러미가 물 위로 솟아 있다
+  if ((FISH_LOOK[id] || {}).kind === 'shark') { const fin = mesh(accGeo('sharkfin', () => { const g = new THREE.ShapeGeometry(tri3(0, 0, 0.16, 0, 0.02, 0.2)); return g; }), MD(0x6a7a88), 0, 0.27, 0.02); fin.rotation.y = Math.PI / 2; s.add(fin); }
+  m.userData.tail = pv; m.userData.phase = R() * 6.28;
+  return m;
+}
+const tri3 = (ax, ay, bx, by, cx, cy) => { const s = new THREE.Shape(); s.moveTo(ax, ay); s.lineTo(bx, by); s.lineTo(cx, cy); s.lineTo(ax, ay); return s; };
+const MD = c => bend(new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide }));
+// 잡았을 때 보이는 3D 물고기: 몸길이 1, 머리가 +x, 옆면이 카메라(+z)를 본다
+function makeFish3D(id) {
+  const L = FISH_LOOK[id] || { W: 0.25, H: 0.3, tail: 'fork', col: 0xb0c0c8, back: 0x5a6a7a }, g = new THREE.Group();
+  const sph = accGeo('fsph', () => new THREE.SphereGeometry(0.5, 24, 16)), hemi = accGeo('fhemi', () => new THREE.SphereGeometry(0.5, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2));
+  const eye = (x, y, z, r) => { const e = mesh(sph, M(0xffffff), x, y, z); e.scale.setScalar(r * 2); g.add(e); const p = mesh(sph, M(0x101014), x + r * 0.15, y, z + r * 0.6); p.scale.setScalar(r * 1.15); g.add(p); };
+  if (L.kind === 'squid') {
+    const body = mesh(sph, M(L.col), 0.12, 0, 0); body.scale.set(0.75, 0.24, 0.22); g.add(body);
+    for (const s of [-1, 1]) { const fin = mesh(accGeo('sqfin', () => new THREE.ShapeGeometry(tri3(0, 0, 0.18, 0, 0, 0.16))), MD(L.back), 0.42, s * 0.08, 0); fin.rotation.z = s > 0 ? 0 : Math.PI; fin.scale.y = s; g.add(fin); }
+    const tent = new THREE.Group(); tent.position.x = -0.24; g.add(tent);
+    for (let k = 0; k < 8; k++) { const len = k === 2 || k === 5 ? 0.6 : 0.36, c = mesh(accGeo('tent', () => new THREE.CylinderGeometry(0.018, 0.01, 1, 6)), M(L.back), -len / 2, (k - 3.5) * 0.028, 0); c.scale.y = len; c.rotation.z = Math.PI / 2; tent.add(c); }
+    eye(-0.18, 0.05, 0.1, 0.04); g.userData.tail = tent; return g;
+  }
+  const h = L.kind === 'puffer' ? 0.66 : L.H, w = L.kind === 'puffer' ? 0.6 : Math.max(0.16, L.W * 0.8), len = L.kind === 'puffer' ? 0.75 : 1;
+  const body = mesh(sph, M(L.col)); body.scale.set(len, h, w); g.add(body);
+  const top = mesh(hemi, M(L.back)); top.scale.set(len * 1.005, h * 1.01, w * 1.005); g.add(top);
+  if (L.stripe) { const st = mesh(sph, M(L.stripe), -0.02, 0.0, 0); st.scale.set(len * 0.82, h * 0.2, w * 1.02); g.add(st); }
+  if (L.spot) { const sp = mesh(sph, M(L.spot), 0.18, 0.03, w * 0.44); sp.scale.setScalar(0.06); g.add(sp); }
+  if (L.bars) for (let k = 0; k < 6; k++) { const b = mesh(accGeo('fbar', () => new THREE.BoxGeometry(0.03, 0.12, 0.02)), M(L.bars), 0.25 - k * 0.1, h * 0.36, w * 0.36); b.rotation.z = 0.5 * (k % 2 ? 1 : -1); g.add(b); }
+  if (L.dots) for (let k = 0; k < (L.kind === 'puffer' ? 10 : 7); k++) { const d = mesh(sph, M(L.dots), 0.3 - (k % 4) * 0.15 * len, h * (0.22 - Math.floor(k / 4) * 0.2), w * 0.47); d.scale.setScalar(0.035); g.add(d); }
+  if (L.kind === 'puffer') for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, sp = mesh(accGeo('pspike', () => new THREE.ConeGeometry(0.025, 0.09, 5)), M(L.back), Math.cos(a) * len * 0.5, Math.sin(a) * h * 0.5, 0.05); sp.rotation.z = a - Math.PI / 2; g.add(sp); }
+  if (L.whisker) for (const s of [-1, 1]) { const wk = mesh(accGeo('whisk', () => new THREE.CylinderGeometry(0.008, 0.004, 1, 5)), M(0x2a2a20), len * 0.5 + L.whisker * 0.35, -h * 0.15 + s * 0.03, w * 0.2); wk.scale.y = L.whisker; wk.rotation.z = Math.PI / 2 + s * 0.5; g.add(wk); }
+  // 지느러미: 등(상어는 크게), 꼬리(따로 흔든다)
+  const dor = mesh(accGeo('dorsal' + (L.kind === 'shark' ? 'S' : ''), () => new THREE.ShapeGeometry(L.kind === 'shark' ? tri3(-0.12, 0, 0.14, 0, -0.04, 0.26) : tri3(-0.2, 0, 0.12, 0, -0.1, 0.12))), MD(L.back), 0, h * 0.42, 0); g.add(dor);
+  if (L.kind === 'shark') for (const s of [-1, 1]) { const pf = mesh(accGeo('pfin', () => new THREE.ShapeGeometry(tri3(0, 0, 0.1, 0, -0.12, -0.16))), MD(L.back), 0.15, -h * 0.3, s * w * 0.4); g.add(pf); }
+  const pv = new THREE.Group(); pv.position.x = -len * 0.48; g.add(pv);
+  const tailG = accGeo('tail3' + L.tail, () => { const g2 = new THREE.ShapeGeometry(tailShape(L.tail)); g2.rotateZ(Math.PI / 2); return g2; });
+  const t = mesh(tailG, MD(L.back)); t.scale.setScalar(L.kind === 'shark' ? 1.6 : 1.2); pv.add(t);
+  eye(len * 0.36, h * 0.12, w * 0.4, L.kind === 'puffer' ? 0.06 : 0.045);
+  g.userData.tail = pv; return g;
+}
+// 잡은 물고기를 머리 위로 들어 보인다 (알림이 떠 있는 동안)
+let caught3D = null;
+function showCatch3D(id, size) {
+  if (caught3D) scene.remove(caught3D.g);
+  const g = makeFish3D(id); g.scale.setScalar(0.55 + size * 0.12); scene.add(g); caught3D = { g, t: 2.6 };
+}
+function updateCatch3D(dt) {
+  if (!caught3D) return;
+  const c = caught3D; c.t -= dt;
+  if (c.t <= 0 || $('#banner').hidden) { scene.remove(c.g); caught3D = null; return; }
+  const k = performance.now() / 1000;
+  c.g.position.set(P.x, groundY(P.x, P.z) + 2.25 + Math.sin(k * 3) * 0.05, P.z);
+  c.g.rotation.set(0, 0, Math.sin(k * 7) * 0.08);
+  if (c.g.userData.tail) c.g.userData.tail.rotation.y = Math.sin(k * 14) * 0.6;
+}
 function weighted(list) { let s = 0; for (const x of list) s += x.r; let t = R() * s; for (const x of list) { t -= x.r; if (t <= 0) return x; } return list[0]; }
 function spawnFish(h) {
   for (let k = 0; k < 20; k++) {
@@ -4232,7 +4338,7 @@ function spawnFish(h) {
     if (w === 'sea') { let land = false; for (let r = 1; r <= 5 && !land; r++) for (const [ax, az] of [[r, 0], [-r, 0], [0, r], [0, -r]]) if (!waterType(x + ax, z + az)) { land = true; break; } if (!land) continue; }
     const opts = FISH.filter(f => f.w === w && inHours(h, f.h)); if (!opts.length) continue;
     const sp = weighted(opts), len = 0.3 + sp.size * 0.11;
-    const m = new THREE.Group(); const sh = mesh(fishGeo, fishMat); sh.scale.setScalar(len); m.add(sh); m.position.set(x, -0.27, z); m.renderOrder = 3; sh.renderOrder = 3; scene.add(m);
+    const m = makeFishShadow(sp.id, len); m.position.set(x, -0.27, z); m.renderOrder = 3; scene.add(m);
     fish.push({ sp, w, x, z, h: R() * 6.28, mesh: m, t: rand(1, 3), speed: 0.4, life: rand(60, 120), state: 'swim', fade: 0 });
     return;
   }
@@ -4250,6 +4356,7 @@ function updateFish(dt, h) {
       if (Math.hypot(f.x - P.x, f.z - P.z) > 22 || (f.life < 0 && f !== FS?.fish)) { removeFish(f); continue; }
     }
     f.mesh.position.set(f.x, -0.27, f.z); f.mesh.rotation.y = f.h;
+    const tl = f.mesh.userData.tail; if (tl) tl.rotation.y = Math.sin(performance.now() / 1000 * (f.state === 'flee' ? 18 : 5 + f.speed * 10) + f.mesh.userData.phase) * 0.35;
   }
 }
 /* --- 낚시 --- */
@@ -4276,7 +4383,7 @@ function reelCancel() {
 }
 function reelCatch() {
   const f = FS.fish; endFishing(); removeFish(f); P.busy = 0.3;
-  noise(0.4, 0.3, 1200); obtain(f.sp.id, f.sp.q);
+  noise(0.4, 0.3, 1200); if (obtain(f.sp.id, f.sp.q)) showCatch3D(f.sp.id, f.sp.size);
 }
 function updateFishing(dt) {
   if (!FS) return;
@@ -5846,7 +5953,7 @@ function frame(now) {
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
   miniT -= rdt; if (miniT <= 0) { miniT = 0.25; drawMini(); $('#miniName').textContent = placeName(); }
-  updateFloats(rdt); updateBubbles(rdt);
+  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt);
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
   hintT -= dt; if (hintT <= 0) { hintT = 0.1; updateHint(); }
