@@ -315,6 +315,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>Space · E</kbd><span>행동: 줍기, 흔들기, 말 걸기, 던지기, 파기</span>
       <kbd>1 2 3 4</kbd><span>맨손 · 잠자리채 · 낚싯대 · 삽</span>
       <kbd>M</kbd><span>한반도 지도: 이름으로 찾기, 도시·명소를 눌러 📍 길 안내(미니맵 화살표와 남은 km)와 🚆 빠른 이동 (한 번 가 본 곳, 도토리를 내요)</span>
+      <kbd>B</kbd><span>자전거 타기·내리기 (도토리 상점에서 사요. 걷기보다 두 배 넘게 빠르고, 길 위에선 더 빨라요)</span>
       <kbd>N</kbd><span>수첩: 받은 부탁 · 만난 주민 · 빠른 이동 · 지난 알림</span>
       <kbd>집 보관함</kbd><span>내 텐트(집) 앞에서 Space: 가방 물건을 80칸 보관함에 맡겨 둬요</span>
       <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술(농업·건축·항해)을 배우고, 영토 밖에 새 마을을 세워요</span>
@@ -399,10 +400,11 @@ for (const [k, f] of Object.entries(FLOWERS)) {
 defItem('sapling_apple', { n: '사과 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'apple' });
 defItem('sapling_orange', { n: '오렌지 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'orange' });
 defItem('sapling_peach', { n: '복숭아 묘목', i: '🌳', v: 160, buy: 640, stack: 10, cat: '묘목', place: 'sapling', fruit: 'peach' });
+defItem('bike', { n: '자전거', i: '🚲', v: 1500, buy: 6000, cat: '탈것' });
 defItem('lamp', { n: '정원 램프', i: '🏮', v: 300, buy: 1200, cat: '가구', place: 'lamp' });
 defItem('bench', { n: '통나무 벤치', i: '🪑', v: 375, buy: 1500, cat: '가구', place: 'bench' });
 defItem('wood', { n: '목재', i: '🪵', v: 60, buy: 300, stack: 30, cat: '재료' });
-const SHOP_STOCK = ['seed_tulip', 'seed_cosmos', 'seed_daisy', 'sapling_apple', 'sapling_orange', 'lamp', 'bench', 'makgeolli', 'soju'];
+const SHOP_STOCK = ['seed_tulip', 'seed_cosmos', 'seed_daisy', 'sapling_apple', 'sapling_orange', 'lamp', 'bench', 'makgeolli', 'soju', 'bike'];
 // 상점을 넓히면 별관에서 더 판다
 const SHOP_STOCK2 = ['wood', 'sapling_peach'];
 // 동맹 도시가 보내 주는 고장 특산물
@@ -1869,6 +1871,26 @@ function makeTownHall() {
   return g;
 }
 // 나무배: 둥근 선체, 가로 좌석, 돛대와 하얀 돛 (앞쪽이 +z)
+// 자전거: 민트색 틀, 앞 바구니, 검은 바퀴 (앞쪽 = +z)
+function makeBike() {
+  const g = new THREE.Group(), frame = DS(0x5fbfa8), dark = M(0x3a3a3a), wheels = [];
+  for (const z of [-0.4, 0.42]) {
+    const w = new THREE.Group(); w.position.set(0, 0.24, z); g.add(w); wheels.push(w);
+    const tire = mesh(new THREE.TorusGeometry(0.21, 0.04, 8, 20), dark, 0, 0, 0); tire.rotation.y = Math.PI / 2; w.add(tire);
+    for (let k = 0; k < 3; k++) { const sp = mesh(G.box, M(0xd8d8d8), 0, 0, 0); sp.scale.set(0.015, 0.4, 0.015); sp.rotation.x = k * Math.PI / 3; w.add(sp); }
+    w.add(mesh(new THREE.SphereGeometry(0.04, 8, 6), M(0xbfbfbf), 0, 0, 0));
+  }
+  const bar = (y1, z1, y2, z2, t = 0.045, mat = frame) => { const b = mesh(G.box, mat, 0, (y1 + y2) / 2, (z1 + z2) / 2); b.scale.set(t, Math.hypot(y2 - y1, z2 - z1), t); b.rotation.x = Math.atan2(z2 - z1, y2 - y1); g.add(b); };
+  bar(0.24, -0.4, 0.5, -0.12); bar(0.24, -0.4, 0.26, 0.02); bar(0.26, 0.02, 0.62, 0.32); bar(0.5, -0.12, 0.62, 0.3); bar(0.24, 0.42, 0.66, 0.32, 0.04);
+  bar(0.5, -0.12, 0.62, -0.16, 0.04, dark);
+  put(g, mesh(G.box, M(0x6b4a2e), 0, 0.64, -0.17)).scale.set(0.16, 0.05, 0.24);
+  put(g, mesh(G.box, dark, 0, 0.72, 0.32)).scale.set(0.46, 0.035, 0.035);
+  for (const s of [-1, 1]) put(g, mesh(G.box, M(0xe0645a), s * 0.24, 0.72, 0.32)).scale.set(0.08, 0.05, 0.05);
+  put(g, mesh(G.box, TM(woodTex, 0xc9a06a), 0, 0.6, 0.52)).scale.set(0.3, 0.18, 0.2);
+  put(g, mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 10), M(0xf2c46a), 0.16, 0.75, 0.3));
+  g.userData.wheels = wheels;
+  return g;
+}
 function makeBoat() {
   const g = new THREE.Group();
   const hull = mesh(new THREE.CylinderGeometry(0.3, 0.46, 1.8, 18, 1, true, -Math.PI / 2, Math.PI), DS(0xb07b4c), 0, 0.12, 0); hull.rotation.x = Math.PI / 2; hull.scale.set(1, 1, 0.9); g.add(hull);
@@ -3340,11 +3362,33 @@ function landSpot() { for (const t of frontTiles()) { const tt = tget(t.x, t.z);
 function launch(p) {
   if (!p) { toast('배를 띄울 물이 부족해요.'); return; }
   if (FS) endFishing();
+  setBike(false, true);
   P.sail = true; S.civ.sail = true; P.x = p[0]; P.z = p[1]; showBoat(true); SFX.plop(); P.busy = 0.3;
   if (!S.found.sailTip) { S.found.sailTip = true; toast('⛵ 출항! 바다와 강을 자유롭게 오가요. 땅을 보고 Space를 누르면 내려요.'); } else toast('⛵ 출항!');
   dirty();
 }
 function disembark(p) { P.sail = false; S.civ.sail = false; P.x = p[0]; P.z = p[1]; showBoat(false); P.hop = 0.5; P.busy = 0.3; SFX.pickup(); toast('뭍에 내렸어요.'); dirty(); }
+/* --- 자전거: 가방에 있으면 B(또는 가방에서 '타기')로 탄다. 땅에서 걷기보다 두 배 넘게 빠르다 --- */
+let bikeMesh = null;
+function setBike(on, quiet) {
+  if (on) {
+    if (P.sail) { toast('배 위에선 자전거를 못 타요.'); return; }
+    if (FT) return;
+    if (!countItem('bike')) { toast('자전거가 없어요. 도토리 상점에서 팔아요.'); SFX.miss(); return; }
+    if (FS) endFishing();
+    if (!bikeMesh) bikeMesh = castAll(makeBike());
+    if (!bikeMesh.parent) scene.add(bikeMesh);
+    P.bike = true; P.hop = 0.4;
+    if (!quiet) { SFX.pickup(); toast(S.found.bikeTip ? '🚲 따르릉!' : '🚲 따르릉! 길 위에선 더 빨라요. B를 누르면 내려요.'); }
+    S.found.bikeTip = true;
+  } else {
+    if (!P.bike) return;
+    P.bike = false; if (bikeMesh && bikeMesh.parent) scene.remove(bikeMesh);
+    const u = P.mesh.userData; u.lL.rotation.x = u.lR.rotation.x = 0;
+    if (!quiet) { P.hop = 0.3; SFX.pickup(); }
+  }
+  dirty();
+}
 // 마을 발전 건물 앞에서 할 수 있는 일
 const CIV_ACT = {
   board: () => ({ l: '마을 발전', f: () => openCiv() }),
@@ -4966,7 +5010,7 @@ function pressA() {
   if (D.open) { dlgAdvance(); return; }
   if (panelOpen()) return;
   if (P.busy > 0) return;
-  const a = currentAction(); if (a) a.f();
+  const a = currentAction(); if (a) { if (P.bike && a.l !== '말 걸기') setBike(false, true); a.f(); }
 }
 function pressB() {
   if (FT) { if (FT.phase === 'fight') askGiveUp(); return; }
@@ -5180,6 +5224,7 @@ function renderBag() {
   det.querySelector('.ic').textContent = it.i; det.querySelector('b').textContent = `${it.n}${s.q > 1 ? ' ×' + s.q : ''}`;
   det.querySelector('span').textContent = `${it.cat} · 상점 판매가 도토리 ${fmt(it.v)}개`;
   const acts = det.querySelector('.acts');
+  if (s.id === 'bike') { const b = document.createElement('button'); b.className = 'btn'; b.textContent = P.bike ? '내리기' : '타기'; b.onclick = () => { closePanels(); setBike(!P.bike); }; acts.append(b); }
   if (it.drink) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = '마시기'; b.onclick = () => drinkFromSlot(bagSel); acts.append(b); }
   if (it.place) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = it.place === 'flower' || it.place === 'sapling' ? '앞에 심기' : '앞에 놓기'; b.onclick = () => { placeFromSlot(bagSel); bagSel = -1; }; acts.append(b); }
   const d = document.createElement('button'); d.className = 'btn alt'; d.textContent = '내려놓기'; d.onclick = () => { dropFromSlot(bagSel); bagSel = -1; }; acts.append(d);
@@ -5212,7 +5257,7 @@ function renderShop() {
   } else {
     for (const id of [...SHOP_STOCK, ...(S.civ.built.annex ? SHOP_STOCK2 : [])]) {
       const it = ITEMS[id];
-      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : it.place ? '섬 어디든 놓을 수 있어요' : it.drink ? '가방에서 마시거나 주민과 한잔해요 (취하면 비틀비틀)' : '마을 발전에 쓰는 재료예요 (별관)', fmt(it.buy), [btn('사기', () => {
+      row(it.i, it.n, it.place === 'flower' ? '앞의 풀밭에 심으면 꽃이 피어요' : it.place === 'sapling' ? '3분이면 열매 맺는 나무로 자라요' : it.place ? '섬 어디든 놓을 수 있어요' : it.drink ? '가방에서 마시거나 주민과 한잔해요 (취하면 비틀비틀)' : id === 'bike' ? '가방에 넣고 B로 타요. 걷기보다 두 배 넘게 빨라요' : '마을 발전에 쓰는 재료예요 (별관)', fmt(it.buy), [btn('사기', () => {
         if (S.coins < it.buy) { toast('도토리가 부족해요.'); SFX.miss(); return; }
         if (!addItem(id)) { toast('가방이 가득 찼어요.'); SFX.miss(); return; }
         S.coins -= it.buy; SFX.coin(); updateHUD(); toast(`${josa(it.n, '을', '를')} 샀어요!`); renderShop();
@@ -6037,6 +6082,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'm') { if (!$('#pMap').hidden) closePanels(); else openMap(); }
   else if (k === 'v') { if (!$('#pCiv').hidden) closePanels(); else openCiv(); }
   else if (k === 'n') { if (!$('#pNote').hidden) closePanels(); else openNote(); }
+  else if (k === 'b' && !D.open && !panelOpen()) setBike(!P.bike);
   else if (TOOLKEYS[k] && !D.open && !panelOpen()) setTool(TOOLKEYS[k]);
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -6278,6 +6324,7 @@ const mkF = hp => ({ hp, max: hp, atk: 0, hitAt: 0, hit: true, combo: 0, comboT:
 function movePlayer(dx, dz) { const nx = P.x + dx; if (canStand(nx, P.z)) P.x = nx; const nz = P.z + dz; if (canStand(P.x, nz)) P.z = nz; }
 function moveVill(v, dx, dz) { const nx = v.x + dx; if (canStand(nx, v.z, 0.25)) v.x = nx; const nz = v.z + dz; if (canStand(v.x, nz, 0.25)) v.z = nz; }
 function startFight(v) {
+  setBike(false, true);
   if (FS) endFishing();
   const def = FDEF[v.id];
   FT = { v, def, p: mkF(100), e: Object.assign(mkF(def.hp), { st: 'approach', t: 0, cd: 1.0, side: 1, reacted: false, tauntT: rand(3, 6) }),
@@ -6617,14 +6664,15 @@ function updatePlayer(dt) {
   if (P.moving) {
     // 흙길 위에선 조금 빠르게, 배를 타면 훨씬 빠르게
     const onRoad = road[idx(clamp(Math.floor(P.x), 0, NX - 1), clamp(Math.floor(P.z), 0, NZ - 1))];
-    const sp = (P.sail ? (P.running ? 9 : 6) : (P.running ? 5.4 : 3.1) * (onRoad ? 1.25 : 1)) * Math.min(1, len);
+    const tt = P.bike ? tget(Math.floor(P.x), Math.floor(P.z)) : 0, rough = tt === T.SAND || tt === T.MUD || tt === T.SNOW;   // 모래·갯벌·눈길에선 자전거가 느리다
+    const sp = (P.sail ? (P.running ? 9 : 6) : P.bike ? (P.running ? 10 : 7.5) * (onRoad ? 1.3 : 1) * (rough ? 0.55 : 1) : (P.running ? 5.4 : 3.1) * (onRoad ? 1.25 : 1)) * Math.min(1, len);
     P.rot = lerpAngle(P.rot, Math.atan2(mx, mz), 1 - Math.exp(-dt * (P.sail ? 6 : 14)));
     const ok = P.sail ? canSail : canStand;
     const nx = P.x + mx * sp * dt; if (ok(nx, P.z)) P.x = nx;
     const nz = P.z + mz * sp * dt; if (ok(P.x, nz)) P.z = nz;
     if (!P.sail) for (const v of villagers) { if (!v.vis) continue; const dx = P.x - v.x, dz = P.z - v.z, d = Math.hypot(dx, dz); if (d < 0.6 && d > 0.001) { const px = v.x + dx / d * 0.6, pz = v.z + dz / d * 0.6; if (canStand(px, pz)) { P.x = px; P.z = pz; } } }
-    P.walk += dt * sp * 2.3;
-    if (P.running && !P.sail && R() < dt * 10) burst(P.x, 0.05, P.z, tget(Math.floor(P.x), Math.floor(P.z)) === T.SAND ? 0xeedca5 : 0xc9e3a0, 1, 0.5, 0.35);
+    P.walk += dt * sp * (P.bike ? 0.9 : 2.3);
+    if ((P.running || P.bike) && !P.sail && R() < dt * (P.bike ? 6 : 10)) burst(P.x, 0.05, P.z, tget(Math.floor(P.x), Math.floor(P.z)) === T.SAND ? 0xeedca5 : 0xc9e3a0, 1, 0.5, 0.35);
   }
   P.busy = Math.max(0, P.busy - dt);
   // 애니메이션
@@ -6646,8 +6694,15 @@ function updatePlayer(dt) {
   if (S.tool === 'hand') { u.aR.rotation.x = P.shakeT > 0 ? -1.3 - shk : sw * 0.6; } else u.aR.rotation.x = hx + 0.6;
   u.hold.rotation.x = hx;
   u.head.rotation.y = 0;
+  if (P.bike) { const pd = Math.sin(P.walk) * 0.7; u.lL.rotation.x = -1.1 + pd; u.lR.rotation.x = -1.1 - pd; u.aL.rotation.x = u.aR.rotation.x = -1.05; u.body.position.y = 0; }
   const tNow = performance.now(), gy = P.sail ? -0.24 + Math.sin(tNow / 420) * 0.03 : groundY(P.x, P.z);
-  P.mesh.position.set(P.x, P.sail ? gy : lerp(P.mesh.position.y, gy, 1 - Math.exp(-dt * 12)), P.z); P.mesh.rotation.y = P.rot;
+  P.mesh.position.set(P.x, P.sail ? gy : lerp(P.mesh.position.y, gy + (P.bike ? 0.34 : 0), 1 - Math.exp(-dt * 12)), P.z); P.mesh.rotation.y = P.rot;
+  if (P.bike && !countItem('bike')) setBike(false, true);   // 팔거나 내려놓으면 내린다
+  if (P.bike && bikeMesh) {
+    const fx = Math.sin(P.rot), fz = Math.cos(P.rot);
+    bikeMesh.position.set(P.x + fx * 0.05, gy, P.z + fz * 0.05); bikeMesh.rotation.set(0, P.rot, 0);
+    if (P.moving) for (const w of bikeMesh.userData.wheels) w.rotation.x += dt * 14;
+  }
   if (P.sail && boatMesh) {
     const fx = Math.sin(P.rot), fz = Math.cos(P.rot);
     boatMesh.position.set(P.x + fx * 0.22, gy + 0.05, P.z + fz * 0.22); boatMesh.rotation.set(Math.sin(tNow / 610) * 0.04, P.rot, Math.sin(tNow / 500) * 0.035);
