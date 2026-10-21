@@ -292,6 +292,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
   <header><div>설정</div><button class="xbtn" data-close aria-label="닫기">✕</button></header>
   <div class="body">
     <div class="setrow"><span>시간 흐름</span><div class="seg" id="segTime"><button data-v="real">실제 시계</button><button data-v="fast">빠르게 (1초 = 1분)</button></div></div>
+    <div class="setrow"><span>농사 계절</span><div class="seg" id="segFarm"><button data-v="0">실제 달력</button><button data-v="1">빠르게 (1시간 = 한 달)</button></div></div>
     <div class="setrow"><span>효과음</span><div class="seg" id="segSound"><button data-v="1">켜기</button><button data-v="0">끄기</button></div></div>
     <div class="setrow"><span>배경 음악</span><div class="seg" id="segMusic"><button data-v="1">켜기</button><button data-v="0">끄기</button></div></div>
     <div class="setrow"><span>AI 봇</span><div class="seg" id="segAiOn"><button data-v="1">켜기</button><button data-v="0">끄기</button></div></div>
@@ -316,6 +317,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>1 2 3 4</kbd><span>맨손 · 잠자리채 · 낚싯대 · 삽</span>
       <kbd>M</kbd><span>한반도 지도: 이름으로 찾기, 도시·명소를 눌러 📍 길 안내(미니맵 화살표와 남은 km)와 🚆 빠른 이동 (한 번 가 본 곳, 도토리를 내요)</span>
       <kbd>B</kbd><span>자전거 타기·내리기 (도토리 상점에서 사요. 걷기보다 두 배 넘게 빠르고, 길 위에선 더 빨라요)</span>
+      <kbd>농사철</kbd><span>고장마다 특산 작물(쌀·고추·배추·마늘·양파·참외·수박·딸기·옥수수·감자)이 실제 달력대로 심기고 자라고 익고 거둬져요. 설정 '농사 계절 → 빠르게'를 고르면 1시간 = 한 달</span>
       <kbd>N</kbd><span>수첩: 받은 부탁 · 만난 주민 · 빠른 이동 · 지난 알림</span>
       <kbd>집 보관함</kbd><span>내 텐트(집) 앞에서 Space: 가방 물건을 80칸 보관함에 맡겨 둬요</span>
       <kbd>V</kbd><span>마을 발전: 자원(목재·돌·점토·철광석·도토리)으로 건물을 지어 마을 레벨과 영토를 키우고, 기술(농업·건축·항해)을 배우고, 영토 밖에 새 마을을 세워요</span>
@@ -1128,11 +1130,11 @@ const barkTex = repeatTex(canvasTex('bark', 64, 128, (x, w, h) => {
   for (let i = 0; i < 14; i++) { const px = r() * w; x.strokeStyle = 'rgba(70,40,20,0.3)'; x.lineWidth = 2 + r() * 2; x.beginPath(); x.moveTo(px, 0); x.bezierCurveTo(px + 6, h * 0.3, px - 6, h * 0.6, px + 2, h); x.stroke(); }
 }));
 
-// 논 한 배미 = 4×4칸 (무늬가 4칸마다 되풀이): 가장자리는 풀 덮인 논둑, 안은 잔물결 이는 물. 모는 3D로 따로 심는다
-const paddyTex = repeatTex(canvasTex('paddy4', 512, 512, (x, w) => {
-  x.fillStyle = '#b4d6da'; x.fillRect(0, 0, w, w);
+// 논 한 배미 = 4×4칸 (무늬가 4칸마다 되풀이): 가장자리는 풀 덮인 논둑, 안은 마른 논흙. 물·모·벼는 철 따라 3D로 따로 올린다
+const paddyTex = repeatTex(canvasTex('paddy5', 512, 512, (x, w) => {
+  x.fillStyle = '#9c8058'; x.fillRect(0, 0, w, w);
   const r = mulberry32(21);
-  for (let i = 0; i < 70; i++) { x.fillStyle = `rgba(255,255,255,${0.15 + r() * 0.3})`; x.fillRect(r() * w, r() * w, 14 + r() * 30, 2); }
+  for (let i = 0; i < 300; i++) { x.fillStyle = `rgba(${r() < 0.5 ? '60,40,20' : '200,180,140'},${0.08 + r() * 0.1})`; x.fillRect(r() * w, r() * w, 2 + r() * 6, 2); }
   x.fillStyle = '#a9bb7a'; x.fillRect(0, 0, w, 12); x.fillRect(0, w - 12, w, 12); x.fillRect(0, 0, 12, w); x.fillRect(w - 12, 0, 12, w);
   x.fillStyle = 'rgba(70,95,40,0.35)'; x.fillRect(12, 12, w - 24, 2); x.fillRect(12, 12, 2, w - 24); x.fillRect(12, w - 14, w - 24, 2); x.fillRect(w - 14, 12, 2, w - 24);
 }));
@@ -1166,9 +1168,9 @@ function fieldTex(key, mulch) {
     x.fillStyle = 'rgba(70,95,40,0.35)'; x.fillRect(12, 12, w - 24, 2); x.fillRect(12, 12, 2, w - 24); x.fillRect(12, w - 14, w - 24, 2); x.fillRect(w - 14, 12, 2, w - 24);
   }));
 }
-const soilTex = fieldTex('soil', false), mulchTex = fieldTex('mulch', true);
-// 쌀 배추 고추 마늘 양파 참외 수박 딸기 옥수수 감자
-const CROP_TEX = [paddyTex, soilTex, soilTex, mulchTex, mulchTex, soilTex, soilTex, mulchTex, soilTex, soilTex];
+const soilTex = fieldTex('soil', false);
+// 쌀은 논흙, 나머지는 두둑 밭 (비닐·물은 철 따라 3D로 덮는다)
+const CROP_TEX = [paddyTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex, soilTex];
 const groundMats = [[grassTex, 0.25], [sandTex, 0.45], [paddyTex, 0.25], [mudTex, 0.35], [cityTex, 0.5], ...CROP_TEX.slice(1).map(t => [t, 0.25])].map(([tx, s]) => worldUV(bend(new THREE.MeshLambertMaterial({ vertexColors: true, map: tx })), s));
 const SIDE = { [T.GRASS]: 0x9a7552, [T.MOUNT]: 0x8a8174, [T.NORTH]: 0x7a6a52, [T.SAND]: 0xd9c08a, [T.SNOW]: 0xc2ccd4, [T.PADDY]: 0x8fa262, [T.MUD]: 0x7d7064, [T.CITY]: 0xa9a49c };
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
@@ -1302,10 +1304,43 @@ function makeBridgeTile(x, z) {
   return castAll(g);
 }
 const chunkMeshes = new Map();
-/* --- 3D 작물: 부품(모양·색·자리)을 한 포기로 구워 두고, 구역마다 밭 칸 두둑 위에 줄지어 찍어 한 덩어리 메시로 만든다 --- */
-const PG = { sph: new THREE.SphereGeometry(1, 7, 5), ico: new THREE.IcosahedronGeometry(1, 0), ico1: new THREE.IcosahedronGeometry(1, 1), cone: new THREE.ConeGeometry(1, 1, 4, 1, true), cyl: new THREE.CylinderGeometry(1, 1, 1, 5, 1, true) };
+/* --- 농사 달력: 작물마다 [시작일(1~365), 단계]. 실제 한국 농사철을 따른다 (북쪽은 12일 늦게) ---
+   설정에서 '빠르게'를 고르면 실제 1시간 = 한 달로 한 해가 12시간에 돈다. */
+const FARM_CAL = {
+  rice: [[1, 'stubble'], [110, 'flood'], [140, 'seedling'], [172, 'grow'], [222, 'heading'], [253, 'ripe'], [293, 'harvested'], [335, 'stubble']],
+  cabbage: [[1, 'mature'], [75, 'harvested'], [100, 'bare'], [244, 'young'], [290, 'heading'], [325, 'mature']],
+  pepper: [[1, 'bare'], [95, 'mulch'], [121, 'seedling'], [161, 'grow'], [201, 'mature'], [274, 'dried'], [320, 'bare']],
+  garlic: [[1, 'winter'], [60, 'grow'], [152, 'harvest'], [177, 'bare'], [283, 'sprout'], [335, 'winter']],
+  onion: [[1, 'winter'], [60, 'grow'], [140, 'mature'], [166, 'harvest'], [185, 'bare'], [305, 'sprout'], [335, 'winter']],
+  melon: [[1, 'empty'], [32, 'young'], [91, 'mature'], [213, 'empty']],
+  watermelon: [[1, 'bare'], [100, 'seedling'], [130, 'grow'], [171, 'mature'], [213, 'harvested'], [235, 'bare']],
+  strawberry: [[1, 'fruit'], [152, 'empty'], [244, 'young'], [335, 'fruit']],
+  corn: [[1, 'bare'], [105, 'mulch'], [120, 'sprout'], [150, 'grow'], [182, 'mature'], [244, 'dried'], [290, 'bare']],
+  potato: [[1, 'bare'], [110, 'mulch'], [125, 'sprout'], [160, 'grow'], [185, 'flower'], [215, 'yellow'], [240, 'harvest'], [265, 'bare']],
+};
+const STAGE_N = { stubble: '벼 벤 그루터기', flood: '물 댄 논', seedling: '모종 심은 지 얼마 안 됨', grow: '쑥쑥 자라는 중', heading: '이삭 패는 중', ripe: '누렇게 익은 황금 들판', harvested: '수확 끝', bare: '쉬는 밭',
+  mulch: '비닐 씌우고 심을 준비', mature: '수확철', dried: '마르는 중', young: '어린 모종', sprout: '싹 틈', winter: '겨울나기', harvest: '캐서 말리는 중', empty: '빈 하우스', fruit: '열매 맺는 중', flower: '꽃 핌', yellow: '잎이 누레짐' };
+let farmOverride = null;   // 시험용: 날짜(1~365)를 고정
+function farmDOY() {
+  if (farmOverride) return farmOverride;
+  if (S.farmFast) return Math.floor(Date.now() / (3600e3 / 30.42)) % 365 + 1;
+  const d = gameNow(), s = new Date(d.getFullYear(), 0, 1); return Math.min(365, Math.floor((d - s) / 864e5) + 1);
+}
+function cropStage(id, shift) {
+  const cal = FARM_CAL[id], d = ((farmDOY() - shift - 1) % 365 + 365) % 365 + 1;
+  let k = 0; while (k + 1 < cal.length && d >= cal[k + 1][0]) k++;
+  const s = cal[k][0], e = k + 1 < cal.length ? cal[k + 1][0] : 366;
+  return { st: cal[k][1], p: clamp((d - s) / (e - s), 0, 0.999) };
+}
+const snowNow = () => { const d = farmDOY(); return d < 60 || d > 340; };
+/* --- 3D 작물: 부품(모양·색·자리)을 한 포기로 구워 두고, 구역마다 밭 칸에 줄지어 찍어 한 덩어리 메시로 만든다 --- */
+const PG = { sph: new THREE.SphereGeometry(1, 7, 5), ico: new THREE.IcosahedronGeometry(1, 0), ico1: new THREE.IcosahedronGeometry(1, 1), cone: new THREE.ConeGeometry(1, 1, 4, 1, true),
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 5, 1, true), cylC: new THREE.CylinderGeometry(1, 1, 1, 12), box: new THREE.BoxGeometry(1, 1, 1),
+  rib: new THREE.TorusGeometry(1, 0.012, 3, 12, Math.PI), film: new THREE.CylinderGeometry(1, 1, 1, 14, 1, true, Math.PI, Math.PI) };
 // 가는 잎·줄기: 밑동이 (0, y0, 0)이고 a 방향으로 tilt만큼 기운다
-const blade = (len, w, tilt, a, col, y0 = 0) => [PG.cone, col, [Math.sin(a) * tilt * len / 2, y0 + len / 2, Math.cos(a) * tilt * len / 2], [w, len, w], [Math.cos(a) * tilt, 0, -Math.sin(a) * tilt]];
+const blade = (len, w, tilt, a, col, y0 = 0) => [PG.cone, col, [Math.sin(a) * Math.sin(tilt) * len / 2, y0 + Math.cos(tilt) * len / 2, Math.cos(a) * Math.sin(tilt) * len / 2], [w, len, w], [Math.cos(a) * tilt, 0, -Math.sin(a) * tilt]];
+// 넓은 잎: 길이 len, 너비 wid, 가운데에서 r만큼 a 방향으로 뻗고 tilt만큼 들린다
+const leaf = (len, wid, r, a, tilt, y, col, th = 0.02) => [PG.sph, col, [Math.cos(a) * r, y + Math.sin(tilt) * r * 0.6, -Math.sin(a) * r], [len, th, wid], [0, a, tilt]];
 const ring = (n, f) => Array.from({ length: n }, (_, k) => f(k * Math.PI * 2 / n + 0.4, k));
 function bakePlant(parts) {
   const pos = [], nor = [], col = [], c = new THREE.Color(), c2 = new THREE.Color(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
@@ -1316,60 +1351,221 @@ function bakePlant(parts) {
     for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i)); c.set(lo).lerp(c2.set(hi), clamp((N.getY(i) + 1) / 2, 0, 1)); col.push(c.r, c.g, c.b); }
     g.dispose();
   }
-  return { pos: new Float32Array(pos), nor: new Float32Array(nor), col: new Float32Array(col) };
+  return { pos, nor, col };
 }
-const LEAF = [0x3f7f2c, 0x86c45a], LEAF_D = [0x2c6424, 0x5aa040];
-const CROP_3D = [
-  // 쌀: 물 위로 모 포기
-  { xs: [0.17, 0.5, 0.83], zs: [0.25, 0.75], g: bakePlant(ring(5, (a, k) => blade(0.3 + (k % 2) * 0.06, 0.022, 0.3, a, [0x5a9a32, 0xa6d860]))) },
-  // 배추: 겉잎 위에 연둣빛 속 포기
-  { xs: [0.25, 0.75], zs: [0.25, 0.75], g: bakePlant([[PG.sph, LEAF, [0, 0.05, 0], [0.2, 0.06, 0.2]], ...ring(4, a => [PG.sph, [0x4f8f34, 0x9ccf6a], [Math.sin(a) * 0.08, 0.12, Math.cos(a) * 0.08], [0.1, 0.1, 0.045], [0, a, 0]]), [PG.ico1, [0xa8d878, 0xe8f8c8], [0, 0.13, 0], [0.11, 0.12, 0.11]]]) },
-  // 고추: 짙은 포기에 빨간 고추가 주렁주렁
-  { xs: [0.17, 0.5, 0.83], zs: [0.25, 0.75], g: bakePlant([[PG.cyl, 0x5a8a3a, [0, 0.12, 0], [0.012, 0.24, 0.012]], [PG.ico, LEAF_D, [0, 0.29, 0], [0.1, 0.08, 0.1]], [PG.ico, LEAF_D, [0.05, 0.23, 0.03], [0.07, 0.06, 0.07]], [PG.ico, LEAF_D, [-0.05, 0.22, -0.03], [0.07, 0.06, 0.07]], ...ring(7, (a, k) => [PG.cone, [0xc02a1c, 0xff5a44], [Math.sin(a) * (0.12 + (k % 2) * 0.03), 0.2 + (k % 3) * 0.05, Math.cos(a) * (0.12 + (k % 2) * 0.03)], [0.028, 0.13, 0.028], [Math.PI - Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5]])]) },
-  // 마늘: 검은 비닐 위로 뻗은 가는 잎
-  { xs: [0.1, 0.3, 0.5, 0.7, 0.9], zs: [0.25, 0.75], g: bakePlant([[PG.sph, 0xe8e0cc, [0, 0.02, 0], [0.03, 0.03, 0.03]], ...ring(4, a => blade(0.3, 0.016, 0.4, a, [0x5f9a3a, 0xa0d070]))]) },
-  // 양파: 하얀 알 위로 속 빈 줄기
-  { xs: [0.125, 0.375, 0.625, 0.875], zs: [0.25, 0.75], g: bakePlant([[PG.sph, [0xc8b080, 0xf4e8cc], [0, 0.04, 0], [0.065, 0.06, 0.065]], ...ring(3, a => [PG.cyl, [0x4f8f5a, 0x8cc49a], [Math.sin(a) * 0.03, 0.2, Math.cos(a) * 0.03], [0.013, 0.3, 0.013], [Math.cos(a) * 0.15, 0, -Math.sin(a) * 0.15]])]) },
-  // 참외: 덩굴 잎 사이 노란 참외
-  { xs: [0.25, 0.75], zs: [0.25, 0.75], g: bakePlant([...ring(5, a => [PG.sph, [0x3f8a2e, 0x86c45a], [Math.sin(a) * 0.13, 0.04, Math.cos(a) * 0.13], [0.1, 0.035, 0.09], [0, a, 0]]), [PG.sph, [0xd8a020, 0xfadc58], [0.07, 0.06, -0.03], [0.07, 0.06, 0.1], [0, 0.6, 0]], [PG.sph, [0xd8a020, 0xfadc58], [-0.09, 0.05, 0.08], [0.06, 0.05, 0.09], [0, -0.4, 0]]]) },
-  // 수박: 넓게 깔린 잎과 커다란 수박
-  { xs: [0.5], zs: [0.25, 0.75], g: bakePlant([...ring(6, a => [PG.sph, [0x3f8a2e, 0x86c45a], [Math.sin(a) * 0.24, 0.035, Math.cos(a) * 0.2], [0.12, 0.035, 0.1], [0, a, 0]]), [PG.sph, [0x5a9e40, 0x9ccf6a], [0, 0.13, 0], [0.17, 0.15, 0.21]], ...[-0.12, -0.06, 0, 0.06, 0.12].map(d => { const k = Math.sqrt(1 - (d / 0.17) ** 2); return [PG.sph, [0x16401a, 0x2a6a28], [d, 0.13, 0], [0.022, 0.15 * k + 0.006, 0.21 * k + 0.006]]; })]) },
-  // 딸기: 검은 비닐 두둑에 낮은 잎과 빨간 딸기
-  { xs: [0.17, 0.5, 0.83], zs: [0.25, 0.75], g: bakePlant([...ring(4, a => [PG.sph, [0x2f7a2a, 0x66b04a], [Math.sin(a) * 0.05, 0.07, Math.cos(a) * 0.05], [0.055, 0.025, 0.05], [0, a, 0]]), ...ring(4, a => [PG.cone, [0xc81e2a, 0xff5a60], [Math.sin(a + 0.6) * 0.14, 0.07, Math.cos(a + 0.6) * 0.14], [0.042, 0.08, 0.042], [Math.PI - Math.cos(a + 0.6) * 0.6, 0, Math.sin(a + 0.6) * 0.6]])]) },
-  // 옥수수: 키 큰 대, 늘어진 잎, 노란 수염꽃과 옥수수
-  { xs: [0.25, 0.75], zs: [0.25, 0.75], g: bakePlant([[PG.cyl, [0x6f9e40, 0x9cc860], [0, 0.48, 0], [0.025, 0.96, 0.025]], ...ring(5, (a, k) => blade(0.45, 0.035, 1.0, a, [0x3f7f2a, 0x86c25a], 0.2 + k * 0.08)), [PG.cone, [0xc8b060, 0xeedd90], [0, 1.02, 0], [0.04, 0.14, 0.04]], [PG.cyl, [0xa8c068, 0xd8e8a0], [0.045, 0.52, 0], [0.032, 0.15, 0.032], [0, 0, -0.4]]]) },
-  // 감자: 둥근 잎 무더기에 하얀·보랏빛 꽃
-  { xs: [0.25, 0.75], zs: [0.25, 0.75], g: bakePlant([...ring(4, a => [PG.ico, LEAF, [Math.sin(a) * 0.07, 0.12, Math.cos(a) * 0.07], [0.09, 0.08, 0.09]]), [PG.ico, LEAF, [0, 0.18, 0], [0.08, 0.07, 0.08]], [PG.ico, 0xf6f2ff, [0.03, 0.25, 0.02], [0.025, 0.025, 0.025]], [PG.ico, 0xb9a0e0, [-0.04, 0.24, -0.03], [0.025, 0.025, 0.025]]]) },
-];
-const cropMat = bend(new THREE.MeshLambertMaterial({ vertexColors: true }));
-function buildCrops(cx, cz) {
-  const list = [], r = mulberry32(hashStr('crop' + (cz * NCX + cx))), y = TOPY(T.PADDY); let nv = 0;
-  for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) {
-    const i = idx(x, z); if (tiles[i] !== T.PADDY || road[i] || resv[i]) continue;
-    const C = CROP_3D[cropAt(x, z)];
-    for (const oz of C.zs) for (const ox of C.xs) { list.push(C.g, x + ox + (r() - 0.5) * 0.05, z + oz + (r() - 0.5) * 0.05, r() * 6.283, 0.85 + r() * 0.3, 0.88 + r() * 0.2); nv += C.g.pos.length; }
+const LEAF = [0x3f7f2c, 0x86c45a], LEAF_D = [0x2c6424, 0x5aa040], DRY = [0x7a6438, 0xb09a60], STRAW = [0x9a8050, 0xd0bc80];
+const lerpN = (a, b, p) => a + (b - a) * p;
+// 작물·단계·자람 정도(p)에 따른 모습: { plants: [{ parts, xs, zs, fixed(줄 방향 고정), prob(심을 확률), y(높이) }], over: 'water' | 'mulch' | null }
+const ROWS2 = [0.25, 0.75], ROWS3 = [0.17, 0.5, 0.83];
+const CROP_LOOK = {
+  rice(st, p) {
+    const clump = (h, col, tilt, n = 5) => ring(n, (a, k) => blade(h * (0.85 + (k % 2) * 0.2), 0.02, tilt, a, col));
+    if (st === 'stubble') return { plants: [{ parts: ring(4, a => blade(0.07, 0.02, 0.2, a, STRAW)), xs: ROWS3, zs: ROWS3 }] };
+    if (st === 'flood') return { over: 'water', plants: [] };
+    if (st === 'seedling') return { over: 'water', plants: [{ parts: clump(lerpN(0.12, 0.22, p), [0x6aaa3a, 0xb0e070], 0.3, 4), xs: ROWS3, zs: ROWS3 }] };
+    if (st === 'grow') return { over: p < 0.4 ? 'water' : 'green', plants: [{ parts: clump(lerpN(0.26, 0.42, p), [0x3f8a2a, 0x8acb52], 0.4, 8), xs: ROWS3, zs: ROWS3 }] };
+    if (st === 'heading') return { over: 'green', plants: [{ parts: [...clump(0.46, [0x4a8e2e, 0x96cf5a], 0.4, 8), ...ring(4, a => blade(0.14, 0.03, lerpN(0.6, 1.1, p), a, [0x9ab040, 0xd8e070], 0.38))], xs: ROWS3, zs: ROWS3 }] };
+    if (st === 'ripe') { return { over: 'gold', plants: [{ parts: [...clump(0.44, [0x9a8a2a, 0xe0c860], 0.42, 8), ...ring(5, a => blade(0.16, 0.035, lerpN(1.1, 1.5, p), a, [0xb08a2a, 0xf2d870], 0.36))], xs: ROWS3, zs: ROWS3 }] }; }
+    // 수확 끝: 그루터기와 하얀 볏짚 곤포(마시멜로)
+    return { plants: [{ parts: ring(4, a => blade(0.08, 0.02, 0.2, a, STRAW)), xs: ROWS3, zs: ROWS3 }, { parts: [[PG.cylC, [0xd8d8d4, 0xffffff], [0, 0.3, 0], [0.3, 0.55, 0.3], [0, 0, Math.PI / 2]]], xs: [0.5], zs: [0.5], prob: 0.05 }] };
+  },
+  cabbage(st, p) {
+    if (st === 'bare') return { plants: [] };
+    if (st === 'harvested') return { plants: [{ parts: ring(3, a => leaf(0.09, 0.05, 0.08, a, 0.1, 0.02, [0x9a9a50, 0xd0d080])), xs: ROWS2, zs: ROWS2, prob: 0.4 }] };
+    if (st === 'young') { const s = lerpN(0.5, 1, p); return { plants: [{ parts: ring(5, a => leaf(0.08 * s, 0.045 * s, 0.07 * s, a, 0.5, 0.02, [0x5a9a3a, 0xa8d878])), xs: ROWS2, zs: ROWS2 }] }; }
+    const big = st === 'mature', s = big ? 1 : lerpN(0.7, 0.9, p), head = big ? 1 : lerpN(0.45, 0.8, p);
+    const parts = [...ring(7, a => leaf(0.17 * s, 0.09 * s, 0.13 * s, a, 0.45, 0.05, [0x2f6a26, 0x6aa848], 0.03)),
+      ...ring(4, a => leaf(0.12 * head, 0.06, 0.05, a + 0.4, 1.15, 0.1, [0x5f9e3c, 0xa8d878], 0.025)),
+      [PG.sph, [0x9ccc6a, 0xf2f6c4], [0, 0.17 * head, 0], [0.085 * head + 0.02, 0.18 * head, 0.085 * head + 0.02]]];
+    if (big && snowNow()) parts.push([PG.sph, [0xe8eef2, 0xffffff], [0, 0.34, 0], [0.1, 0.035, 0.1]]);
+    return { plants: [{ parts, xs: ROWS2, zs: ROWS2 }] };
+  },
+  pepper(st, p) {
+    if (st === 'bare') return { plants: [] };
+    if (st === 'mulch') return { over: 'mulch', plants: [] };
+    if (st === 'seedling') { const h = lerpN(0.1, 0.2, p); return { over: 'mulch', plants: [{ parts: [[PG.cyl, 0x5a8a3a, [0, h / 2, 0], [0.01, h, 0.01]], [PG.ico, LEAF, [0, h, 0], [0.05, 0.035, 0.05]], leaf(0.04, 0.025, 0.035, 0, 0.3, h * 0.6, LEAF), leaf(0.04, 0.025, 0.035, Math.PI, 0.3, h * 0.6, LEAF)], xs: [0.125, 0.375, 0.625, 0.875], zs: ROWS2 }] }; }
+    // 자라면 포기가 줄로 이어져 생울타리처럼 되고, 지주대와 줄로 받친다
+    const h = st === 'grow' ? lerpN(0.32, 0.5, p) : 0.56, dried = st === 'dried', lc = dried ? DRY : LEAF_D;
+    const hedge = [-0.33, 0, 0.33].flatMap((x, k) => [[PG.sph, k === 1 ? LEAF : lc, [x, h * 0.64, 0], [0.22, h * (0.38 + k * 0.03), 0.14]], [PG.sph, lc, [x + 0.05, h * 0.3, 0], [0.2, h * 0.3, 0.12]]]);
+    const peppers = [], n = st === 'grow' ? 6 : dried ? 6 : 14, pc = red => red ? (dried ? [0x6a1a12, 0x9a2a1a] : [0xb81e14, 0xff4a36]) : [0x2f7a24, 0x5fae3c];
+    for (let k = 0; k < n; k++) {   // 옆으로 늘어진 고추
+      const side = k % 2 ? 1 : -1, x = -0.45 + (k / n) * 0.9, red = st === 'mature' ? k % 4 !== 0 : dried;
+      peppers.push([PG.cone, pc(red), [x, h * (0.32 + (k % 3) * 0.13), side * 0.16], [0.03, 0.17, 0.03], [Math.PI + side * 0.45, 0, 0]]);
+    }
+    if (st !== 'grow') for (let k = 0; k < 7; k++) {   // 위에서도 보이게 잎 사이로 삐져나온 고추
+      const x = -0.42 + k * 0.14, z = (k % 2 ? 1 : -1) * (0.05 + (k % 3) * 0.03), red = st === 'mature' ? k % 3 !== 0 : true;
+      peppers.push([PG.cone, pc(red), [x, h * 0.98, z], [0.03, 0.15, 0.03], [Math.PI / 2 + (k % 2 ? 0.5 : -0.5), 0, (k % 3 - 1) * 0.6]]);
+    }
+    if (st === 'grow') for (let k = 0; k < 5; k++) peppers.push([PG.ico, 0xffffff, [-0.4 + k * 0.2, h * 0.85, (k % 2 ? 1 : -1) * 0.14], [0.018, 0.018, 0.018]]);
+    const stake = [[PG.cyl, 0x8a7a60, [0, 0.32, 0], [0.014, 0.64, 0.014]], [PG.box, 0xeeeeee, [0, h * 0.7, 0.13], [1, 0.008, 0.008]], [PG.box, 0xeeeeee, [0, h * 0.7, -0.13], [1, 0.008, 0.008]]];
+    return { over: 'mulch', plants: [{ parts: [...hedge, ...peppers, ...stake], xs: [0.5], zs: ROWS2, fixed: true }] };
+  },
+  garlic(st, p) { return allium(st, p, false); },
+  onion(st, p) { return allium(st, p, true); },
+  melon(st, p) {
+    if (st === 'empty') return { plants: [] };
+    const s = st === 'young' ? lerpN(0.35, 0.8, p) : 1, parts = ring(7, (a, k) => leaf(0.11 * s, 0.09 * s, (0.08 + (k % 2) * 0.07) * s, a, 0.15, 0.03, [0x3f8a2e, 0x86c45a], 0.025));
+    if (st === 'mature') for (const [x, z, a] of [[0.1, -0.05, 0.6], [-0.1, 0.09, -0.4]]) {
+      parts.push([PG.sph, [0xd8a018, 0xffd84a], [x, 0.065, z], [0.075, 0.065, 0.11], [0, a, 0]]);
+      for (const d of [-0.04, 0, 0.04]) parts.push([PG.sph, 0xfff6d8, [x + Math.cos(a) * d, 0.066, z - Math.sin(a) * d], [0.012, 0.068, 0.113 * Math.sqrt(1 - (d / 0.075) ** 2)], [0, a, 0]]);
+    }
+    return { over: 'mulch', plants: [{ parts, xs: ROWS2, zs: ROWS2 }] };
+  },
+  watermelon(st, p) {
+    if (st === 'bare') return { plants: [] };
+    if (st === 'harvested') return { plants: [{ parts: ring(5, (a, k) => leaf(0.1, 0.08, 0.15, a, 0.05, 0.02, DRY, 0.02)), xs: [0.5], zs: ROWS2 }] };
+    const s = st === 'seedling' ? lerpN(0.2, 0.4, p) : st === 'grow' ? lerpN(0.5, 1, p) : 1;
+    const parts = ring(9, (a, k) => leaf(0.13 * s, 0.11 * s, (0.1 + (k % 3) * 0.1) * s, a, 0.12, 0.03, [0x3f8a2e, 0x86c45a], 0.03));
+    if (st === 'mature') {
+      parts.push([PG.sph, [0x5a9e40, 0x9ccf6a], [0.05, 0.13, 0], [0.17, 0.15, 0.21]]);
+      for (const d of [-0.12, -0.06, 0, 0.06, 0.12]) { const k = Math.sqrt(1 - (d / 0.17) ** 2); parts.push([PG.sph, [0x16401a, 0x2a6a28], [0.05 + d, 0.13, 0], [0.022, 0.15 * k + 0.006, 0.21 * k + 0.006]]); }
+    }
+    return { over: 'mulch', plants: [{ parts, xs: [0.5], zs: ROWS2 }] };
+  },
+  strawberry(st, p) {
+    // 하우스 안 허리 높이 재배대(고설 재배): 늘 있는 재배대 위에 모종이 자라고, 열매는 옆으로 늘어진다
+    const bed = [[PG.box, [0x6a6a70, 0xa8a8b0], [0, 0.46, 0], [1, 0.08, 0.2]], [PG.box, 0x7a6048, [0, 0.47, 0], [1, 0.07, 0.16]], [PG.cyl, 0xb0b0b8, [0, 0.21, 0.08], [0.012, 0.42, 0.012]], [PG.cyl, 0xb0b0b8, [0, 0.21, -0.08], [0.012, 0.42, 0.012]]];
+    if (st === 'empty') return { plants: [{ parts: bed, xs: [0.5], zs: ROWS2, fixed: true }] };
+    const s = st === 'young' ? lerpN(0.5, 0.9, p) : 1, plant = [];
+    for (const x of [-0.33, 0, 0.33]) {
+      for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.4; plant.push(leaf(0.06 * s, 0.045 * s, 0.045 * s, a, 0.5, 0.5, [0x2f7a2a, 0x66b04a], 0.015)); plant[plant.length - 1][2][0] += x; }
+      if (st === 'fruit') for (const sd of [1, -1]) plant.push([PG.cone, [0xc81e2a, 0xff5a60], [x + sd * 0.05, 0.4, sd * 0.12], [0.032, 0.06, 0.032], [Math.PI - sd * 0.3, 0, 0]]);
+    }
+    return { plants: [{ parts: [...bed, ...plant], xs: [0.5], zs: ROWS2, fixed: true }] };
+  },
+  corn(st, p) {
+    if (st === 'bare') return { plants: [] };
+    if (st === 'mulch') return { over: 'mulch', plants: [] };
+    if (st === 'sprout') { const h = lerpN(0.06, 0.16, p); return { over: 'mulch', plants: [{ parts: ring(3, a => blade(h, 0.025, 0.5, a, LEAF)), xs: ROWS2, zs: ROWS2 }] }; }
+    const h = st === 'grow' ? lerpN(0.35, 0.9, p) : 1.25, dry = st === 'dried', lc = dry ? STRAW : [0x3f7f2a, 0x86c25a];
+    const parts = [[PG.cyl, dry ? STRAW : [0x6f9e40, 0x9cc860], [0, h / 2, 0], [0.022, h, 0.022]], ...ring(6, (a, k) => blade(0.42 * Math.min(1, h + 0.2), 0.035, dry ? 1.5 : 1.05, a, lc, h * (0.15 + k * 0.11)))];
+    if (st === 'mature' || dry) {
+      parts.push([PG.cone, dry ? [0x8a7040, 0xb09a60] : [0xc8b060, 0xeedd90], [0, h + 0.07, 0], [0.04, 0.16, 0.04]]);
+      for (const [a, y] of [[0.5, 0.48], [3.4, 0.62]]) parts.push([PG.cyl, dry ? [0x9a8048, 0xc8b078] : [0x9ab860, 0xd0e098], [Math.sin(a) * 0.05, h * y, Math.cos(a) * 0.05], [0.035, 0.17, 0.035], [Math.cos(a) * 0.4, 0, -Math.sin(a) * 0.4]], [PG.cone, dry ? 0x5a3a20 : 0xc89a50, [Math.sin(a) * 0.09, h * y + 0.1, Math.cos(a) * 0.09], [0.015, 0.05, 0.015]]);
+    }
+    return { over: st === 'grow' && p < 0.5 ? 'mulch' : null, plants: [{ parts, xs: ROWS2, zs: ROWS2 }] };
+  },
+  potato(st, p) {
+    if (st === 'bare') return { plants: [] };
+    if (st === 'mulch') return { over: 'mulch', plants: [] };
+    if (st === 'harvest') return { plants: [{ parts: ring(6, (a, k) => [PG.ico, [0x9a7848, 0xd8b880], [Math.sin(a) * (0.08 + (k % 2) * 0.06), 0.03, Math.cos(a) * (0.08 + (k % 2) * 0.06)], [0.04, 0.032, 0.035]]), xs: ROWS2, zs: ROWS2 }, { parts: [[PG.box, [0xb8a070, 0xe0cca0], [0, 0.09, 0], [0.16, 0.18, 0.12]]], xs: [0.5], zs: [0.5], prob: 0.08 }] };
+    const s = st === 'sprout' ? lerpN(0.3, 0.6, p) : st === 'grow' ? lerpN(0.7, 1, p) : 1, lc = st === 'yellow' ? [0x8a8a3a, 0xc8c060] : LEAF;
+    const parts = [...ring(5, a => [PG.ico, lc, [Math.sin(a) * 0.08 * s, 0.11 * s, Math.cos(a) * 0.08 * s], [0.09 * s, 0.08 * s, 0.09 * s]]), [PG.ico, lc, [0, 0.18 * s, 0], [0.08 * s, 0.07 * s, 0.08 * s]]];
+    if (st === 'flower') for (let k = 0; k < 6; k++) parts.push([PG.ico, k % 2 ? 0xf6f2ff : 0xb9a0e0, [Math.sin(k) * 0.08, 0.25, Math.cos(k) * 0.08], [0.028, 0.028, 0.028]]);
+    return { over: st === 'sprout' ? 'mulch' : null, plants: [{ parts, xs: ROWS2, zs: ROWS2 }] };
+  },
+};
+// 마늘·양파: 겨울엔 비닐 덮은 두둑에서 버티고, 봄에 쑥쑥 자라 6월에 캐서 줄지어 말린다 (양파는 줄기가 쓰러지면 수확철)
+function allium(st, p, onion) {
+  const lc = onion ? [0x3f7f5a, 0x8cc4a0] : [0x4f8a34, 0x9ccc6a], xs = [0.1, 0.3, 0.5, 0.7, 0.9];
+  if (st === 'bare') return { plants: [] };
+  if (st === 'sprout' || st === 'winter') { const h = st === 'sprout' ? lerpN(0.04, 0.1, p) : 0.1; return { over: st === 'winter' ? 'mulch' : null, plants: [{ parts: ring(2, a => blade(h, 0.015, 0.3, a, lc)), xs, zs: ROWS3 }] }; }
+  if (st === 'grow') {
+    const h = lerpN(0.14, 0.4, p);
+    const parts = onion ? [[PG.sph, [0xc8b080, 0xf4e8cc], [0, 0.03, 0], [0.03 + p * 0.025, 0.03 + p * 0.02, 0.03 + p * 0.025]], ...ring(4, a => [PG.cyl, lc, [Math.sin(a) * 0.012 + Math.sin(a) * Math.sin(0.18) * h / 2, h / 2 + 0.03, Math.cos(a) * 0.012 + Math.cos(a) * Math.sin(0.18) * h / 2], [0.012, h, 0.012], [Math.cos(a) * 0.18, 0, -Math.sin(a) * 0.18]])]
+      : ring(4, (a, k) => blade(h * (0.85 + (k % 2) * 0.2), 0.02, 0.28, a, lc));
+    return { over: 'mulch', plants: [{ parts, xs, zs: ROWS3 }] };
   }
-  if (!nv) return null;
-  const pos = new Float32Array(nv), nor = new Float32Array(nv), col = new Float32Array(nv); let o = 0;
-  for (let k = 0; k < list.length; k += 6) {
-    const g = list[k], tx = list[k + 1], tz = list[k + 2], c = Math.cos(list[k + 3]), s = Math.sin(list[k + 3]), sc = list[k + 4], br = list[k + 5], P = g.pos, N = g.nor, C = g.col;
-    for (let j = 0; j < P.length; j += 3, o += 3) {
-      const px = P[j], pz = P[j + 2], nx = N[j], nz = N[j + 2];
-      pos[o] = (px * c + pz * s) * sc + tx; pos[o + 1] = P[j + 1] * sc + y; pos[o + 2] = (pz * c - px * s) * sc + tz;
-      nor[o] = nx * c + nz * s; nor[o + 1] = N[j + 1]; nor[o + 2] = nz * c - nx * s;
-      col[o] = C[j] * br; col[o + 1] = C[j + 1] * br; col[o + 2] = C[j + 2] * br;
+  if (st === 'mature') return { over: 'mulch', plants: [{ parts: [[PG.sph, [0xc8a060, 0xf0d8a0], [0, 0.05, 0], [0.065, 0.06, 0.065]], ...ring(3, a => [PG.cyl, [0x8aa050, 0xc8c870], [Math.sin(a) * 0.16, 0.06, Math.cos(a) * 0.16], [0.012, 0.32, 0.012], [Math.cos(a) * 1.35, 0, -Math.sin(a) * 1.35]])], xs, zs: ROWS3 }] };
+  // 수확: 캔 마늘·양파를 두둑에 줄지어 늘어놓고 말린다 (양파는 빨간 망 자루도)
+  const bulb = onion ? [[PG.sph, [0xb88a50, 0xf0d0a0], [0, 0.05, 0], [0.065, 0.06, 0.065]]] : [[PG.sph, [0xd8d0c0, 0xfaf6ee], [0, 0.035, 0], [0.04, 0.035, 0.04]]];
+  const plants = [{ parts: [...bulb, [PG.cone, [0xa08a40, 0xd8c070], [0.13, 0.03, 0], [0.02, 0.24, 0.02], [0, 0, -Math.PI / 2]]], xs: [0.2, 0.5, 0.8], zs: ROWS2, fixed: true }];
+  if (onion) plants.push({ parts: [[PG.box, [0xa02020, 0xe04040], [0, 0.09, 0], [0.14, 0.18, 0.11]]], xs: [0.5], zs: [0.5], prob: 0.12 });
+  return { plants };
+}
+// 단계 모습은 (작물, 단계, 자람 4칸, 눈) 마다 한 번만 굽는다
+const lookCache = new Map();
+function cropLook(k, shift) {
+  const id = CROP_INFO[k].id, { st, p } = cropStage(id, shift), pb = Math.floor(p * 4), key = `${k}|${st}|${pb}|${id === 'cabbage' && snowNow() ? 1 : 0}`;
+  let L = lookCache.get(key);
+  if (!L) { L = CROP_LOOK[id](st, (pb + 0.5) / 4); for (const pl of L.plants) pl.g = bakePlant(pl.parts); lookCache.set(key, L); }
+  return L;
+}
+const cropMat = bend(new THREE.MeshLambertMaterial({ vertexColors: true }));
+const filmMat = bend(new THREE.MeshLambertMaterial({ color: 0xf2f6f8, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }));
+const HOUSE_CROP = { melon: 1, strawberry: 1 };
+function buildCrops(cx, cz) {
+  const pos = [], nor = [], col = [], fpos = [], fnor = [], r = mulberry32(hashStr('crop' + (cz * NCX + cx))), y0 = TOPY(T.PADDY);
+  const put = (g, tx, ty, tz, ang, sc, br) => {
+    const c = Math.cos(ang), s = Math.sin(ang), P = g.pos, N = g.nor, C = g.col;
+    for (let j = 0; j < P.length; j += 3) {
+      pos.push((P[j] * c + P[j + 2] * s) * sc + tx, P[j + 1] * sc + ty, (P[j + 2] * c - P[j] * s) * sc + tz);
+      nor.push(N[j] * c + N[j + 2] * s, N[j + 1], N[j + 2] * c - N[j] * s); col.push(C[j] * br, C[j + 1] * br, C[j + 2] * br);
+    }
+  };
+  const quad = (x0, z0, x1, z1, y, cr, cg, cb) => { for (const [x, z] of [[x0, z0], [x0, z1], [x1, z1], [x0, z0], [x1, z1], [x1, z0]]) { pos.push(x, y, z); nor.push(0, 1, 0); col.push(cr, cg, cb); } };
+  const ok = (x, z) => { const i = idx(x, z); return tiles[i] === T.PADDY && !road[i] && !resv[i]; };
+  // 비닐하우스: 4×4칸 한 배미가 통째로 참외·딸기 밭이면 긴 하우스 두 동
+  const houses = new Set();
+  for (let bz = cz * CH; bz < cz * CH + CH; bz += 4) for (let bx = cx * CH; bx < cx * CH + CH; bx += 4) {
+    const k = cropAt(bx, bz); if (!HOUSE_CROP[CROP_INFO[k].id]) continue;
+    let full = true; for (let z = bz; z < bz + 4 && full; z++) for (let x = bx; x < bx + 4; x++) if (!ok(x, z) || cropAt(x, z) !== k) { full = false; break; }
+    if (!full) continue; houses.add(bx + ',' + bz);
+    for (const hz of [bz + 1, bz + 3]) {
+      const film = bakeFilm(3.7, 0.92);
+      for (let j = 0; j < film.pos.length; j += 3) { fpos.push(film.pos[j] + bx + 2, film.pos[j + 1] + y0, film.pos[j + 2] + hz); fnor.push(film.nor[j], film.nor[j + 1], film.nor[j + 2]); }
+      for (let x = bx + 0.25; x < bx + 4; x += 0.9) put(RIB, x, y0, hz, 0, 1, 1);
     }
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  geo.computeBoundingSphere(); geo.userData.own = true;
-  const m = new THREE.Mesh(geo, cropMat); m.receiveShadow = true; return m;
+  for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) {
+    if (!ok(x, z)) continue;
+    const i = idx(x, z), k = cropAt(x, z), L = cropLook(k, prov[i] >= 18 ? 12 : 0);
+    if (L.over === 'water' || L.over === 'green' || L.over === 'gold') {   // 논 물, 우거진 벼 잎층, 익은 벼 잎층
+      const lx = (x & 3) === 0 ? 0.1 : 0, rx = (x & 3) === 3 ? 0.1 : 0, tz0 = (z & 3) === 0 ? 0.1 : 0, bz1 = (z & 3) === 3 ? 0.1 : 0, [qr, qg, qb] = L.over === 'water' ? [0.5, 0.68, 0.74] : L.over === 'green' ? [0.3, 0.52, 0.2] : [0.72, 0.6, 0.26];
+      quad(x + lx, z + tz0, x + 1 - rx, z + 1 - bz1, y0 + (L.over === 'water' ? 0.015 : 0.12), qr, qg, qb);
+    } else if (L.over === 'mulch') for (const rz of [0.25, 0.75]) quad(x + ((x & 3) === 0 ? 0.1 : 0), z + rz - 0.16, x + 1 - ((x & 3) === 3 ? 0.1 : 0), z + rz + 0.16, y0 + 0.012, 0.17, 0.17, 0.19);
+    for (const pl of L.plants) for (const oz of pl.zs) for (const ox of pl.xs) {
+      if (pl.prob && r() > pl.prob) continue;
+      const ang = pl.fixed ? (r() < 0.5 ? 0 : Math.PI) : r() * 6.283, j = pl.fixed ? 0 : 0.05;
+      put(pl.g, x + ox + (r() - 0.5) * j, y0, z + oz + (r() - 0.5) * j, ang, pl.fixed ? 1 : 0.85 + r() * 0.3, 0.88 + r() * 0.2);
+    }
+  }
+  if (!pos.length && !fpos.length) return null;
+  const g = new THREE.Group();
+  if (pos.length) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.computeBoundingSphere(); geo.userData.own = true;
+    const m = new THREE.Mesh(geo, cropMat); m.receiveShadow = true; g.add(m);
+  }
+  if (fpos.length) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(fnor, 3));
+    geo.computeBoundingSphere(); geo.userData.own = true;
+    const m = new THREE.Mesh(geo, filmMat); m.renderOrder = 2; g.add(m);
+  }
+  return g;
+}
+// 하우스 비닐: x축으로 누운 반원 통 (길이 len, 반지름 rad)
+const filmCache = {};
+function bakeFilm(len, rad) {
+  const key = len + '|' + rad; if (filmCache[key]) return filmCache[key];
+  const g = PG.film.toNonIndexed(); g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -Math.PI / 2)), new THREE.Vector3(rad, len, rad)));
+  const P = g.attributes.position, N = g.attributes.normal, pos = [], nor = [];
+  for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i)); }
+  g.dispose(); return filmCache[key] = { pos, nor };
+}
+// 하우스 뼈대: 반원 쇠파이프
+const RIB = bakePlant([[PG.rib, [0xa0a4a8, 0xd8dce0], [0, 0, 0], [0.92, 0.92, 1.5], [0, Math.PI / 2, 0]]]);
+// 철이 바뀌면 불러온 구역의 작물을 몇 개씩 다시 굽는다
+let farmKey = '', farmT = 0;
+const farmQ = new Set();
+function farmSig() { return CROP_INFO.map(c => [0, 12].map(sh => { const s = cropStage(c.id, sh); return s.st + Math.floor(s.p * 4); }).join('/')).join(',') + (snowNow() ? 's' : ''); }
+function farmTick(dt) {
+  if ((farmT -= dt) <= 0) { farmT = 5; const k = farmSig(); if (k !== farmKey) { if (farmKey) for (const ci of chunkMeshes.keys()) farmQ.add(ci); farmKey = k; } }
+  let n = 0;
+  for (const ci of farmQ) {
+    farmQ.delete(ci); const g = chunkMeshes.get(ci); if (!g) continue;
+    const old = g.userData.cm; if (old) { g.remove(old); old.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); }
+    const cm = buildCrops(ci % NCX, Math.floor(ci / NCX)); g.userData.cm = cm; if (cm) g.add(cm);
+    if (++n >= 3) break;
+  }
 }
 function ensureChunk(cx, cz) {
   const ci = cz * NCX + cx; if (chunkMeshes.has(ci)) return chunkMeshes.get(ci);
   const g = new THREE.Group(), gm = buildGround(cx, cz), wm = buildWater(cx, cz);
   if (gm) g.add(gm); if (wm) g.add(wm); g.userData.gm = gm;
-  const cm = buildCrops(cx, cz); if (cm) g.add(cm);
+  const cm = buildCrops(cx, cz); g.userData.cm = cm; if (cm) g.add(cm);
   for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) if (tget(x, z) === T.BRIDGE) g.add(makeBridgeTile(x, z));
   chunkMeshes.set(ci, g); return g;
 }
@@ -4115,7 +4311,7 @@ function removeBotWorld(b) {
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
-if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ CROP_SPOTS, cropAt, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
   fish: () => ({ makeFish3D, makeFishShadow, showCatch3D, FISH_LOOK }), map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
@@ -5409,6 +5605,7 @@ function renderSettings() {
   document.querySelectorAll('#segTime button').forEach(b => b.classList.toggle('on', b.dataset.v === S.timeMode));
   document.querySelectorAll('#segSound button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === S.sound));
   document.querySelectorAll('#segMusic button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === S.music));
+  document.querySelectorAll('#segFarm button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === !!S.farmFast));
   for (const [id, key] of [['#segAiOn', 'on'], ['#segAiPer', 'per'], ['#segAiStyle', 'style'], ['#segAiDiff', 'diff'], ['#segAiSpeed', 'speed']]) document.querySelectorAll(id + ' button').forEach(b => b.classList.toggle('on', key === 'on' ? (b.dataset.v === '1') === S.ai.on : String(S.ai[key]) === b.dataset.v));
   $('#btnAiReset').textContent = aiArm ? '정말요? 한 번 더 누르세요' : '새로 만들기';
   $('#btnReset').textContent = resetArm ? '정말 초기화할까요? 한 번 더 누르세요' : '초기화';
@@ -5425,6 +5622,7 @@ $('#btnAiReset').addEventListener('click', () => {
 });
 document.querySelectorAll('#segTime button').forEach(b => b.addEventListener('click', () => { setTimeMode(b.dataset.v); updateClock(); renderSettings(); }));
 document.querySelectorAll('#segSound button').forEach(b => b.addEventListener('click', () => { S.sound = b.dataset.v === '1'; audioInit(); applyVolumes(); dirty(); renderSettings(); }));
+document.querySelectorAll('#segFarm button').forEach(b => b.addEventListener('click', () => { S.farmFast = b.dataset.v === '1'; farmT = 0; dirty(); renderSettings(); toast(S.farmFast ? '🌱 농사철이 빠르게 돌아요: 실제 1시간이 한 달이에요.' : '🌱 농사철이 실제 달력을 따라요.'); }));
 document.querySelectorAll('#segMusic button').forEach(b => b.addEventListener('click', () => { S.music = b.dataset.v === '1'; audioInit(); applyVolumes(); dirty(); renderSettings(); }));
 $('#btnReset').addEventListener('click', () => {
   if (!resetArm) { resetArm = true; renderSettings(); setTimeout(() => { resetArm = false; renderSettings(); }, 4000); return; }
@@ -5864,7 +6062,7 @@ function explore() {
     placeBanner(c.size === 3 ? '🏙️' : c.size === 2 ? '🏘️' : '🏡', `${c.name} 도착!`, (CITY_LINES[c.name] || [KR_PROV[c.prov - 1]?.n || ''])[0]);
     return;
   }
-  if (tget(Math.floor(P.x), Math.floor(P.z)) === T.PADDY) { const s = cropSpot(P.x, P.z), c = CROP_INFO[cropAt(Math.floor(P.x), Math.floor(P.z))]; if (s && c.id !== 'rice' && !S.found['crop:' + s.n]) { S.found['crop:' + s.n] = true; dirty(); toast(`${c.i} ${s.n} ${c.n}밭이에요! 이 고장 특산물이래요.`); } }
+  if (tget(Math.floor(P.x), Math.floor(P.z)) === T.PADDY) { const s = cropSpot(P.x, P.z), c = CROP_INFO[cropAt(Math.floor(P.x), Math.floor(P.z))]; if (s && c.id !== 'rice' && !S.found['crop:' + s.n]) { S.found['crop:' + s.n] = true; dirty(); toast(`${c.i} ${s.n} ${c.n}밭이에요! 이 고장 특산물이래요. 지금은 ${STAGE_N[cropStage(c.id, prov[idx(Math.floor(P.x), Math.floor(P.z))] >= 18 ? 12 : 0).st]}.`); } }
   for (const l of LANDMARKS) if (!S.found['lm:' + l.name] && Math.hypot(l.x - P.x, l.z - P.z) < 16) { S.found['lm:' + l.name] = true; dirty(); toast(`명소 발견: ${l.name}`); SFX.coin(); }
   for (const f of FORTS) if (!S.found['fort:' + f.id] && Math.hypot(f.cx - P.x, f.cz - P.z) < 50) { S.found['fort:' + f.id] = true; dirty(); toast(`🏯 ${f.k.n}의 요새 발견: ${f.n}`); }
   const kk = kingdomAt(P.x, P.z); if (kk !== lastKing) { if (kk) toast(`${kk.e} ${kk.n}의 영토에 들어왔어요. 조심!`); else if (lastKing) toast(`${lastKing.n}의 영토를 벗어났어요.`); lastKing = kk; }
@@ -6899,7 +7097,7 @@ function frame(now) {
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
   miniT -= rdt; if (miniT <= 0) { miniT = 0.25; pinTick(0.25); drawMini(); $('#miniName').textContent = placeName(); }
-  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt);
+  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt);
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
   hintT -= dt; if (hintT <= 0) { hintT = 0.1; updateHint(); }
