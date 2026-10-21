@@ -1880,15 +1880,23 @@ const playerHairGeo = (() => {
   }
   g.computeVertexNormals(); return g;
 })();
-// 다양한 생김새: 나이(아이·어르신)·키, 소품(모자·안경·리본·목도리 등), 눈 색과 모양, 볼터치.
-// 같은 사람은 언제 봐도 같은 모습이 되도록 id로 정한다. 하는 일이 있으면 그 일에 맞는 소품을 든다.
-const ROLE_ACC = { '농부': 'straw', '등산객': 'cap', '어부': 'beanie', '야간 순찰': 'police', '한잔한 사람': 'tie', '나그네': 'straw', '별 보는 사람': 'beanie', '나물 캐는 사람': 'scarf' };
+// 다양한 생김새: 나이(아이·어르신)·키, 소품(모자·안경·머리 모양·목장식·가방 등), 눈 색과 모양, 볼터치.
+// 같은 사람은 언제 봐도 같은 모습이 되도록 id로 정한다.
+// 하는 일에 어울리는 소품 (모자만 있지 않게 가방·배낭·목도리도 섞는다. null = 아무것도 안 함)
+const ROLE_ACC = { '농부': ['straw', 'straw', 'scarf', null, 'tuft'], '등산객': ['backpack', 'backpack', 'cap', 'sunglasses'], '어부': ['beanie', 'scarf', null, 'bun'], '야간 순찰': ['police', 'police', 'police', null],
+  '한잔한 사람': ['tie', 'tie', 'bowtie'], '나그네': ['backpack', 'bag', 'straw', null], '별 보는 사람': ['scarf', 'glasses', null, 'necklace'], '나물 캐는 사람': ['bag', 'scarf', null, 'pigtails'] };
+// 그 밖의 사람들: 대부분 맨머리, 모자는 드물게(약 14%), 머리 모양·안경·목장식·가방이 골고루
+const ACC_ANY = [null, null, null, null, null, null, 'glasses', 'sunglasses', 'scarf', 'ribbon', 'flower', 'bowtie', 'necklace', 'bag', 'backpack', 'bun', 'pigtails', 'tuft', 'headband', 'cap', 'beanie', 'straw'];
+const ACC_HEAD = { cap: 1, beanie: 1, straw: 1, police: 1, bun: 1, pigtails: 1, tuft: 1, ribbon: 1, flower: 1, headband: 1, tie: 1 };
+const ACC_PLUS = [null, null, null, null, null, 'glasses', 'sunglasses', 'necklace', 'bowtie', 'bag'];   // 머리 소품과 함께 걸칠 것
 function varyLook(id, role) {
   const r = mulberry32(hashStr('look' + id)), roll = r(), o = {};
   o.age = roll < 0.14 ? 'kid' : roll > 0.88 ? 'elder' : null;
   o.size = o.age === 'kid' ? 0.8 : 0.92 + r() * 0.18;
-  o.acc = ROLE_ACC[role] || pick([null, null, null, 'cap', 'beanie', 'ribbon', 'glasses', 'scarf', 'headband', 'flower', 'straw'], r);
-  if (o.age === 'elder' && (!o.acc || o.acc === 'ribbon')) o.acc = 'glasses';
+  o.acc = pick(ROLE_ACC[role] || ACC_ANY, r);
+  if (o.age === 'elder' && (!o.acc || o.acc === 'ribbon' || o.acc === 'pigtails')) o.acc = pick(['glasses', 'mustache', 'glasses', null], r);
+  if (o.age === 'kid' && o.acc === 'tie') o.acc = 'bowtie';
+  const plus = ACC_HEAD[o.acc] ? pick(ACC_PLUS, r) : null; o.acc2 = plus !== o.acc ? plus : null;
   o.accCol = pick([0xe0645a, 0x4f8fd8, 0xf2a94a, 0x6aa36f, 0x8e7cc3, 0xf39bb5, 0x3a3a46, 0xfff8ec, 0x5ab0a8], r);
   o.face = { iris: pick(['#24160e', '#2f6b4a', '#2a3f7a', '#5a2a1a', '#3b2238', '#4a4a52'], r), tilt: (r() - 0.5) * 0.5, eyeW: 11 + Math.floor(r() * 7), eyeH: 13 + Math.floor(r() * 7) };
   if (r() < 0.35) o.face.brow = pick(['#3a2416', '#6b4528', '#2a2a30'], r);
@@ -1899,15 +1907,20 @@ const ACCG = {};
 let SPEC_LIST = [];   // 동물 표(SPECIES)가 만들어지면 채운다 (상점 주인처럼 그 전에 만드는 캐릭터도 있다)
 const accGeo = (k, f) => ACCG[k] || (ACCG[k] = f());
 function addLook(u, o, look) {
-  const head = u.head, add = (geo, col, x, y, z) => { const m = mesh(geo, M(col), x, y, z); head.add(m); return m; };
+  for (const a of [look.acc, look.acc2]) if (a) addAcc(u, o, look, a);
+  // 어르신: 등이 살짝 굽고 지팡이를 짚는다
+  if (look.age === 'elder') { u.body.rotation.x = 0.12; u.aR.add(mesh(accGeo('cane', () => new THREE.CylinderGeometry(0.018, 0.018, 0.55, 6)), M(0x7a5536), 0, -0.4, 0.02)); }
+}
+function addAcc(u, o, look, acc) {
+  const head = u.head, add = (geo, col, x, y, z) => { const m = mesh(geo, M(col), x, y, z); head.add(m); return m; }, onBody = (geo, col, x, y, z) => { const m = mesh(geo, M(col), x, y, z); u.body.add(m); return m; };
   const dome = accGeo('dome', () => new THREE.SphereGeometry(0.44, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2));
-  const c = look.accCol;
-  switch (look.acc) {
+  const c = look.accCol, hair = new THREE.Color(o.fur).multiplyScalar(0.72).getHex(), ball = accGeo('ball', () => new THREE.SphereGeometry(0.1, 14, 10));
+  switch (acc) {
     case 'cap': case 'police': {
-      const col = look.acc === 'police' ? 0x2a3a6a : c;
+      const col = acc === 'police' ? 0x2a3a6a : c;
       add(dome, col, 0, 0.06, 0).scale.set(1, 0.75, 1);
       add(accGeo('brim', () => new THREE.CylinderGeometry(0.26, 0.26, 0.03, 20)), col, 0, 0.1, 0.36).scale.set(1, 1, 0.75);
-      if (look.acc === 'police') add(accGeo('badge', () => new THREE.SphereGeometry(0.045, 10, 8)), 0xf2c94a, 0, 0.26, 0.37);
+      if (acc === 'police') add(accGeo('badge', () => new THREE.SphereGeometry(0.045, 10, 8)), 0xf2c94a, 0, 0.26, 0.37);
       break;
     }
     case 'beanie':
@@ -1923,29 +1936,46 @@ function addLook(u, o, look) {
       for (const s of [-1, 1]) { const b = add(accGeo('bow', () => new THREE.ConeGeometry(0.08, 0.16, 12)), c, 0.2 + s * 0.08, 0.36, 0.06); b.rotation.z = s * Math.PI / 2; }
       add(accGeo('knot', () => new THREE.SphereGeometry(0.04, 10, 8)), c, 0.2, 0.36, 0.07);
       break;
-    case 'glasses': {
-      const ring = accGeo('ring', () => new THREE.TorusGeometry(0.075, 0.012, 8, 20));
-      for (const s of [-1, 1]) add(ring, 0x2a2a30, s * 0.13, 0.08, 0.41);
+    case 'glasses': case 'sunglasses': {
+      if (acc === 'sunglasses') for (const s of [-1, 1]) { const l = add(accGeo('lens', () => new THREE.CylinderGeometry(0.075, 0.075, 0.02, 16)), 0x1a1a22, s * 0.13, 0.08, 0.41); l.rotation.x = Math.PI / 2; }
+      else { const ring = accGeo('ring', () => new THREE.TorusGeometry(0.075, 0.012, 8, 20)); for (const s of [-1, 1]) add(ring, 0x2a2a30, s * 0.13, 0.08, 0.41); }
       const br = add(accGeo('bridge', () => new THREE.CylinderGeometry(0.01, 0.01, 0.1, 6)), 0x2a2a30, 0, 0.09, 0.43); br.rotation.z = Math.PI / 2;
       break;
     }
     case 'headband': case 'tie': {
-      const band = add(accGeo('band', () => new THREE.TorusGeometry(0.43, 0.028, 8, 32)), look.acc === 'tie' ? 0xc8303a : c, 0, 0.2, 0); band.rotation.x = Math.PI / 2;
-      if (look.acc === 'tie') for (const s of [-1, 1]) { const t = add(accGeo('tail', () => new THREE.BoxGeometry(0.05, 0.22, 0.02)), 0xc8303a, 0.36, 0.1, -0.14 + s * 0.05); t.rotation.z = 0.5 + s * 0.25; }
+      const band = add(accGeo('band', () => new THREE.TorusGeometry(0.43, 0.028, 8, 32)), acc === 'tie' ? 0xc8303a : c, 0, 0.2, 0); band.rotation.x = Math.PI / 2;
+      if (acc === 'tie') for (const s of [-1, 1]) { const t = add(accGeo('tail', () => new THREE.BoxGeometry(0.05, 0.22, 0.02)), 0xc8303a, 0.36, 0.1, -0.14 + s * 0.05); t.rotation.z = 0.5 + s * 0.25; }
       break;
     }
     case 'flower':
       for (let k = 0; k < 5; k++) add(accGeo('petal', () => new THREE.SphereGeometry(0.045, 8, 6)), c, 0.24 + Math.cos(k * 1.257) * 0.055, 0.33 + Math.sin(k * 1.257) * 0.055, 0.14);
       add(accGeo('knot', () => new THREE.SphereGeometry(0.04, 10, 8)), 0xf2d24a, 0.24, 0.33, 0.16);
       break;
+    // 머리 모양: 똥머리, 양갈래, 삐죽 한 가닥
+    case 'bun': add(ball, hair, 0, 0.44, -0.06).scale.setScalar(1.25); break;
+    case 'pigtails': for (const s of [-1, 1]) { add(ball, hair, s * 0.36, 0.16, -0.08).scale.set(0.8, 1.15, 0.8); add(accGeo('knot', () => new THREE.SphereGeometry(0.04, 10, 8)), c, s * 0.32, 0.25, -0.05); } break;
+    case 'tuft': { const t = add(accGeo('tuftc', () => new THREE.ConeGeometry(0.05, 0.2, 8)), hair, 0.03, 0.47, 0.05); t.rotation.set(0.3, 0, -0.35); break; }
+    case 'mustache': for (const s of [-1, 1]) { const m = add(ball, 0xe8e4dc, s * 0.06, -0.16, 0.44); m.scale.set(0.75, 0.32, 0.4); m.rotation.z = s * 0.35; } break;
+    // 목·몸 소품: 목도리, 나비넥타이, 목걸이, 크로스백, 배낭
     case 'scarf': {
-      const sc = mesh(accGeo('scarf', () => new THREE.TorusGeometry(0.14, 0.05, 8, 20)), M(c), 0, 0.66, 0); sc.rotation.x = Math.PI / 2; u.body.add(sc);
-      u.body.add(mesh(accGeo('stail', () => new THREE.BoxGeometry(0.07, 0.2, 0.04)), M(c), 0.08, 0.55, 0.15));
+      const sc = onBody(accGeo('scarf', () => new THREE.TorusGeometry(0.14, 0.05, 8, 20)), c, 0, 0.66, 0); sc.rotation.x = Math.PI / 2;
+      onBody(accGeo('stail', () => new THREE.BoxGeometry(0.07, 0.2, 0.04)), c, 0.08, 0.55, 0.15);
+      break;
+    }
+    case 'bowtie': for (const s of [-1, 1]) { const b = onBody(accGeo('bow', () => new THREE.ConeGeometry(0.08, 0.16, 12)), c, s * 0.06, 0.63, 0.15); b.rotation.z = s * Math.PI / 2; b.scale.setScalar(0.8); } onBody(accGeo('knot', () => new THREE.SphereGeometry(0.04, 10, 8)), c, 0, 0.63, 0.16); break;
+    case 'necklace': { const n = onBody(accGeo('neck', () => new THREE.TorusGeometry(0.13, 0.012, 6, 24)), 0xf2c94a, 0, 0.62, 0.02); n.rotation.x = Math.PI / 2 - 0.35; onBody(accGeo('pend', () => new THREE.SphereGeometry(0.03, 8, 6)), c, 0, 0.53, 0.15); break; }
+    case 'bag': {
+      const st = onBody(accGeo('strap', () => new THREE.BoxGeometry(0.035, 0.5, 0.02)), 0x6a4a32, 0, 0.47, 0.17); st.rotation.z = 0.75;
+      onBody(accGeo('pouch', () => new THREE.BoxGeometry(0.16, 0.13, 0.07)), c, -0.17, 0.3, 0.13);
+      break;
+    }
+    case 'backpack': {
+      onBody(accGeo('pack', () => new THREE.BoxGeometry(0.28, 0.3, 0.14)), c, 0, 0.45, -0.22);
+      onBody(accGeo('flap', () => new THREE.BoxGeometry(0.29, 0.08, 0.15)), new THREE.Color(c).multiplyScalar(0.8).getHex(), 0, 0.58, -0.22);
+      for (const s of [-1, 1]) onBody(accGeo('pstrap', () => new THREE.BoxGeometry(0.035, 0.3, 0.02)), 0x4a4a52, s * 0.1, 0.46, 0.17);
       break;
     }
   }
-  // 어르신: 등이 살짝 굽고 지팡이를 짚는다
-  if (look.age === 'elder') { u.body.rotation.x = 0.12; u.aR.add(mesh(accGeo('cane', () => new THREE.CylinderGeometry(0.018, 0.018, 0.55, 6)), M(0x7a5536), 0, -0.4, 0.02)); }
 }
 // 얼굴 번호 → 얼굴 생김새. 눈 너비·높이·기울기·눈동자 색·눈썹·볼터치·속눈썹·눈 사이·눈 높이·주근깨의 조합(1,728,000가지)에
 // 번호를 하나씩 대응시킨다. 번호가 다르면 조합도 반드시 다르므로 같은 얼굴의 캐릭터는 생기지 않는다.
