@@ -370,6 +370,7 @@ button:focus-visible{outline:3px solid var(--acorn);outline-offset:2px}
       <kbd>차 도둑</kbd><span>세워진 차는 보는 눈이 있으면 수배, 달리는 차를 빼앗으면 무조건 수배. 사람을 치면 넘어지고(만화식) 수배가 올라요. 수배 중 운전하면 경찰차가 쫓아와 붙어서 세우면 체포!</span>
       <kbd>사업체</kbd><span>도시에 가서 휴대폰 › 💼 사업: 포장마차·세차장·노래방·정비소·클럽(큰 도시)을 사면 2분마다 수입. 라이벌 나와바리 안 가게는 보호비 30%를 뜯겨요</span>
       <kbd>병원</kbd><span>보스에게 맞짱으로 지면 기절(WASTED): 가까운 도시 도토리병원에서 깨어나고 병원비를 내요. 수배는 풀려요</span>
+      <kbd>서울</kbd><span>바둑판 도로에 차들이 오른쪽 차선으로 달려요. 대로 교차로엔 신호등, 한강엔 큰 다리. 달리는 차는 Space로 빼앗을 수 있어요(★). 높은 빌딩 뒤에 가면 빌딩이 반투명해져요</span>
       <kbd>의뢰</kbd><span>휴대폰(N) › 의뢰: 배달(제한 시간 안에 짐 나르기)·차 주문(말한 차를 구해 정비소로)·레이스. GPS가 갈 곳을 짚어 주고, 끝내면 MISSION PASSED!</span>
       <kbd>털기</kbd><span>도시마다 편의점 '도토리24'(하루 한 번, ★2), 큰 도시엔 '도토리은행'(조직원 5명 필요, 금고 따는 8초를 버티면 큰돈, ★4). 큰 도시엔 가끔 현금 수송차: 차로 들이받아 세우면 돈 가방이 쏟아져요(★3)</span>
       <kbd>술</kbd><span>상점에서 사서 마시거나 주민과 한잔. 취하면 비틀비틀, 맞짱에선 취권</span>
@@ -952,11 +953,70 @@ function tryBridge(x, z) {
   for (let k = -best.a; k <= best.b; k++) { const bx = x + best.dx * k, bz = z + best.dz * k; tset(bx, bz, T.BRIDGE); brDir.set(idx(bx, bz), best.dir); }
   return true;
 }
+/* ================= 서울: 바둑판 도로망 =================
+   서울만 GTA의 큰 도시처럼 빽빽하게: 10칸마다 길을 내되, 하나 걸러 4칸 대로(편도 2차선)와 2칸 골목(편도 1차선).
+   세로 대로가 한강을 만나면 넓은 콘크리트 다리를 놓는다. 차들은 이 길(SN 교차로 · SE 도로)을 따라 오른쪽 차선으로 다니고,
+   대로끼리 만나는 교차로엔 신호등이 선다. */
+const SEOUL = CITIES.find(c => c.name === '서울'), SEO_R = CITY_PAVE(SEOUL) - 2;
+const street = new Uint8Array(NX * NZ);   // 차도: 1 골목, 2 대로
+const sbr = new Set();                     // 서울의 콘크리트 다리 칸
+const SN = [], SE = [];                     // 교차로 { x, z, wv, wh(세로·가로 길 반폭), e: [도로], light, off } · 도로 { A, B, v(세로), w(편도 차선 수), len }
+const SEO_O = [-40, -30, -20, -10, 0, 10, 20, 30, 40], seoW = o => (o / 10) % 2 ? 1 : 2;
+const inSeoul = (x, z) => Math.hypot(x - SEOUL.x, z - SEOUL.z) < SEO_R + 4;
+{
+  const N = SEO_O.length, nodes = new Map();
+  const nodeAt = (i, j) => { const k = i * N + j; if (!nodes.has(k)) nodes.set(k, { x: SEOUL.x + SEO_O[i], z: SEOUL.z + SEO_O[j], wv: seoW(SEO_O[i]), wh: seoW(SEO_O[j]), e: [], light: seoW(SEO_O[i]) === 2 && seoW(SEO_O[j]) === 2, off: (i * 7 + j * 3) % 20 }); return nodes.get(k); };
+  const inside = (i, j) => Math.hypot(SEO_O[i], SEO_O[j]) <= SEO_R - 1;
+  // 길 한 토막이 지나는 칸: 세로 길이면 x = L-w..L+w-1, z = a0..a1-1
+  const span = (v, L, w, a0, a1) => { const out = []; for (let a = a0; a < a1; a++) for (let b = L - w; b < L + w; b++) out.push(v ? [b, a] : [a, b]); return out; };
+  // 바다·북쪽 땅은 안 되고, 강은 세로 대로만 다리로 건넌다
+  const ok = (v, w, cells) => { let river = 0; for (const [x, z] of cells) { const t = tget(x, z); if (t === T.SEA || t === T.NORTH) return false; if (t === T.RIVER || t === T.BRIDGE) { if (!v || w < 2) return false; river++; } } return river <= 20 * w; };
+  const lay = (w, cells) => { for (const [x, z] of cells) { const i = idx(x, z), t = tget(x, z); street[i] = Math.max(street[i], w); resv[i] = 1; forest[i] = 0; if (t === T.RIVER || t === T.BRIDGE) { tset(x, z, T.BRIDGE); sbr.add(i); brDir.set(i, 1); } else tset(x, z, T.CITY); } };
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    if (!inside(i, j)) continue;
+    for (const v of [true, false]) {   // 세로(남북) 길은 (i, j)→(i, j+1), 가로(동서) 길은 (i, j)→(i+1, j)
+      const i2 = v ? i : i + 1, j2 = v ? j + 1 : j; if (i2 >= N || j2 >= N || !inside(i2, j2)) continue;
+      const A = nodeAt(i, j), B = nodeAt(i2, j2), w = v ? A.wv : A.wh;
+      const cells = v ? span(true, A.x, w, A.z - A.wh, B.z + B.wh) : span(false, A.z, w, A.x - A.wv, B.x + B.wv);
+      if (!ok(v, w, cells)) continue;
+      lay(w, cells);
+      const e = { A, B, v, w, len: v ? B.z - A.z : B.x - A.x }; SE.push(e); A.e.push(e); B.e.push(e);
+    }
+  }
+  for (const n of nodes.values()) if (n.e.length) SN.push(n); else n.light = false;
+  for (const n of SN) if (n.e.length < 3) n.light = false;   // 신호등은 길이 셋 이상 만나는 대로 교차로에만
+}
+// 노면 표시: 대로는 노란 겹실선·흰 차선, 골목은 노란 점선, 교차로 앞엔 정지선과 횡단보도. 구역마다 [x0, z0, x1, z1, 색] 목록
+const SEO_MARK = new Map();
+{
+  const Wc = 0xf4f4f0, Yc = 0xf2c230;
+  const add = (x0, z0, x1, z1, c) => { const ci = chunkOf(Math.floor((x0 + x1) / 2), Math.floor((z0 + z1) / 2)); let l = SEO_MARK.get(ci); if (!l) SEO_MARK.set(ci, l = []); l.push([x0, z0, x1, z1, c]); };
+  for (const e of SE) {
+    const { A, B, v, w } = e, L = v ? A.x : A.z, a0 = v ? A.z : A.x, a1 = v ? B.z : B.x, cA = v ? A.wh : A.wv, cB = v ? B.wh : B.wv;
+    const R = (b0, b1, s0, s1, c) => v ? add(b0, s0, b1, s1, c) : add(s0, b0, s1, b1, c);   // b: 길을 가로지르는 쪽, s: 길을 따라가는 쪽
+    const m0 = a0 + cA + 1.35, m1 = a1 - cB - 1.35, sB = v ? -1 : 1;   // sB: B로 가는 차가 다니는 쪽 (오른쪽 통행)
+    for (let s = m0; s < m1; s += w === 2 ? 2 : 1.2) {
+      const s2 = Math.min(m1, s + (w === 2 ? 2 : 0.6));
+      if (w === 2) { R(L - 0.13, L - 0.06, s, s2, Yc); R(L + 0.06, L + 0.13, s, s2, Yc); } else R(L - 0.04, L + 0.04, s, s2, Yc);
+    }
+    if (w === 2) for (const b of [L - 1, L + 1]) for (let s = m0; s < m1; s += 1.2) R(b - 0.035, b + 0.035, s, Math.min(m1, s + 0.6), Wc);
+    R(Math.min(L, L + sB * w), Math.max(L, L + sB * w), m1 - 0.12, m1, Wc);   // 정지선: 교차로로 들어가는 차선만
+    R(Math.min(L, L - sB * w), Math.max(L, L - sB * w), m0, m0 + 0.12, Wc);
+    for (const [s0, s1] of [[a0 + cA + 0.15, a0 + cA + 1.1], [a1 - cB - 1.1, a1 - cB - 0.15]]) for (let b = L - w + 0.12; b < L + w - 0.1; b += 0.42) R(b, b + 0.22, s0, s1, Wc);
+  }
+}
+function buildMarks(list) {
+  const pos = [], col = [], c = new THREE.Color(), y = 0.034;
+  for (const [x0, z0, x1, z1, cc] of list) { c.set(cc); pos.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0); for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals(); g.userData.own = true;
+  const m = new THREE.Mesh(g, VC); m.receiveShadow = true; return m;
+}
 {
   const bridgeAt = [];
   for (const path of riverPaths) for (let i = 0; i < path.length; i += 2) {
     const x = Math.floor(path[i][0]), z = Math.floor(path[i][1]);
-    if (!inB(x, z) || tget(x, z) !== T.RIVER) continue;
+    if (!inB(x, z) || tget(x, z) !== T.RIVER || inSeoul(x, z)) continue;   // 서울은 대로 다리만
     const inCity = CITIES.some(c => c.size >= 2 && Math.hypot(c.x - x, c.z - z) < CITY_R(c)) || Math.hypot(HX - x, HZ - z) < 48;
     const gap = inCity ? 24 : 72;
     if (bridgeAt.some(([bx, bz]) => Math.abs(bx - x) < gap && Math.abs(bz - z) < gap && Math.hypot(bx - x, bz - z) < gap)) continue;
@@ -1275,6 +1335,8 @@ function tileColor(t, i, x, z, out) {
 // 흙길: 다져진 황토색, 가장자리 쪽은 살짝 풀빛이 섞인다
 // 고속도로: 짙은 회색 아스팔트
 function hwyColor(x, z, out) { const n = 0.5 + 0.5 * Math.sin(x * 1.3 + z * 0.7) * Math.cos(z * 1.1 - x * 0.4); return out.set(0x62666e).lerp(_c1.set(0x72767e), n * 0.6); }
+// 서울 차도: 고속도로보다 조금 밝은 아스팔트
+function streetColor(x, z, out) { const n = 0.5 + 0.5 * Math.sin(x * 1.7 + z * 0.9) * Math.cos(z * 1.3 - x * 0.5); return out.set(0x666a72).lerp(_c1.set(0x73777f), n * 0.6); }
 function roadColor(x, z, out) {
   const n = 0.5 + 0.5 * Math.sin(x * 0.9 + z * 0.37) * Math.cos(z * 0.71 - x * 0.29);
   const rt = (a, b) => inB(a, b) && road[idx(a, b)];
@@ -1293,9 +1355,9 @@ function buildGround(cx, cz) {
   if (!genC[cz * NCX + cx]) genChunk(cz * NCX + cx);
   for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) {
     const i = idx(x, z), t = tiles[i]; if (!isLandT(t)) continue;
-    const cr = t === T.PADDY && !road[i] ? cropAt(x, z) : 0, rd = road[i], g = rd ? 1 : cr ? 4 + cr : GROUP(t), y = TOPY(t);
+    const cr = t === T.PADDY && !road[i] ? cropAt(x, z) : 0, rd = road[i] || street[i], g = rd ? 1 : cr ? 4 + cr : GROUP(t), y = TOPY(t);
     if (cr) for (const c of cc) c.setRGB(0.9, 0.9, 0.86);   // 밭은 무늬가 색을 낸다
-    else if (rd) { const rc = hwy[i] ? hwyColor : roadColor; rc(x, z, cc[0]); rc(x + 1, z, cc[1]); rc(x + 1, z + 1, cc[2]); rc(x, z + 1, cc[3]); }
+    else if (rd) { const rc = street[i] ? streetColor : hwy[i] ? hwyColor : roadColor; rc(x, z, cc[0]); rc(x + 1, z, cc[1]); rc(x + 1, z + 1, cc[2]); rc(x, z + 1, cc[3]); }
     else { tileColor(t, i, x, z, cc[0]); tileColor(t, i, x + 1, z, cc[1]); tileColor(t, i, x + 1, z + 1, cc[2]); tileColor(t, i, x, z + 1, cc[3]); }
     quad(g, [[x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z]], [0, 1, 0], [cc[0], cc[3], cc[2], cc[1]]);
     sc.set(SIDE[t] || 0x9a7552);
@@ -1379,6 +1441,12 @@ waveMesh.renderOrder = 3; scene.add(waveMesh);
 const railGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 10), postGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.44, 10), capGeo = new THREE.SphereGeometry(0.065, 10, 8);
 function makeBridgeTile(x, z) {
   const i = idx(x, z), g = new THREE.Group(); g.position.set(x + 0.5, 0, z + 0.5);
+  if (sbr.has(i)) {   // 서울 한강 다리: 회색 콘크리트 상판, 바깥쪽에만 낮은 난간, 세 칸마다 교각
+    put(g, mesh(G.box, M(0x8e9096), 0, -0.07, 0)).scale.set(1.002, 0.18, 1.002);
+    for (const sx of [-1, 1]) if (tget(x + sx, z) !== T.BRIDGE) put(g, mesh(G.box, M(0xc9c6bf), sx * 0.45, 0.17, 0)).scale.set(0.1, 0.3, 1.0);
+    if (z % 3 === 0 && x % 2 === 0) put(g, mesh(G.box, M(0x7d7f84), 0, -0.65, 0)).scale.set(0.45, 1.0, 0.45);
+    return castAll(g);
+  }
   const along = brDir.get(i) === 2;   // 가로로 건너면 90도 돌린다
   if (along) g.rotation.y = Math.PI / 2;
   for (let k = 0; k < 4; k++) { const pl = mesh(G.box, TM(plankTex, k % 2 ? 0xc08a58 : 0xb07b4c), 0, -0.05, -0.375 + k * 0.25); pl.scale.set(1, 0.1, 0.22); g.add(pl); }
@@ -1655,6 +1723,7 @@ function ensureChunk(cx, cz) {
   if (gm) g.add(gm); if (wm) g.add(wm); g.userData.gm = gm;
   const cm = buildCrops(cx, cz); g.userData.cm = cm; if (cm) g.add(cm);
   for (let z = cz * CH; z < cz * CH + CH; z++) for (let x = cx * CH; x < cx * CH + CH; x++) if (tget(x, z) === T.BRIDGE) g.add(makeBridgeTile(x, z));
+  const mk = SEO_MARK.get(ci); if (mk) g.add(buildMarks(mk));
   chunkMeshes.set(ci, g); return g;
 }
 
@@ -1962,6 +2031,66 @@ function makeApt(floors, color, num) {
   put(g, mesh(G.box, M(0x5a6a7a), 0, 0.3, 0.72)).scale.set(0.4, 0.6, 0.04);
   const sign = mesh(new THREE.PlaneGeometry(0.7, 0.35), MB(0xffffff, { map: numTex(num) }), 0.905, H - 0.4, 0); sign.rotation.y = Math.PI / 2; g.add(sign);
   return g;
+}
+// 서울 업무 빌딩: 창문 격자 벽(glass면 푸른 유리 커튼월), 1층 로비, 옥상 설비
+const officeTex = repeatTex(canvasTex('office', 128, 128, (x, w, h) => {
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 32) for (let i = 0; i < w; i += 32) { x.fillStyle = '#9db8cc'; x.fillRect(i + 3, y + 5, 26, 21); x.fillStyle = 'rgba(255,255,255,0.55)'; x.fillRect(i + 3, y + 5, 26, 4); }
+}));
+const glassTex = repeatTex(canvasTex('glassw', 128, 128, (x, w, h) => {
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 32) { x.fillStyle = 'rgba(40,60,90,0.35)'; x.fillRect(0, y + 28, w, 4); }
+  for (let i = 0; i < w; i += 16) { x.fillStyle = 'rgba(40,60,90,0.22)'; x.fillRect(i, 0, 2, h); }
+  const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, 'rgba(255,255,255,0.35)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,0.2)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+}));
+const offMats = {};
+function offMat(w, floors, col, glass) {
+  const k = [w, floors, col, glass].join('_'); if (offMats[k]) return offMats[k];
+  const t = (glass ? glassTex : officeTex).clone(); t.needsUpdate = true; t.repeat.set(w * 2, floors);
+  return (offMats[k] = bend(new THREE.MeshLambertMaterial({ map: t, color: col })));
+}
+const offH = floors => 0.5 + floors * 0.4, aptH = floors => 0.6 + floors * 0.42, shopH = floors => 0.3 + floors * 0.55;
+function makeOffice(w, d, floors, col, glass) {
+  const g = new THREE.Group(); g.add(blob(w * 1.2));
+  const H = offH(floors), bw = w - 0.3, bd = d - 0.3;
+  put(g, mesh(G.box, M(glass ? 0x3a4a5a : 0x6a6a70), 0, 0.3, 0)).scale.set(bw + 0.04, 0.6, bd + 0.04);
+  put(g, mesh(G.box, offMat(w, floors, col, glass), 0, 0.6 + (H - 0.6) / 2, 0)).scale.set(bw, H - 0.6, bd);
+  put(g, mesh(G.box, M(0xd8d4cc), 0, H + 0.05, 0)).scale.set(bw + 0.06, 0.1, bd + 0.06);
+  put(g, mesh(G.box, M(0x8a9098), bw * 0.2, H + 0.3, -bd * 0.15)).scale.set(bw * 0.35, 0.4, bd * 0.3);
+  if (glass && floors > 20) g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.2, 6), M(0xe0e0e0), -bw * 0.25, H + 0.6, bd * 0.2));
+  return g;
+}
+// 서울 상가 건물: 2~4층, 1층은 유리 가게와 차양, 층마다 간판 (치킨·카페·PC방…). face: 간판이 보는 쪽 (-1 북쪽 길, 1 남쪽 길)
+const SHOP_SIGNS = [['치킨', '#e2574c'], ['카페', '#7a5a3a'], ['PC방', '#2f6fa8'], ['노래방', '#b04ab0'], ['약국', '#2f8a4e'], ['분식', '#e8862e'], ['미용실', '#d0457a'], ['부동산', '#3a6ab0'], ['빵집', '#c88a3a'],
+  ['국밥', '#8a4a2a'], ['꽃집', '#e06a8a'], ['안경', '#4a5a7a'], ['세탁소', '#3aa0c8'], ['마트', '#e0453c'], ['호프', '#d89a2a'], ['김밥', '#3a8a4a'], ['한의원', '#6a4a2a'], ['학원', '#2a7a9a'], ['곱창', '#b8402a'], ['네일', '#c05a9a']];
+const shopSignTex = (t, c) => canvasTex('sg_' + t + c, 256, 80, (x, w, h) => {
+  x.fillStyle = c; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(255,255,255,0.22)'; x.fillRect(0, 0, w, 10);
+  x.fillStyle = '#ffffff'; x.font = 'bold 50px Jua, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, w / 2, h / 2 + 3);
+});
+function makeShopBldg(floors, col, t1, c1, t2, c2, face) {
+  const g = new THREE.Group(); g.add(blob(2.2));
+  const H = shopH(floors), fz = face * 0.86, rot = face < 0 ? Math.PI : 0;
+  put(g, mesh(G.box, M(col), 0, H / 2, 0)).scale.set(1.8, H, 1.7);
+  put(g, mesh(G.box, M(0xd0c8bc), 0, H + 0.04, 0)).scale.set(1.86, 0.08, 1.76);
+  put(g, mesh(G.box, M(0x9fc4dc), 0, 0.3, fz)).scale.set(1.5, 0.46, 0.03);
+  put(g, mesh(G.box, M(0x5a5a5e), 0, 0.3, fz + face * 0.005)).scale.set(0.05, 0.46, 0.03);
+  const aw = put(g, mesh(G.box, M(new THREE.Color(c1).getHex()), 0, 0.6, fz + face * 0.12)); aw.scale.set(1.6, 0.05, 0.26); aw.rotation.x = face * 0.25;
+  const sign = (t, c, y) => { const p = mesh(new THREE.PlaneGeometry(1.5, 0.42), MB(0xffffff, { map: shopSignTex(t, c) }), 0, y, fz + face * 0.02); p.rotation.y = rot; g.add(p); };
+  sign(t1, c1, 0.92);
+  if (floors >= 3) sign(t2, c2, 0.92 + 0.55);
+  for (let f = (floors >= 3 ? 3 : 2); f <= floors; f++) for (const x of [-0.45, 0.45]) put(g, mesh(G.box, M(0x8fb8d0), x, 0.3 + (f - 0.5) * 0.55, fz)).scale.set(0.5, 0.26, 0.03);
+  put(g, mesh(G.box, M(new THREE.Color(c2).getHex()), 0.84, H * 0.55, fz - face * 0.1)).scale.set(0.12, Math.min(1.2, H * 0.6), 0.3);   // 세로 간판
+  return g;
+}
+// 신호등: 모퉁이 기둥에서 차도 위로 팔을 뻗고, 가로로 놓인 빨강·노랑·초록 등. 다가오는 차 쪽(+z)을 보게 만든 뒤 돌린다
+function makeSignal(arm, ry) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); body.rotation.y = ry; g.add(blob(0.4));
+  const iron = M(0x4a4e56);
+  body.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.3, 8), iron, 0, 1.15, 0));
+  put(body, mesh(G.box, iron, -arm / 2, 2.2, 0)).scale.set(arm, 0.06, 0.06);
+  put(body, mesh(G.box, M(0x26282c), -arm * 0.8, 2.05, 0)).scale.set(0.72, 0.24, 0.14);
+  const lamps = [0, 1, 2].map(k => { const m = MB(0x3a3a3a), l = mesh(new THREE.CircleGeometry(0.08, 12), m, -arm * 0.8 - 0.22 + k * 0.22, 2.05, 0.072); body.add(l); return m; });
+  g.userData.lamps = lamps; return g;
 }
 // 석탑: 기단 위에 지붕돌을 층층이 (불국사 석가탑, 정림사지 오층석탑, 미륵사지 석탑)
 function makePagoda(floors = 3) {
@@ -2880,8 +3009,8 @@ function makePlayer() {
 const ents = new Set();
 const chunkEnts = Array.from({ length: NCX * NCZ }, () => []);
 const loadedCh = new Set();
-const BLOCK = { store: 1, bank: 1, plot: 1, stonewall: 1, ginseng: 1, pagoda: 1, pavilion: 1, skyscraper: 1, tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1, bothall: 1 };
-const KEEP = { store: 1, bank: 1, house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, barracks: 1, bothall: 1 };
+const BLOCK = { office: 1, shop2: 1, signal: 1, store: 1, bank: 1, plot: 1, stonewall: 1, ginseng: 1, pagoda: 1, pavilion: 1, skyscraper: 1, tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1, bothall: 1 };
+const KEEP = { office: 1, shop2: 1, signal: 1, store: 1, bank: 1, house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, barracks: 1, bothall: 1 };
 const inWindow = e => Math.abs(e.cx - camPos.x) < 32 && e.cz - camPos.z > -38 && e.cz - camPos.z < 15;
 function showEnt(e) {
   if (!e.mesh) { e.mesh = castAll(e.make()); if (e.onMake) e.onMake(e); }
@@ -3295,12 +3424,43 @@ for (const v of VDEF) {
   const e = addEnt({ type: 'house', make: style, owner: v.id }, s[0], s[1], 2, 2);
   v.home = { x: s[0] + 1, z: s[1] + 2.6 }; houses.push(e);
 }
+// 서울 채우기: 대로 교차로마다 신호등 넷, 블록마다 건물. 도심은 업무 빌딩, 강남 쪽은 유리 고층, 한강변은 높은 아파트,
+// 나머지는 아파트와 간판 단 상가가 섞인다. 블록 둘레 한 칸은 인도로 비우고, 모서리에 가로등
+const SIGNALS = [];
+function seoulBlocks(r) {
+  for (const n of SN) if (n.light) for (const [sx, sz] of [[1, -1], [-1, 1], [1, 1], [-1, -1]]) {
+    const tx = sx > 0 ? n.x + n.wv : n.x - n.wv - 1, tz = sz > 0 ? n.z + n.wh : n.z - n.wh - 1;
+    if (occAt(tx, tz) || !isBuildT(tget(tx, tz))) continue;
+    const v = sx * sz < 0, arm = (v ? n.wv : n.wh) + 0.3, ry = sx > 0 && sz < 0 ? 0 : sx < 0 && sz > 0 ? Math.PI : sx > 0 ? -Math.PI / 2 : Math.PI / 2;
+    SIGNALS.push(addEnt({ type: 'signal', node: n, v, st: '', make: () => makeSignal(arm, ry), onMake: e => { e.lamps = e.mesh.userData.lamps; e.st = ''; } }, tx, tz));
+  }
+  let num = 100;
+  const tryAdd = (e, x, z, w, h) => { if (!areaOK(x, z, w, h, 0)) return false; reserve(x, z, w, h); addEnt(e, x, z, w, h); return true; };
+  for (let i = 0; i < SEO_O.length - 1; i++) for (let j = 0; j < SEO_O.length - 1; j++) {
+    const x0 = SEOUL.x + SEO_O[i] + seoW(SEO_O[i]), x1 = SEOUL.x + SEO_O[i + 1] - seoW(SEO_O[i + 1]), z0 = SEOUL.z + SEO_O[j] + seoW(SEO_O[j]), z1 = SEOUL.z + SEO_O[j + 1] - seoW(SEO_O[j + 1]);
+    const mx = (x0 + x1) / 2 - SEOUL.x, mz = (z0 + z1) / 2 - SEOUL.z, d = Math.hypot(mx, mz); if (d > SEO_R - 4) continue;
+    let wet = false; for (let z = z0 - 3; z < z1 + 3 && !wet; z++) for (let x = x0 - 3; x < x1 + 3; x++) if (tget(x, z) === T.RIVER || sbr.has(idx(x, z))) { wet = true; break; }
+    const kind = d < 14 ? 'office' : mz > 8 && mx > -6 && !wet ? 'glass' : wet ? 'apt' : pick(['apt', 'apt', 'shops', 'shops', 'shops', 'office'], r);
+    const ix = x0 + 1, iz = z0 + 1, Q = [[0, 0], [3, 0], [0, 3], [3, 3]];   // 둘레 한 칸은 인도
+    if (kind === 'office' || kind === 'glass') {
+      const glass = kind === 'glass', fl = glass ? 16 + Math.floor(r() * 12) : 9 + Math.floor(r() * 9), col = glass ? pick([0x7fb0d8, 0x8ec4d8, 0x9ab8e0, 0xa8c8c0], r) : pick([0xd8d4cc, 0xc8ccd4, 0xe0d8c8, 0xb8c4d0], r);
+      if (!tryAdd({ type: 'office', h: offH(fl), make: () => makeOffice(4, 4, fl, col, glass) }, ix, iz, 4, 4))
+        for (const [ox, oz] of Q) tryAdd({ type: 'office', h: offH(fl >> 1), make: () => makeOffice(2, 2, fl >> 1, col, glass) }, ix + ox, iz + oz, 2, 2);
+    } else for (const [ox, oz] of Q) {
+      if (kind === 'apt' || r() < 0.25) { const fl = wet ? 12 + Math.floor(r() * 6) : 6 + Math.floor(r() * 9), col = pick([0xfff8ec, 0xf3efe6, 0xf6eee0, 0xeaf0f4], r), n = ++num; tryAdd({ type: 'apt', h: aptH(fl), make: () => makeApt(fl, col, n) }, ix + ox, iz + oz, 2, 2); }
+      else { const [t1, c1] = pick(SHOP_SIGNS, r), [t2, c2] = pick(SHOP_SIGNS, r), fl = 2 + Math.floor(r() * 3), col = pick([0xf4e6d0, 0xe8d8c8, 0xd8e0e8, 0xf0dcd0, 0xe0e8d8], r), face = oz ? 1 : -1;
+        tryAdd({ type: 'shop2', t1, t2, h: shopH(fl), make: () => makeShopBldg(fl, col, t1, c1, t2, c2, face) }, ix + ox, iz + oz, 2, 2); }
+    }
+    for (const [lx, lz] of [[x0, z0], [x1 - 1, z0], [x0, z1 - 1], [x1 - 1, z1 - 1]]) if (!occAt(lx, lz) && isBuildT(tget(lx, lz))) addEnt({ type: 'lamp', make: makeLamp, fixed: true }, lx, lz);
+  }
+}
 // 도시: 이름 표지판, 광역시는 아파트 단지, 가로등
 {
   const r = mulberry32(777);
   for (const c of CITIES) {
     const sg = findSpot(c.x, c.z, 1, 1, 0, 5); if (sg) { reserve(sg[0], sg[1], 1, 1); addEnt({ type: 'sign', name: c.name, make: () => makeSign(c.name) }, sg[0], sg[1]); }
-    const big = c.name === '서울' || c.name === '평양', apts = c.size === 3 ? (big ? 90 : 48) : c.size === 2 ? 20 : 0, rad = c.size === 3 ? (big ? 42 : 30) : 16;
+    if (c === SEOUL) { seoulBlocks(r); continue; }
+    const big =c.name === '서울' || c.name === '평양', apts = c.size === 3 ? (big ? 90 : 48) : c.size === 2 ? 20 : 0, rad = c.size === 3 ? (big ? 42 : 30) : 16;
     let placed = 0;
     const onAvenue = (x, z) => (x + 2 >= c.x - 2 && x - 1 <= c.x + 2) || (z + 2 >= c.z - 2 && z - 1 <= c.z + 2) || (c.size === 3 && Math.abs(Math.hypot(x + 1 - c.x, z + 1 - c.z) - rad * 0.55) < 2.5);
     for (let k = 0; k < apts * 6 && placed < apts; k++) {
@@ -3308,7 +3468,7 @@ for (const v of VDEF) {
       if (onAvenue(x, z) || !areaOK(x, z, 2, 2, 1)) continue;
       reserve(x - 1, z - 1, 4, 4); placed++;
       const floors = c.size === 3 ? 6 + Math.floor(r() * 9) : 4 + Math.floor(r() * 4), col = pick([0xfff8ec, 0xf3efe6, 0xf6eee0, 0xeaf0f4], r), num = 100 + placed;
-      addEnt({ type: 'apt', make: () => makeApt(floors, col, num) }, x, z, 2, 2);
+      addEnt({ type: 'apt', h: aptH(floors), make: () => makeApt(floors, col, num) }, x, z, 2, 2);
     }
     for (let k = 0; k < (c.size === 3 ? 30 : 10); k++) { const a = r() * 6.28, d = 1.5 + r() * (c.size === 3 ? 28 : 14), x = Math.round(c.x + Math.cos(a) * d), z = Math.round(c.z + Math.sin(a) * d); if (isBuildT(tget(x, z)) && !resv[idx(x, z)] && !occAt(x, z)) addEnt({ type: 'lamp', make: makeLamp, fixed: true }, x, z); }
   }
@@ -3985,7 +4145,7 @@ function copTick(dt) {
     c.walk += moved ? dt * sp * 2.2 : 0;
     u.lL.rotation.x = moved ? Math.sin(c.walk) * 0.7 : 0; u.lR.rotation.x = -u.lL.rotation.x; u.aL.rotation.x = -u.lL.rotation.x * 0.6;
     c.mesh.position.set(c.x, groundY(c.x, c.z) + (moved ? Math.abs(Math.sin(c.walk)) * 0.05 : 0), c.z); c.mesh.rotation.y = c.rot;
-    if (d < 0.8 && !D.open && !FT) { busted(); return; }
+    if (d < 0.8 && !D.open && !FT && (!P.car || Math.abs(P.car.v) < 2.5)) { if (P.car) exitCar(true); busted(); return; }   // 달리는 차는 걸어서 못 잡는다
   }
   const chase = cars.filter(c => c.mode === 'chase');
   if (chase.some(c => Math.hypot(c.x - P.x, c.z - P.z) < 16)) seen = true;
@@ -4077,6 +4237,7 @@ function makeCar(kind, col) {
 const cars = [];   // { kind, col, x, z, rot, v, mesh, mode: 'park'|'drive'|'chase'|'mine', hp }
 const driveT = t => t === T.CITY || t === T.BRIDGE;
 function carFree(x, z, r = 0.45) {
+  if (tget(Math.floor(x), Math.floor(z)) === T.BRIDGE) r = Math.min(r, 0.3);   // 한 칸짜리 나무다리에 끼지 않게
   for (const [a, b] of [[-r, -r], [r, -r], [-r, r], [r, r], [0, 0]]) { const tx = Math.floor(x + a), tz = Math.floor(z + b); if (!canWalkTile(tx, tz)) return false; }
   return true;
 }
@@ -4089,13 +4250,14 @@ function dropCar(c) { scene.remove(c.mesh); cars.splice(cars.indexOf(c), 1); }
 function placeCar(c) { c.mesh.position.set(c.x, groundY(c.x, c.z), c.z); c.mesh.rotation.y = c.rot; }
 // 도시 가까이: 세워진 차 8대·달리는 차 5대를 플레이어 둘레에 유지한다
 let carSpawnT = 0;
-function carSpawn() {
-  const park = cars.filter(c => c.mode === 'park').length, drive = cars.filter(c => c.mode === 'drive').length;
-  for (let k = 0; k < 12 && (park < 8 || drive < 5); k++) {
+// 서울에선 달리는 차는 차 흐름(spawnTraffic)이 맡고, 세워진 차는 차도가 아닌 곳에만 둔다
+function carSpawn(seo) {
+  const park = cars.filter(c => c.mode === 'park').length, drive = cars.filter(c => c.mode === 'drive').length, parkN = seo ? 5 : 8;
+  for (let k = 0; k < 12 && (park < parkN || (!seo && drive < 5)); k++) {
     const a = R() * 6.283, d = rand(15, 30), x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d);
-    if (!driveT(tget(x, z)) || !carFree(x + 0.5, z + 0.5)) continue;
+    if (!driveT(tget(x, z)) || street[idx(x, z)] || !carFree(x + 0.5, z + 0.5)) continue;
     const kind = pick(['compact', 'compact', 'sedan', 'sedan', 'taxi', 'truck', 'scooter']), rot = pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]);
-    if (park < 8) { addCar(kind, x + 0.5, z + 0.5, rot, 'park'); return; }
+    if (park < parkN) { addCar(kind, x + 0.5, z + 0.5, rot, 'park'); return; }
     addCar(kind, x + 0.5, z + 0.5, rot, 'drive'); return;
   }
 }
@@ -4106,7 +4268,9 @@ function myCarSpawn() {
   addCar(m.kind, m.x, m.z, m.rot, 'mine', m.col);
 }
 function carTick(dt) {
-  if ((carSpawnT -= dt) <= 0) { carSpawnT = 1.2; if (tget(Math.floor(P.x), Math.floor(P.z)) === T.CITY || cars.some(c => c.mode !== 'mine')) carSpawn(); myCarSpawn(); }
+  const seo = inSeoul(P.x, P.z);
+  if ((carSpawnT -= dt) <= 0) { carSpawnT = 1.2; if (tget(Math.floor(P.x), Math.floor(P.z)) === T.CITY || cars.some(c => c.mode !== 'mine')) carSpawn(seo); myCarSpawn(); }
+  if (seo && (trafT -= dt) <= 0) { trafT = 0.35; const nT = cars.filter(c => c.mode === 'traffic').length; if (nT < TRAFFIC_N) spawnTraffic(null, nT < 6); }
   const n = stars();
   // 수배 중 운전하면 경찰차가 별 수만큼 쫓아온다
   if (P.car && n > 0 && cars.filter(c => c.mode === 'chase').length < Math.min(4, n) && R() < dt * 0.6) {
@@ -4116,7 +4280,8 @@ function carTick(dt) {
     if (c === P.car) continue;
     const d = Math.hypot(c.x - P.x, c.z - P.z);
     if (c.mode !== 'mine' && (d > 50 || (c.mode === 'chase' && n === 0 && d > 20))) { dropCar(c); continue; }
-    if (c.mode === 'drive') {
+    if (c.mode === 'traffic') trafficTick(c, dt);
+    else if (c.mode === 'drive') {
       // 도시 길을 따라 네 방향으로 달리다가 막히면 방향을 바꾼다. 앞에 사람이 있으면 서서 빵!
       const fx = Math.sin(c.rot), fz = Math.cos(c.rot), ahead = Math.hypot(P.x - (c.x + fx * 1.6), P.z - (c.z + fz * 1.6)) < 1.1;
       if (ahead) { c.v = Math.max(0, c.v - dt * 12); if ((c.honkT -= dt) <= 0) { c.honkT = 2.5; tone(340, 0.25, { type: 'square', vol: 0.04 }); tone(410, 0.25, { type: 'square', vol: 0.04 }); } }
@@ -4140,19 +4305,126 @@ function carTick(dt) {
     placeCar(c);
   }
 }
+/* --- 서울의 차 흐름: 교차로 그래프(SN·SE)를 따라 오른쪽 차선으로 달린다 ---
+   앞차·사람·빨간불이면 멈추고, 교차로에선 곧장·좌회전·우회전을 골라 부드럽게 돈다 (우회전은 바깥 차선, 좌회전은 안쪽 차선).
+   오래 막혀 있으면(서로 마주 보고 선 교차로) 잠깐 다른 차를 무시하고 빠져나간다. */
+const TRAFFIC_N = 34, SIG_CYCLE = 20;
+let trafT = 0;
+// 신호: 남북 초록 8초 → 노랑 2초 → 동서 초록 8초 → 노랑 2초
+function sigState(n, v) { if (!n.light) return 'g'; const t = (performance.now() / 1000 + n.off) % SIG_CYCLE, a = v ? t : (t + 10) % SIG_CYCLE; return a < 8 ? 'g' : a < 10 ? 'y' : 'r'; }
+const edgeFrom = (e, fwd) => fwd ? e.A : e.B, edgeTo = (e, fwd) => fwd ? e.B : e.A;
+const crossHalf = (n, v) => v ? n.wh : n.wv;   // 교차로 상자의 반폭 (그 도로 방향으로)
+// 차선 위 한 점: [x, z, 방향 x, 방향 z]. 오른쪽 통행이라 진행 방향의 오른쪽(-dz, dx)으로 0.5 + 차선 번호만큼 비킨다
+function lanePos(e, fwd, k, s, out) {
+  const F = edgeFrom(e, fwd), Tn = edgeTo(e, fwd), dx = (Tn.x - F.x) / e.len, dz = (Tn.z - F.z) / e.len, off = 0.5 + k;
+  out[0] = F.x + dx * s - dz * off; out[1] = F.z + dz * s + dx * off; out[2] = dx; out[3] = dz; return out;
+}
+function spawnTraffic(kind, near) {
+  if (!SE.length) return null;
+  const p = [0, 0, 0, 0];
+  for (let k = 0; k < 24; k++) {
+    const e = SE[Math.floor(R() * SE.length)], fwd = R() < 0.5, ln = Math.floor(R() * e.w), s0 = crossHalf(edgeFrom(e, fwd), e.v) + 0.5, s1 = e.len - crossHalf(edgeTo(e, fwd), e.v) - 1.6;
+    if (s1 <= s0) continue;
+    const s = rand(s0, s1); lanePos(e, fwd, ln, s, p);
+    const d = Math.hypot(p[0] - P.x, p[1] - P.z); if (d < (near ? 7 : 14) || d > 34) continue;
+    if (!near && Math.abs(p[0] - camPos.x) < 17 && p[1] - camPos.z > -16 && p[1] - camPos.z < 11) continue;   // 화면 안에서 갑자기 생기지 않게
+    if (cars.some(o => Math.hypot(o.x - p[0], o.z - p[1]) < 3)) continue;
+    const c = addCar(kind || pick(['compact', 'compact', 'sedan', 'sedan', 'sedan', 'taxi', 'taxi', 'truck', 'scooter']), p[0], p[1], Math.atan2(p[2], p[3]), 'traffic');
+    c.tr = { e, fwd, k: ln, s, turn: null }; c.v = 3; c.stuckT = 0; return c;
+  }
+  return null;
+}
+function startTurn(tr, N, sEnd) {
+  const e = tr.e, F = edgeFrom(e, tr.fwd), d = [(N.x - F.x) / e.len, (N.z - F.z) / e.len], opts = N.e.filter(o => o !== e);
+  let ne = e, nf = !tr.fwd;   // 막다른 길이면 유턴
+  if (opts.length) {
+    const W = opts.map(o => { const T2 = o.A === N ? o.B : o.A; return d[0] * (T2.x - N.x) / o.len + d[1] * (T2.z - N.z) / o.len > 0.9 ? 2.5 : 1; });
+    let r = R() * W.reduce((a, b) => a + b, 0), i = 0; while (i < W.length - 1 && r > W[i]) r -= W[i++];
+    ne = opts[i]; nf = ne.A === N;
+  }
+  const T2 = edgeTo(ne, nf), d2 = [(T2.x - N.x) / ne.len, (T2.z - N.z) / ne.len];
+  const cr = d[0] * d2[1] - d[1] * d2[0], dot = d[0] * d2[0] + d[1] * d2[1];
+  const nk = dot > 0.9 ? Math.min(tr.k, ne.w - 1) : cr > 0 ? ne.w - 1 : 0, s2 = crossHalf(N, ne.v);
+  const p0 = lanePos(e, tr.fwd, tr.k, sEnd, [0, 0, 0, 0]), p2 = lanePos(ne, nf, nk, s2, [0, 0, 0, 0]);
+  let cc;
+  if (dot > 0.9) cc = [(p0[0] + p2[0]) / 2, (p0[1] + p2[1]) / 2];
+  else if (dot < -0.9) cc = [N.x + d[0] * (s2 + 1.2), N.z + d[1] * (s2 + 1.2)];
+  else { const al = (p2[0] - p0[0]) * d[0] + (p2[1] - p0[1]) * d[1]; cc = [p0[0] + d[0] * al, p0[1] + d[1] * al]; }
+  const len = Math.hypot(cc[0] - p0[0], cc[1] - p0[1]) + Math.hypot(p2[0] - cc[0], p2[1] - cc[1]);
+  tr.turn = { p0: [p0[0], p0[1]], c: cc, p2: [p2[0], p2[1]], t: 0, len: Math.max(0.5, len * 0.92), ne, nf, nk, s2, straight: dot > 0.9 };
+}
+const _tp = [0, 0, 0, 0];
+function trafficTick(c, dt) {
+  const tr = c.tr; if (!tr) return;
+  const e = tr.e, Tn = edgeTo(e, tr.fwd), vmax = tr.turn && !tr.turn.straight ? 3.2 : e.w === 2 ? 7 : 5;
+  // 앞에 막힌 것: 차·나·주민·경찰 (진행 방향 6칸 앞까지, 차선 폭 안)
+  if (c.stuckT > 3) { c.ghostT = 1.6; c.stuckT = 0; }   // 한번 빠져나가기 시작하면 잠깐은 계속
+  const hx = Math.sin(c.rot), hz = Math.cos(c.rot), ghost = (c.ghostT = Math.max(0, (c.ghostT || 0) - dt)) > 0; let gap = 99, who = null;
+  const look = (x, z, lat, it) => { const rx = x - c.x, rz = z - c.z, al = rx * hx + rz * hz; if (al <= 0 || al > 6 || al >= gap) return; if (Math.abs(rx * hz - rz * hx) < lat) { gap = al; who = it; } };
+  const queue = o => o.mode === 'traffic' && Math.sin(o.rot) * hx + Math.cos(o.rot) * hz > 0.7;   // 같은 차선 앞차 (줄 서기)
+  for (const o of cars) if (o !== c && (!ghost || queue(o))) look(o.x, o.z, 0.8, o);   // 오래 막히면 줄 선 앞차만 빼고 무시하고 빠져나간다
+  if (!P.car) look(P.x, P.z, 0.7, P);
+  for (const v of villagers) if (v.vis && !(v.knock > 0) && Math.abs(v.x - c.x) < 7 && Math.abs(v.z - c.z) < 7) look(v.x, v.z, 0.7, v);
+  for (const k of cops) look(k.x, k.z, 0.7, k);
+  // 신호: 빨간불·노란불이면 정지선 앞에 선다 (노란불인데 정지선에 너무 가까우면 그냥 지나간다)
+  if (!tr.turn && Tn.light) {
+    const st = sigState(Tn, e.v), stop = e.len - crossHalf(Tn, e.v) - 1.35 - tr.s;
+    if (st !== 'g' && stop > -0.3 && (st === 'r' || stop > 1.2) && stop + 1.1 < gap) { gap = stop + 1.1; who = null; }
+  }
+  const want = Math.min(vmax, Math.max(0, (gap - 1.6) * 2.4));
+  c.v += clamp(want - c.v, -dt * 10, dt * 3);
+  if (c.v < 0.2 && who && !(who.mode && queue(who))) c.stuckT += dt; else c.stuckT = Math.max(0, c.stuckT - dt * 2);
+  // 빵빵! 길을 막은 주민은 인도로 비켜 서고, 그래도 안 비키면 화들짝 뛰어 비킨다
+  if (who && who.def && who.mesh && !who.talking && !cops.includes(who)) { if (c.stuckT > 2.8) stepAside(who, true); else if (c.stuckT > 1.5 && !who.aside) stepAside(who); }
+  if (c.v < 0.3 && who && (who === P || who.def) && Math.hypot(c.x - P.x, c.z - P.z) < 18 && (c.honkT -= dt) <= 0) { c.honkT = 2.5; tone(340, 0.25, { type: 'square', vol: 0.035 }); tone(410, 0.25, { type: 'square', vol: 0.035 }); }
+  const ds = c.v * dt;
+  if (!tr.turn) {
+    tr.s += ds;
+    const sEnd = e.len - crossHalf(Tn, e.v);
+    if (tr.s >= sEnd) startTurn(tr, Tn, sEnd);
+    else { lanePos(e, tr.fwd, tr.k, tr.s, _tp); c.x = _tp[0]; c.z = _tp[1]; c.rot = Math.atan2(_tp[2], _tp[3]); }
+  }
+  if (tr.turn) {
+    const t = tr.turn; t.t = Math.min(1, t.t + ds / t.len);
+    const u = t.t, a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, q = u * u;
+    c.x = a * t.p0[0] + b * t.c[0] + q * t.p2[0]; c.z = a * t.p0[1] + b * t.c[1] + q * t.p2[1];
+    const tx = (1 - u) * (t.c[0] - t.p0[0]) + u * (t.p2[0] - t.c[0]), tz = (1 - u) * (t.c[1] - t.p0[1]) + u * (t.p2[1] - t.c[1]);
+    if (Math.abs(tx) + Math.abs(tz) > 1e-4) c.rot = Math.atan2(tx, tz);
+    if (t.t >= 1) { tr.e = t.ne; tr.fwd = t.nf; tr.k = t.nk; tr.s = t.s2; tr.turn = null; }
+  }
+}
+function stepAside(v, snap) {
+  let best = null, bd = 99;
+  for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+    const x = Math.floor(v.x) + dx, z = Math.floor(v.z) + dz, d = Math.hypot(dx, dz);
+    if (d < bd && !street[idx(x, z)] && canStand(x + 0.5, z + 0.5, 0.25)) { bd = d; best = { x: x + 0.5, z: z + 0.5 }; }
+  }
+  if (!best) return;
+  if (snap) { v.x = best.x; v.z = best.z; v.target = null; v.wait = 2; v.chatT = 0; floatText(v.x, 1.8, v.z, '깜짝!', 'miss'); return; }
+  v.target = best; v.wait = 0; v.commute = true; v.aside = true; setTimeout(() => { v.aside = false; }, 4000);
+}
+// 신호등 불빛: 화면에 올라온 것만 바뀔 때 칠한다
+const SIG_ON = [0xe0302c, 0xf2c230, 0x3cc85a];
+function signalTick() {
+  for (const e of SIGNALS) {
+    if (!e.mesh || !e.mesh.parent || !e.lamps) continue;
+    const st = sigState(e.node, e.v); if (st === e.st) continue; e.st = st;
+    const on = st === 'r' ? 0 : st === 'y' ? 1 : 2; e.lamps.forEach((m, k) => m.color.setHex(k === on ? SIG_ON[k] : 0x3a3a3a));
+  }
+}
 /* --- 운전 --- */
 function enterCar(c) {
   if (P.sail || FT) return;
   if (P.bike) setBike(false, true);
   if (FS) endFishing();
-  const stolen = c.mode === 'park' || c.mode === 'drive', moving = c.mode === 'drive';
+  const moving = c.mode === 'drive' || c.mode === 'traffic', stolen = c.mode === 'park' || moving;
   if (c.mode === 'chase') { toast('경찰차는 못 타요!'); return; }
   P.car = c; c.mode = 'mine'; c.v = moving ? 0 : c.v; P.mesh.visible = false; SFX.pickup();
   if (stolen) {
     const eye = villagers.find(v => v.vis && !v.def.boss && !v.def.botLeader && Math.hypot(v.x - c.x, v.z - c.z) < 9);
-    if (moving) { heatAdd(18); toast(`🚗 ${CAR_KINDS[c.kind].n}을 빼앗았어요! "야! 내 차!"`); }
+    if (moving) { heatAdd(18); toast(`🚗 ${josa(CAR_KINDS[c.kind].n, '을', '를')} 빼앗았어요! "야! 내 차!"`); }
     else if (eye) { heatAdd(12); say(eye, `${SHOUT[eye.def.region] || '도둑이야!'} 차 도둑이야!`); }
-    else toast(`🤫 ${CAR_KINDS[c.kind].n}을 슬쩍 몰고 나왔어요. 방향키로 운전, Space·F로 내려요.`);
+    else toast(`🤫 ${josa(CAR_KINDS[c.kind].n, '을', '를')} 슬쩍 몰고 나왔어요. 방향키로 운전, Space·F로 내려요.`);
   }
   dirty();
 }
@@ -4188,7 +4460,8 @@ function driveTick(dt) {
   const target = throttle >= 0 ? throttle * top : throttle * 5;
   c.v += (target - c.v) * (1 - Math.exp(-dt * (target === 0 ? 1.2 : K.acc)));
   const nx = c.x + Math.sin(c.rot) * c.v * dt, nz = c.z + Math.cos(c.rot) * c.v * dt;
-  if (carFree(nx, nz)) { c.x = nx; c.z = nz; }
+  const bump = cars.some(o => o !== c && Math.hypot(o.x - nx, o.z - nz) < 1.15 && Math.hypot(o.x - nx, o.z - nz) < Math.hypot(o.x - c.x, o.z - c.z));   // 다른 차를 뚫고 가지 않게
+  if (carFree(nx, nz) && !bump) { c.x = nx; c.z = nz; }
   else {
     if (Math.abs(c.v) > 5) { SFX.rock(); camShake = 0.35; c.hp = Math.max(0, c.hp - Math.abs(c.v) * 2.5); burst(c.x + Math.sin(c.rot) * 0.9, 0.5, c.z + Math.cos(c.rot) * 0.9, 0xdddddd, 6, 1, 0.5); if (c.hp <= 0) toast('💨 차가 퍼졌어요! 내려서 다른 차를 구해요.'); }
     c.v = -c.v * 0.25;
@@ -4256,6 +4529,7 @@ let armorT = 30;
 function armorTick(dt) {
   if ((armorT -= dt) > 0) return; armorT = 40;
   const c = CITIES.find(o => o.size === 3 && Math.hypot(o.x - P.x, o.z - P.z) < 40); if (!c || cars.some(o => o.kind === 'armored') || R() > 0.5) return;
+  if (c === SEOUL) { const t = spawnTraffic('armored', true); if (t) { t.hp = 60; t.cash = 3; toast('🚚 현금 수송차가 근처를 지나가요… 차로 들이받아 세우면?'); } return; }   // 서울에선 차선을 따라 달린다
   for (let k = 0; k < 16; k++) {
     const a = R() * 6.283, d = rand(14, 24), x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d);
     if (!driveT(tget(x, z)) || !carFree(x + 0.5, z + 0.5)) continue;
@@ -5586,7 +5860,7 @@ function updateVillagers(dt, h) {
         // 하루 일과에 맞는 곳을 맴돈다. 거기서 멀면 그쪽으로 걸어간다
         const an = anchorOf(v, h), base = an || v.def.home, rr = an ? an.r : v.def.role === '별 보는 사람' ? 3 : (v.def.roam || 7);
         if (Math.hypot(base.x - v.x, base.z - v.z) > rr + 4) { v.target = stepToward(v, base); v.commute = !!v.target; }
-        else for (let k = 0; k < 12; k++) { const x = base.x + rand(-rr, rr), z = base.z + rand(-rr * 0.6, rr * 1.15); if (canStand(x, z, 0.25)) { v.target = { x, z }; v.commute = false; break; } }
+        else for (let k = 0; k < 12; k++) { const x = base.x + rand(-rr, rr), z = base.z + rand(-rr * 0.6, rr * 1.15); if (canStand(x, z, 0.25) && !street[idx(Math.floor(x), Math.floor(z))]) { v.target = { x, z }; v.commute = false; break; } }
         if (!v.target) v.wait = 1;
       }
       if (v.target) {
@@ -5953,7 +6227,7 @@ function currentAction() {
   if (P.sail) { const l = landSpot(); return l ? { l: '배에서 내리기', f: () => disembark(l) } : null; }
   if (P.car) return { l: '🚪 내리기', f: () => exitCar() };
   { const cp = nearestInFront(cops.filter(c => c.stun <= 0), 1.7, 0.3); if (cp) return { l: '👊 밀치기', f: () => shove(cp) }; }
-  { const cr = nearestInFront(cars.filter(c => c.mode !== 'chase' && !(c.kind === 'armored' && c.cash)), 1.9, 0.2); if (cr) return { l: cr.mode === 'mine' ? '🚗 타기' : cr.mode === 'drive' ? '🚗 차 빼앗기' : '🚗 차 훔치기', f: () => enterCar(cr) }; }
+  { const cr = nearestInFront(cars.filter(c => c.mode !== 'chase' && !(c.kind === 'armored' && c.cash)), 1.9, 0.2); if (cr) return { l: cr.mode === 'mine' ? '🚗 타기' : cr.mode === 'drive' || cr.mode === 'traffic' ? '🚗 차 빼앗기' : '🚗 차 훔치기', f: () => enterCar(cr) }; }
   if (boars.length && countItem('rifle')) { const b = nearestInFront(boars.filter(o => o.st !== 'flee'), 9, 0.55); if (b) return { l: '🔫 엽총 쏘기', f: () => shootBoar(b) }; }
   const v = nearestInFront(villagers.filter(v => v.vis), 2.0, 0.15); if (v) return { l: '말 걸기', f: () => talkVillager(v) };
   if (frontOcc(o => o.type === 'shop')) return { l: '말 걸기', f: talkShop };
@@ -5987,7 +6261,7 @@ function currentAction() {
     if (o.type === 'sapling') return { l: '살펴보기', f: () => toast(['갓 심은 새싹이다. 무럭무럭 자라라!', '조금씩 자라고 있다.', '거의 다 자랐다!'][o.stage] || '잘 자라고 있다.') };
     if (o.type === 'house') return { l: '노크', f: () => toast(villagers.find(v => v.id === o.owner)?.vis ? '집에 아무도 없는 것 같다. 밖에서 놀고 있나 봐.' : '쿨쿨… 깊이 잠든 것 같다.') };
     if (o.type === 'tent') return { l: '보관함 열기', f: openBox };
-    const LOOK = { sign: o.name === '임진각' ? '임진각. 여기서 북쪽으로 가면 휴전선을 넘어 북쪽 땅이에요.' : `${o.name}에 오신 걸 환영해요!`, apt: '아파트 단지다. 창문마다 다른 집이 산다.', hanok: '기와지붕이 멋진 한옥이다. 처마 끝이 살짝 들려 있다.',
+    const LOOK = { sign: o.name === '임진각' ? '임진각. 여기서 북쪽으로 가면 휴전선을 넘어 북쪽 땅이에요.' : `${o.name}에 오신 걸 환영해요!`, apt: '아파트 단지다. 창문마다 다른 집이 산다.', office: '높은 빌딩이다. 유리창마다 회사원들이 바쁘다.', shop2: `${o.t1}, ${o.t2}… 간판이 줄줄이 붙은 상가 건물이다.`, signal: '신호등이다. 빨간불엔 차들이 선다.',hanok: '기와지붕이 멋진 한옥이다. 처마 끝이 살짝 들려 있다.',
       gate: `${o.name || '성문'}. 돌로 쌓은 문 위에 기와 누각이 서 있다.`, tower: 'N서울타워. 남산 위에서 서울을 내려다본다.', observatory: '첨성대. 신라 사람들이 별을 살피던 곳이다.', statue: '돌하르방. 코를 만지면 복이 온다고 한다.',
       lighthouse: `${o.name || '등대'}. 밤바다를 비추는 등대다.`, fence: '휴전선 철책이다.', flag: '독도. 동해 한가운데 태극기가 펄럭인다.', tea: '보성 녹차밭. 차나무 이랑이 물결처럼 이어진다.',
       mount: '험한 산봉우리다. 돌아서 가야겠다.', crater: `${o.name}. 화산이 만든 분화구다.` };
@@ -6350,7 +6624,7 @@ const roadC = new Uint8Array(CX * CZ);      // 흙길이 지나는 거친 칸 (�
         const x = x0 + (x1 - x0) * t / L, z = z0 + (z1 - z0) * t / L;
         for (const w of [-0.55, 0.55]) {
           const tx = Math.floor(x + nx * w), tz = Math.floor(z + nz * w); if (!inB(tx, tz)) continue;
-          const i = tz * NX + tx, p = prov[i]; if (!p || p >= 30) continue;
+          const i = tz * NX + tx, p = prov[i]; if (!p || p >= 30 || inSeoul(tx, tz)) continue;   // 서울 안은 바둑판 길로 잇는다
           hwy[i] = 1; road[i] = 1; if (genC[chunkOf(tx, tz)]) hwyTile(i);
         }
       }
@@ -6468,6 +6742,7 @@ function tileRGB(x, z, out, o) {
     default: _tc.set(0xebebe8);
   }
   if (road[i]) _tc.set(hwy[i] ? 0xf0a83c : MAPC.road);
+  else if (street[i]) _tc.set(0xfbf8f0);
   out[o] = _tc.r * 255; out[o + 1] = _tc.g * 255; out[o + 2] = _tc.b * 255; out[o + 3] = 255;
 }
 // 확대 보기·미니맵: 칸 단위로 그린다 (안 만든 구역은 바탕 지도 색, 안 가 본 곳은 안개)
@@ -6613,6 +6888,8 @@ function drawGeo(ctx, k, ox, oz, W, H) {
     if (b.w < 1 && k < 0.6) return; if (b.w < 2 && k < 0.3) return;
     for (let j = 0; j < p.length - 1; j++) { const a = p[j], c = p[j + 1]; ctx.lineWidth = Math.max(a[2] >= 2 ? 1.8 : 1, RW[a[2] || 0] * 2 * k); ctx.beginPath(); ctx.moveTo(X(a[0]), Z(a[1])); ctx.lineTo(X(c[0]), Z(c[1])); ctx.stroke(); }
   });
+  // 서울 길: 가까이 볼 때만 흰 선 (대로는 굵게)
+  if (k >= 0.5) { ctx.strokeStyle = '#fbf8f0'; for (const e of SE) { if (!inV(e.A.x, e.A.z) && !inV(e.B.x, e.B.z)) continue; ctx.lineWidth = Math.max(1.5, e.w * 1.6 * k); ctx.beginPath(); ctx.moveTo(X(e.A.x), Z(e.A.z)); ctx.lineTo(X(e.B.x), Z(e.B.z)); ctx.stroke(); } }
   // 고속도로
   ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(3.5, 3.2 * k);
   for (const p of HWY_PATHS) { ctx.beginPath(); p.forEach((q, i) => i ? ctx.lineTo(X(q[0]), Z(q[1])) : ctx.moveTo(X(q[0]), Z(q[1]))); ctx.stroke(); }
@@ -7409,7 +7686,7 @@ function placeLazy(v) {
   const h = v.def.home;
   for (let rr = 2; rr <= 18 && !v.placed; rr += 4) for (let k = 0; k < 12; k++) {
     const x = h.x + rand(-rr, rr), z = h.z + rand(-rr, rr);
-    if (canStand(x, z, 0.25)) { v.def.home = { x, z }; v.x = x; v.z = z; v.placed = true; break; }
+    if (canStand(x, z, 0.25) && !street[idx(Math.floor(x), Math.floor(z))]) { v.def.home = { x, z }; v.x = x; v.z = z; v.placed = true; break; }
   }
   if (!v.placed) v.placed = 'fail';
 }
@@ -7897,6 +8174,31 @@ function updatePlayer(dt) {
     if (P.moving && R() < dt * 16) burst(P.x - fx * 0.85 + rand(-0.2, 0.2), -0.22, P.z - fz * 0.85 + rand(-0.2, 0.2), 0xf2fbff, 1, 0.5, 0.55);
   }
 }
+// 앞을 가리는 높은 건물: 카메라와 나 사이에 있으면 반투명하게 (빌딩 숲에서도 내 캐릭터와 차가 보이게)
+const FADE_TYPES = { apt: 1, office: 1, shop2: 1 }, fadeMats = new Map(), faded = new Set();
+let fadeT = 0;
+function fadeMat(m) { let f = fadeMats.get(m); if (!f) { f = bend(m.clone()); f.transparent = true; f.opacity = 0.25; f.depthWrite = false; fadeMats.set(m, f); } return f; }
+function setFade(e, on) {
+  e.mesh.traverse(o => {
+    if (!o.isMesh) return;
+    if (on) { if (!o.userData.mat0) { o.userData.mat0 = o.material; o.material = fadeMat(o.material); } }
+    else if (o.userData.mat0) { o.material = o.userData.mat0; o.userData.mat0 = null; }
+  });
+}
+function fadeTick(dt) {
+  if ((fadeT -= dt) > 0) return; fadeT = 0.15;
+  const want = new Set(), ccx = Math.floor(P.x / CH), ccz = Math.floor(P.z / CH);
+  for (let dz = 0; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+    const x = ccx + dx, z = ccz + dz; if (x < 0 || z < 0 || x >= NCX || z >= NCZ) continue;
+    for (const e of chunkEnts[z * NCX + x]) {
+      if (!e.h || !FADE_TYPES[e.type] || !e.mesh || !e.mesh.parent) continue;
+      const hw = e.fp[2] / 2 + 0.5, hd = e.fp[3] / 2, dzz = e.cz - P.z;   // 앞면이 나보다 카메라 쪽이고, 45도 시선보다 높으면 가린다
+      if (Math.abs(e.cx - P.x) < hw && dzz > -hd + 0.3 && dzz - hd < e.h * 0.95) want.add(e);
+    }
+  }
+  for (const e of faded) if (!want.has(e)) { if (e.mesh) setFade(e, false); faded.delete(e); }
+  for (const e of want) if (!faded.has(e)) { setFade(e, true); faded.add(e); }
+}
 function updateCull(force) {
   const ccx = Math.floor(camPos.x / CH), ccz = Math.floor(camPos.z / CH), want = new Set();
   // 자연물: 화면보다 조금 넓게 미리 만들고, 멀어진 구역은 치운다
@@ -7977,7 +8279,7 @@ function frame(now) {
   waveMesh.position.set(Math.round(camPos.x / 4) * 4, -0.29, Math.round(camPos.z / 4) * 4);
   waveTex.offset.set(now * 0.000012, now * 0.000008);
   miniT -= rdt; if (miniT <= 0) { miniT = 0.25; pinTick(0.25); drawMini(); $('#miniName').textContent = placeName(); }
-  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt); carTick(dt); heistTick(dt); armorTick(dt); jobTick(dt); bizTick(dt); if (pendingWasted && !D.open && !FT) wasted();
+  updateFloats(rdt); updateBubbles(rdt); updateCatch3D(rdt); farmTick(rdt); boarTick(dt); copTick(dt); carTick(dt); signalTick(); fadeTick(rdt); heistTick(dt); armorTick(dt); jobTick(dt); bizTick(dt); if (pendingWasted && !D.open && !FT) wasted();
   BU.uFocusZ.value = camPos.z;
   cullT -= dt; if (cullT <= 0) { cullT = 0.3; updateCull(); }
   hintT -= dt; if (hintT <= 0) { hintT = 0.1; updateHint(); }
