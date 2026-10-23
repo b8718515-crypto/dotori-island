@@ -958,7 +958,8 @@ function tryBridge(x, z) {
    세로 대로가 한강을 만나면 넓은 콘크리트 다리를 놓는다. 차들은 이 길(SN 교차로 · SE 도로)을 따라 오른쪽 차선으로 다니고,
    대로끼리 만나는 교차로엔 신호등이 선다. */
 const SEOUL = CITIES.find(c => c.name === '서울'), SEO_R = CITY_PAVE(SEOUL) - 2;
-const street = new Uint8Array(NX * NZ);   // 차도: 1 골목, 2 대로
+const street = new Uint8Array(NX * NZ), xwalk = new Uint8Array(NX * NZ);   // 차도: 1 골목, 2 대로 · 횡단보도 칸
+const SN_AT = new Map();                   // "x,z" → 교차로
 const sbr = new Set();                     // 서울의 콘크리트 다리 칸
 const SN = [], SE = [];                     // 교차로 { x, z, wv, wh(세로·가로 길 반폭), e: [도로], light, off } · 도로 { A, B, v(세로), w(편도 차선 수), len }
 const SEO_O = [-40, -30, -20, -10, 0, 10, 20, 30, 40], seoW = o => (o / 10) % 2 ? 1 : 2;
@@ -983,8 +984,65 @@ const inSeoul = (x, z) => Math.hypot(x - SEOUL.x, z - SEOUL.z) < SEO_R + 4;
       const e = { A, B, v, w, len: v ? B.z - A.z : B.x - A.x }; SE.push(e); A.e.push(e); B.e.push(e);
     }
   }
-  for (const n of nodes.values()) if (n.e.length) SN.push(n); else n.light = false;
+  for (const n of nodes.values()) if (n.e.length) { SN.push(n); SN_AT.set(n.x + ',' + n.z, n); } else n.light = false;
   for (const n of SN) if (n.e.length < 3) n.light = false;   // 신호등은 길이 셋 이상 만나는 대로 교차로에만
+  // 횡단보도 칸: 교차로 상자 바로 바깥 한 줄 (사람은 차도 중에서 여기로만 건넌다)
+  for (const e of SE) {
+    const L = e.v ? e.A.x : e.A.z, rows = e.v ? [e.A.z + e.A.wh, e.B.z - e.B.wh - 1] : [e.A.x + e.A.wv, e.B.x - e.B.wv - 1];
+    for (const a of rows) for (let b = L - e.w; b < L + e.w; b++) xwalk[e.v ? idx(b, a) : idx(a, b)] = 1;
+  }
+}
+/* --- 서울 보행: 사람은 인도(블록 둘레 한 칸)로만 다니고, 블록 모서리의 횡단보도로 길을 건넌다 ---
+   신호등 있는 교차로에선 건너려는 차도의 차 신호가 빨간불일 때만 건넌다. */
+// 블록 (i, j): 길 사이의 땅. x1·z1은 끝 다음 칸
+function seoBlock(i, j) {
+  if (i < 0 || j < 0 || i >= SEO_O.length - 1 || j >= SEO_O.length - 1) return null;
+  const b = { i, j, x0: SEOUL.x + SEO_O[i] + seoW(SEO_O[i]), x1: SEOUL.x + SEO_O[i + 1] - seoW(SEO_O[i + 1]), z0: SEOUL.z + SEO_O[j] + seoW(SEO_O[j]), z1: SEOUL.z + SEO_O[j + 1] - seoW(SEO_O[j + 1]) };
+  return Math.hypot((b.x0 + b.x1) / 2 - SEOUL.x, (b.z0 + b.z1) / 2 - SEOUL.z) > SEO_R - 2 ? null : b;
+}
+function seoBlockAt(x, z) {
+  let i = -1, j = -1;
+  for (let k = 0; k < SEO_O.length - 1; k++) {
+    if (x >= SEOUL.x + SEO_O[k] + seoW(SEO_O[k]) && x < SEOUL.x + SEO_O[k + 1] - seoW(SEO_O[k + 1])) i = k;
+    if (z >= SEOUL.z + SEO_O[k] + seoW(SEO_O[k]) && z < SEOUL.z + SEO_O[k + 1] - seoW(SEO_O[k + 1])) j = k;
+  }
+  return i < 0 || j < 0 ? null : seoBlock(i, j);
+}
+// 블록 둘레 인도를 따라 (px, pz) 근처에서 (gx, gz) 근처까지 가는 꺾이는 점들 (짧은 쪽으로 돈다)
+function ringPath(b, px, pz, gx, gz) {
+  const L = b.x0 + 0.5, R = b.x1 - 0.5, Tz = b.z0 + 0.5, B = b.z1 - 0.5, W = R - L, H = B - Tz, per = 2 * (W + H);
+  const tOf = (x, z) => [[Math.abs(z - Tz), clamp(x, L, R) - L], [Math.abs(x - R), W + clamp(z, Tz, B) - Tz], [Math.abs(z - B), W + H + R - clamp(x, L, R)], [Math.abs(x - L), 2 * W + H + B - clamp(z, Tz, B)]].sort((a, c) => a[0] - c[0])[0][1];
+  const ptOf = t => { t = ((t % per) + per) % per; return t <= W ? [L + t, Tz] : t <= W + H ? [R, Tz + t - W] : t <= 2 * W + H ? [R - (t - W - H), B] : [L, B - (t - 2 * W - H)]; };
+  const t0 = tOf(px, pz); let d = tOf(gx, gz) - t0; if (d > per / 2) d -= per; if (d < -per / 2) d += per;
+  const s = Math.sign(d), cs = [];
+  for (const k of [-1, 0, 1]) for (const c of [0, W, W + H, 2 * W + H]) { const cc = c + k * per; if (s > 0 ? cc > t0 + 1e-6 && cc < t0 + d - 1e-6 : cc < t0 - 1e-6 && cc > t0 + d + 1e-6) cs.push(cc); }
+  cs.sort((a, c) => s * (a - c));
+  return [ptOf(t0), ...cs.map(ptOf), ptOf(t0 + d)].map(([x, z]) => ({ x, z }));
+}
+// 블록에서 블록으로: 모서리까지 인도로 가서, 횡단보도로 옆 블록 모서리로 건너기를 되풀이한다. 못 가면 null
+function pedRoute(px, pz, tx, tz) {
+  let b = seoBlockAt(px, pz); const bt = seoBlockAt(tx, tz); if (!b || !bt) return null;
+  const out = []; let cx = px, cz = pz;
+  for (let guard = 0; (b.i !== bt.i || b.j !== bt.j) && guard < 16; guard++) {
+    const di = Math.sign(bt.i - b.i), dj = Math.sign(bt.j - b.j), horiz = di !== 0 && (dj === 0 || Math.abs(bt.i - b.i) >= Math.abs(bt.j - b.j));
+    const nb = horiz ? seoBlock(b.i + di, b.j) : seoBlock(b.i, b.j + dj); if (!nb) return null;
+    let from, to, node, v;
+    if (horiz) {   // 세로 차도를 건넌다 (남북으로 달리는 차의 신호를 본다)
+      const north = tz < cz, zr = north ? b.z0 : b.z1 - 1, xa = di > 0 ? b.x1 - 1 : b.x0, xb = di > 0 ? nb.x0 : nb.x1 - 1;
+      from = [xa + 0.5, zr + 0.5]; to = [xb + 0.5, zr + 0.5]; v = true;
+      node = SN_AT.get(SEOUL.x + SEO_O[b.i + (di > 0 ? 1 : 0)] + ',' + (SEOUL.z + SEO_O[b.j + (north ? 0 : 1)]));
+      for (let x = Math.min(xa, xb) + 1; x < Math.max(xa, xb); x++) if (!xwalk[idx(x, zr)]) return null;
+    } else {       // 가로 차도를 건넌다
+      const west = tx < cx, xr = west ? b.x0 : b.x1 - 1, za = dj > 0 ? b.z1 - 1 : b.z0, zb = dj > 0 ? nb.z0 : nb.z1 - 1;
+      from = [xr + 0.5, za + 0.5]; to = [xr + 0.5, zb + 0.5]; v = false;
+      node = SN_AT.get(SEOUL.x + SEO_O[b.i + (west ? 0 : 1)] + ',' + (SEOUL.z + SEO_O[b.j + (dj > 0 ? 1 : 0)]));
+      for (let z = Math.min(za, zb) + 1; z < Math.max(za, zb); z++) if (!xwalk[idx(xr, z)]) return null;
+    }
+    out.push(...ringPath(b, cx, cz, from[0], from[1]), { x: to[0], z: to[1], node: node && node.light ? node : null, v });
+    cx = to[0]; cz = to[1]; b = nb;
+  }
+  out.push(...ringPath(b, cx, cz, tx, tz), { x: tx, z: tz });
+  return out;
 }
 // 노면 표시: 대로는 노란 겹실선·흰 차선, 골목은 노란 점선, 교차로 앞엔 정지선과 횡단보도. 구역마다 [x0, z0, x1, z1, 색] 목록
 const SEO_MARK = new Map();
@@ -3009,8 +3067,8 @@ function makePlayer() {
 const ents = new Set();
 const chunkEnts = Array.from({ length: NCX * NCZ }, () => []);
 const loadedCh = new Set();
-const BLOCK = { office: 1, shop2: 1, signal: 1, store: 1, bank: 1, plot: 1, stonewall: 1, ginseng: 1, pagoda: 1, pavilion: 1, skyscraper: 1, tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1, bothall: 1 };
-const KEEP = { office: 1, shop2: 1, signal: 1, store: 1, bank: 1, house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, barracks: 1, bothall: 1 };
+const BLOCK = { office: 1, shop2: 1, store: 1, bank: 1, plot: 1, stonewall: 1, ginseng: 1, pagoda: 1, pavilion: 1, skyscraper: 1, tree: 1, palm: 1, rock: 1, house: 1, shop: 1, tent: 1, lamp: 1, bench: 1, sapling: 1, mount: 1, crater: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, statue: 1, lighthouse: 1, fence: 1, sign: 1, flag: 1, tea: 1, pier: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, fort: 1, barracks: 1, bothall: 1 };
+const KEEP = { office: 1, shop2: 1, signal: 1, slamp: 1, store: 1, bank: 1, house: 1, shop: 1, tent: 1, lamp: 1, apt: 1, hanok: 1, gate: 1, tower: 1, observatory: 1, lighthouse: 1, sign: 1, pier: 1, flag: 1, board: 1, myhouse: 1, annex: 1, workshop: 1, school: 1, dock: 1, townhall: 1, barracks: 1, bothall: 1 };
 const inWindow = e => Math.abs(e.cx - camPos.x) < 32 && e.cz - camPos.z > -38 && e.cz - camPos.z < 15;
 function showEnt(e) {
   if (!e.mesh) { e.mesh = castAll(e.make()); if (e.onMake) e.onMake(e); }
@@ -3451,7 +3509,7 @@ function seoulBlocks(r) {
       else { const [t1, c1] = pick(SHOP_SIGNS, r), [t2, c2] = pick(SHOP_SIGNS, r), fl = 2 + Math.floor(r() * 3), col = pick([0xf4e6d0, 0xe8d8c8, 0xd8e0e8, 0xf0dcd0, 0xe0e8d8], r), face = oz ? 1 : -1;
         tryAdd({ type: 'shop2', t1, t2, h: shopH(fl), make: () => makeShopBldg(fl, col, t1, c1, t2, c2, face) }, ix + ox, iz + oz, 2, 2); }
     }
-    for (const [lx, lz] of [[x0, z0], [x1 - 1, z0], [x0, z1 - 1], [x1 - 1, z1 - 1]]) if (!occAt(lx, lz) && isBuildT(tget(lx, lz))) addEnt({ type: 'lamp', make: makeLamp, fixed: true }, lx, lz);
+    for (const [lx, lz] of [[x0, z0], [x1 - 1, z0], [x0, z1 - 1], [x1 - 1, z1 - 1]]) if (!occAt(lx, lz) && isBuildT(tget(lx, lz))) addEnt({ type: 'slamp', make: makeLamp, fixed: true }, lx, lz);   // 인도 위라 사람이 지나갈 수 있다
   }
 }
 // 도시: 이름 표지판, 광역시는 아파트 단지, 가로등
@@ -4400,7 +4458,7 @@ function stepAside(v, snap) {
     if (d < bd && !street[idx(x, z)] && canStand(x + 0.5, z + 0.5, 0.25)) { bd = d; best = { x: x + 0.5, z: z + 0.5 }; }
   }
   if (!best) return;
-  if (snap) { v.x = best.x; v.z = best.z; v.target = null; v.wait = 2; v.chatT = 0; floatText(v.x, 1.8, v.z, '깜짝!', 'miss'); return; }
+  if (snap) { v.x = best.x; v.z = best.z; v.target = null; v.wait = 2; v.chatT = 0; if (v.mesh) floatText(v.x, 1.8, v.z, '깜짝!', 'miss'); return; }
   v.target = best; v.wait = 0; v.commute = true; v.aside = true; setTimeout(() => { v.aside = false; }, 4000);
 }
 // 신호등 불빛: 화면에 올라온 것만 바뀔 때 칠한다
@@ -5194,7 +5252,7 @@ function removeBotWorld(b) {
 // 세이브에 봇이 없으면 새로 만들고, 있으면 그대로 세상에 놓는다
 if (S.ai.on && !S.ai.bots) genBots();
 // 개발용: 주소 끝에 ?debug 를 붙이면 콘솔에서 window.DOTORI 로 상태와 규칙 함수를 살펴볼 수 있다
-if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ FORTS, HWY_PATHS, hwy, cars, enterCar, exitCar, cops, stars, boars, sutdaRank, HWATU, sutdaSteps, loanAsk, loanDue, talkVillager, villagers, WX, weather: k => { WX.kind = k; updateClock(); }, tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
+if (/[?&]debug(=|&|$)/.test(location.search)) window.DOTORI = { get S() { return S; }, get P() { return P; }, conv: () => ({ street, xwalk, SE, SN, pedRoute, FORTS, HWY_PATHS, hwy, cars, enterCar, exitCar, cops, stars, boars, sutdaRank, HWATU, sutdaSteps, loanAsk, loanDue, talkVillager, villagers, WX, weather: k => { WX.kind = k; updateClock(); }, tget, T, scene, chunkMeshes, loadedCh, buildCrops, buildGround, genChunk, genC, CROP_SPOTS, cropAt, farmDay: d => { farmOverride = d; farmT = 0; }, farmSig, openBox, openNote, fastTravel, mapPlaces, warpInfo, setPin, searchPlaces }), tp: (x, z) => { P.x = x; P.z = z; camPos.x = x; camPos.z = z; updateCull(true); }, city: n => CITIES.find(c => c.name === n), lm: n => LANDMARKS.find(l => l.name === n), GR, resolveBattle, battleOdds, openCiv, newMarch: o => newMarch(o), arrive, botAct, botTalk, sendAttackBot,
   rep: () => ({ opAdd, opOf, opTier, truceCost, memLine, breakTruce, goalScore, botGoal, relB, pacted, botHit, botDiplomacy, specOf }), route: (a, b) => marchRoute(a, b), BAL, PERF,
   fish: () => ({ makeFish3D, makeFishShadow, showCatch3D, FISH_LOOK }), map: () => ({ mapV, drawWorldMap, renderTiles }), shady: () => ({ pickpocket, scam, drinkWith, shadyCheck, drinkFromSlot, addItem, VS }), talk: () => ({ ambOn, asleep, villagers, personaOf, exchangeSteps, villagerTalkSteps, makeQuest, relHidden, FDEF }) };
 for (const b of S.ai.bots || []) { if (b.op == null) { b.op = (b.rel || 0) * 3; delete b.rel; } placeBot(b); }
@@ -5856,22 +5914,33 @@ function updateVillagers(dt, h) {
     else if (!P.sail && Math.hypot(P.x - v.x, P.z - v.z) < 2.2) { v.wait = Math.max(v.wait, 0.8); v.rot = lerpAngle(v.rot, Math.atan2(P.x - v.x, P.z - v.z), 1 - Math.exp(-dt * 6)); }
     else if (v.wait > 0) v.wait -= dt;
     else {
-      if (!v.target) {
+      // 서울 길 따라 걷는 중: 다음 꺾이는 점으로. 신호등 횡단보도는 차 신호가 빨간불일 때만 건넌다
+      if (!v.target && v.path && v.path.length) { const nx = v.path[0]; if (nx.node && sigState(nx.node, nx.v) !== 'r') v.wait = 0.4; else v.target = v.path.shift(); }
+      else if (!v.target) {
         // 하루 일과에 맞는 곳을 맴돈다. 거기서 멀면 그쪽으로 걸어간다
-        const an = anchorOf(v, h), base = an || v.def.home, rr = an ? an.r : v.def.role === '별 보는 사람' ? 3 : (v.def.roam || 7);
-        if (Math.hypot(base.x - v.x, base.z - v.z) > rr + 4) { v.target = stepToward(v, base); v.commute = !!v.target; }
-        else for (let k = 0; k < 12; k++) { const x = base.x + rand(-rr, rr), z = base.z + rand(-rr * 0.6, rr * 1.15); if (canStand(x, z, 0.25) && !street[idx(Math.floor(x), Math.floor(z))]) { v.target = { x, z }; v.commute = false; break; } }
+        const an = anchorOf(v, h), base = an || v.def.home, rr = an ? an.r : v.def.role === '별 보는 사람' ? 3 : (v.def.roam || 7), seo = inSeoul(v.x, v.z);
+        if (seo && street[idx(Math.floor(v.def.home.x), Math.floor(v.def.home.z))]) { const hm = { x: v.def.home.x, z: v.def.home.z }; stepAside(hm, true); v.def.home = { x: hm.x, z: hm.z }; }   // 집이 차도 위면 인도로
+        if (seo && street[idx(Math.floor(v.x), Math.floor(v.z))]) stepAside(v);   // 차도에 서 있으면 먼저 가까운 인도로
+        else if (seo && Math.hypot(base.x - v.x, base.z - v.z) > rr + 4) { const pr = pedRoute(v.x, v.z, base.x, base.z); if (pr) { v.path = pr; v.target = v.path.shift(); v.commute = true; } }
+        else if (Math.hypot(base.x - v.x, base.z - v.z) > rr + 4) { v.target = stepToward(v, base); v.commute = !!v.target; }
+        else for (let k = 0; k < 12; k++) {
+          const x = base.x + rand(-rr, rr), z = base.z + rand(-rr * 0.6, rr * 1.15); if (!canStand(x, z, 0.25) || street[idx(Math.floor(x), Math.floor(z))]) continue;
+          if (seo) { const pr = pedRoute(v.x, v.z, x, z); if (!pr) continue; v.path = pr; v.target = v.path.shift(); } else v.target = { x, z };
+          v.commute = false; break;
+        }
         if (!v.target) v.wait = 1;
       }
       if (v.target) {
         const dx = v.target.x - v.x, dz = v.target.z - v.z, d = Math.hypot(dx, dz);
-        if (d < 0.1) { v.target = null; v.wait = v.commute ? 0.1 : rand(2, 6); }
+        if (d < 0.1) { v.target = null; v.wait = v.path && v.path.length ? 0 : v.commute ? 0.1 : rand(2, 6); }
         else if (Math.hypot(P.x - v.x, P.z - v.z) < 0.8) { v.wait = 0.6; }
         else {
           const drunk = v.def.role === '한잔한 사람', sp = (drunk ? 0.8 : v.commute ? 1.6 : 1.25) * dt, sway = drunk ? Math.sin(performance.now() / 420 + v.x) * 0.6 : 0;
           const ux = dx / d, uz = dz / d, nx = v.x + (ux + uz * sway) * sp, nz = v.z + (uz - ux * sway) * sp;
-          if (canStand(nx, nz, 0.25)) { v.x = nx; v.z = nz; moving = true; v.rot = lerpAngle(v.rot, Math.atan2(dx, dz), 1 - Math.exp(-dt * 8)); }
-          else { v.target = null; v.wait = rand(0.5, 1.5); }
+          // 서울에선 인도에서 차도로 내려서지 않는다 (횡단보도만 된다)
+          const ni = idx(Math.floor(nx), Math.floor(nz)), offRoad = street[ni] && !xwalk[ni] && !street[idx(Math.floor(v.x), Math.floor(v.z))];
+          if (!offRoad && canStand(nx, nz, 0.25)) { v.x = nx; v.z = nz; moving = true; v.rot = lerpAngle(v.rot, Math.atan2(dx, dz), 1 - Math.exp(-dt * 8)); }
+          else { v.target = null; v.path = null; v.wait = rand(0.5, 1.5); }
         }
       }
     }
